@@ -2,19 +2,9 @@ import { MusicFolder } from './folder.model';
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
-export const DARK_THEME_PRESETS = [
-  'midnight',
-  'graphite',
-  'ocean',
-  'forest',
-] as const;
+export const DARK_THEME_PRESETS = ['dark'] as const;
 
-export const LIGHT_THEME_PRESETS = [
-  'porcelain',
-  'cloud',
-  'sky',
-  'sage',
-] as const;
+export const LIGHT_THEME_PRESETS = ['light'] as const;
 
 export const THEME_PRESETS = [...DARK_THEME_PRESETS, ...LIGHT_THEME_PRESETS] as const;
 export type ThemePreset = (typeof THEME_PRESETS)[number];
@@ -22,11 +12,20 @@ export type ThemePreset = (typeof THEME_PRESETS)[number];
 export const ACCENT_COLORS = ['violet', 'blue', 'cyan', 'emerald', 'amber', 'rose'] as const;
 export type AccentColor = (typeof ACCENT_COLORS)[number];
 
-export const DEFAULT_THEME_PRESET: ThemePreset = 'midnight';
+export const DEFAULT_THEME_PRESET: ThemePreset = 'dark';
 export const DEFAULT_ACCENT_COLOR: AccentColor = 'violet';
 
 export function isThemePreset(value: unknown): value is ThemePreset {
   return typeof value === 'string' && (THEME_PRESETS as readonly string[]).includes(value);
+}
+
+export function normalizeThemePreset(value: unknown): ThemePreset {
+  if (isThemePreset(value)) return value;
+  if (typeof value === 'string') {
+    if (['midnight', 'graphite', 'ocean', 'forest'].includes(value)) return 'dark';
+    if (['porcelain', 'cloud', 'sky', 'sage'].includes(value)) return 'light';
+  }
+  return DEFAULT_THEME_PRESET;
 }
 
 export function isAccentColor(value: unknown): value is AccentColor {

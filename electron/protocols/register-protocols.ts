@@ -33,7 +33,7 @@ export function installProtocolHandlers(database: DatabaseService, rendererRoot:
     if (url.hostname === 'artwork') {
       if (!/^[a-f0-9]{64}$/.test(id)) return response(400, 'Invalid resource ID');
       const artwork = database.resolveArtwork(id); if (!artwork) return response(404, 'Artwork not found');
-      return createFileResponse(artwork.path, request, artwork.mime);
+      return createFileResponse(artwork.path, request, artwork.mime, initiatorOrigin);
     }
     if (url.hostname !== 'track') return response(404, 'Resource not found');
     if (!/^track-[a-f0-9]{64}$/.test(id)) return response(400, 'Invalid resource ID');
@@ -43,5 +43,5 @@ export function installProtocolHandlers(database: DatabaseService, rendererRoot:
     return createFileResponse(canonical, request, track.mime, initiatorOrigin);
   });
 }
-function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://audio-lutstra' || (development && origin === 'http://localhost:4200'); }
+function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://lutsra' || (development && origin === 'http://localhost:4200'); }
 function response(status: number, message: string): Response { return new Response(message, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } }); }

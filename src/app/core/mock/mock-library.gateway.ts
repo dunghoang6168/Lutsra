@@ -66,7 +66,7 @@ export class MockLibraryGateway implements LibraryGateway {
         codecProfile: null,
         container: track.codec,
         lossless: track.codec ? ['FLAC', 'WAV'].includes(track.codec.toUpperCase()) : null,
-        encoderTool: 'Audio Lutstra mock metadata',
+        encoderTool: 'Lutsra mock metadata',
         tagTypes: track.codec?.toUpperCase() === 'FLAC' ? ['vorbis'] : ['ID3v2.4'],
         audioMd5: track.codec?.toUpperCase() === 'FLAC' ? '0123456789ABCDEFFEDCBA9876543210' : null,
       },

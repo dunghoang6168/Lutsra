@@ -34,21 +34,11 @@ export class SettingsComponent implements OnInit {
   readonly player = inject(PlayerService);
   readonly isDesktop = Boolean(getDesktopApi());
 
-  readonly darkThemePresets: ThemePresetOption[] = [
+  readonly themePresets: ThemePresetOption[] = [
     {
-      id: 'midnight',
-      label: 'Midnight',
-      description: 'Deep slate canvas with subtle dark violet undertones',
-      canvas: '#0b0f19',
-      sidebar: '#070a12',
-      surface: '#121826',
-      border: '#26334d',
-      text: '#f1f5f9',
-    },
-    {
-      id: 'graphite',
-      label: 'Graphite',
-      description: 'Monochromatic slate & charcoal deep tones',
+      id: 'dark',
+      label: 'Dark',
+      description: 'A calm charcoal look for focused listening',
       canvas: '#121417',
       sidebar: '#0b0d0f',
       surface: '#1a1d22',
@@ -56,73 +46,16 @@ export class SettingsComponent implements OnInit {
       text: '#f0f2f5',
     },
     {
-      id: 'ocean',
-      label: 'Ocean',
-      description: 'Abyssal navy & marine night ambience',
-      canvas: '#08131d',
-      sidebar: '#040a10',
-      surface: '#0d1e2d',
-      border: '#1d374e',
-      text: '#ecf4fb',
-    },
-    {
-      id: 'forest',
-      label: 'Forest',
-      description: 'Deep pine & emerald shadow tones',
-      canvas: '#081410',
-      sidebar: '#040b08',
-      surface: '#0d1e18',
-      border: '#1d3b30',
-      text: '#ecf7f1',
-    },
-  ];
-
-  readonly lightThemePresets: ThemePresetOption[] = [
-    {
-      id: 'porcelain',
-      label: 'Porcelain',
-      description: 'Clean, high-contrast studio white canvas',
-      canvas: '#ffffff',
-      sidebar: '#f8fafc',
-      surface: '#f1f5f9',
-      border: '#cbd5e1',
-      text: '#0f172a',
-    },
-    {
-      id: 'cloud',
-      label: 'Cloud',
-      description: 'Soft mist & silvery neutral surfaces',
+      id: 'light',
+      label: 'Light',
+      description: 'A soft, bright look for your collection',
       canvas: '#f8fafc',
       sidebar: '#f1f5f9',
       surface: '#ffffff',
       border: '#cbd5e1',
       text: '#1e293b',
     },
-    {
-      id: 'sky',
-      label: 'Sky',
-      description: 'Cool atmospheric light blue breeze',
-      canvas: '#f0f7ff',
-      sidebar: '#e2efff',
-      surface: '#ffffff',
-      border: '#bcd6f4',
-      text: '#0c2744',
-    },
-    {
-      id: 'sage',
-      label: 'Sage',
-      description: 'Soft organic herbal & tea leaf tint',
-      canvas: '#f2f7f4',
-      sidebar: '#e4efe8',
-      surface: '#ffffff',
-      border: '#bed6c6',
-      text: '#0e2b1b',
-    },
   ];
-
-  get themePresets(): ThemePresetOption[] {
-    return [...this.darkThemePresets, ...this.lightThemePresets];
-  }
 
   readonly accentColors: { id: AccentColor; label: string; hex: string }[] = [
     { id: 'violet', label: 'Violet', hex: '#8b5cf6' },

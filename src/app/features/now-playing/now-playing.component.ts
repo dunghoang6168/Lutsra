@@ -9,6 +9,7 @@ import { RightPanelService } from '../../core/layout/right-panel.service';
 import { LYRICS_GATEWAY } from '../../core/contracts';
 import { LyricLine } from '../../core/models';
 import { activeLyricIndex, parseLrc } from './lrc-parser';
+import { ArtworkPalette, ArtworkPaletteService } from './artwork-palette.service';
 
 @Component({
   selector: 'app-now-playing',
@@ -21,12 +22,15 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   readonly player = inject(PlayerService);
   readonly rightPanels = inject(RightPanelService);
   private readonly lyricsGateway = inject(LYRICS_GATEWAY);
+  private readonly paletteService = inject(ArtworkPaletteService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly lyricsStatus = signal<'loading' | 'ready' | 'missing' | 'unsupported' | 'error'>('loading');
   readonly lyricLines = signal<LyricLine[]>([]);
   readonly activeLineIndex = computed(() => activeLyricIndex(this.lyricLines(), this.player.currentTime()));
+  readonly artworkPalette = signal<ArtworkPalette | null>(null);
   private isTimelineScrubbing = false;
   private lyricsRequest = 0;
+  private paletteRequest = 0;
   private lastTrackKey: string | null = null;
   private destroyed = false;
   private lastScrolledLine: number | null = null;
@@ -56,6 +60,16 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
     });
   });
 
+  private readonly paletteEffect = effect(() => {
+    const artwork = this.player.currentTrack()?.artwork;
+    const request = ++this.paletteRequest;
+    this.artworkPalette.set(null);
+    if (!artwork) return;
+    void this.paletteService.getPalette(artwork).then((palette) => {
+      if (!this.destroyed && request === this.paletteRequest) this.artworkPalette.set(palette);
+    });
+  });
+
   openTrackDetails(event: MouseEvent): void {
     this.rightPanels.openTrackDetails(event.currentTarget as HTMLElement);
   }
@@ -63,6 +77,7 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.lyricsRequest++;
+    this.paletteRequest++;
     if (this.scrollFrame !== null) cancelAnimationFrame(this.scrollFrame);
     this.rightPanels.closeTrackDetails(false);
   }

@@ -1,4 +1,4 @@
-# Audio Lutstra — Desktop Integration Contracts
+# Lutsra — Desktop Integration Contracts
 
 Tài liệu mô tả contract hiện dùng giữa Angular Renderer, preload và Electron Main. Code trong `src/app/core/contracts`, `src/app/core/desktop` và `electron/preload.cts` là nguồn chuẩn khi tài liệu và implementation khác nhau.
 
@@ -108,7 +108,7 @@ Desktop implementation sở hữu một `HTMLAudioElement`. Source luôn là `mu
 ## Security boundary
 
 - `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`.
-- Production chỉ tin `app://audio-lutstra`; development cho phép `http://localhost:4200`.
+- Production chỉ tin `app://lutsra`; development cho phép `http://localhost:4200`.
 - Navigation, popup và permission không sử dụng bị chặn.
 - `music://` chỉ nhận GET/HEAD và ID đúng format.
 - Main resolve ID qua SQLite, canonicalize file và xác nhận file nằm trong một music root trước khi stream.

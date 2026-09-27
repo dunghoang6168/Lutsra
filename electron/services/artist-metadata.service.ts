@@ -3,7 +3,7 @@ import { ArtworkService } from './artwork.service.js';
 import { DatabaseService, StoredArtistMetadata } from './database.service.js';
 import { readFile, stat } from 'node:fs/promises';
 
-const USER_AGENT = 'AudioLutstra/0.1.0 (local desktop music player)';
+const USER_AGENT = 'Lutsra/0.2.0 (local desktop music player)';
 const SUCCESS_TTL = 30 * 24 * 60 * 60 * 1000;
 const NOT_FOUND_TTL = 7 * 24 * 60 * 60 * 1000;
 const ERROR_TTL = 24 * 60 * 60 * 1000;

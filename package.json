@@ -1,8 +1,8 @@
 {
-  "name": "audio-lutstra",
-  "version": "0.1.0",
-  "description": "A local-first desktop music library and player.",
-  "productName": "Audio Lutstra",
+  "name": "lutsra",
+  "version": "0.2.0",
+  "description": "Lutsra 0.2.0 is a local-first Windows music library and player.",
+  "productName": "Lutsra",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -56,14 +56,14 @@
     "wait-on": "^8.0.4"
   },
   "build": {
-    "appId": "com.audiolutstra.desktop",
-    "productName": "Audio Lutstra",
+    "appId": "com.lutsra.desktop",
+    "productName": "Lutsra",
     "asar": true,
     "directories": {
       "output": "release"
     },
     "files": [
-      "dist/audio-lutstra/**/*",
+      "dist/lutsra/**/*",
       "dist-electron/**/*",
       "package.json"
     ],
@@ -84,17 +84,17 @@
       ]
     },
     "nsis": {
-      "artifactName": "Audio-Lutstra-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Lutsra-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Audio Lutstra",
+      "shortcutName": "Lutsra",
       "deleteAppDataOnUninstall": false
     },
     "portable": {
-      "artifactName": "Audio-Lutstra-Portable-${version}-${arch}.${ext}"
+      "artifactName": "Lutsra-Portable-${version}-${arch}.${ext}"
     }
   }
 }

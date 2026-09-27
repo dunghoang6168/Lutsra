@@ -7,8 +7,8 @@ import path from 'node:path';
 const childEnvironment = { ...process.env };
 delete childEnvironment.ELECTRON_RUN_AS_NODE;
 const smokeTest = process.argv.includes('--smoke');
-const smokeUserData = smokeTest ? await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-smoke-')) : null;
-if (smokeUserData) childEnvironment.AUDIO_LUTSTRA_SMOKE_USER_DATA = smokeUserData;
+const smokeUserData = smokeTest ? await mkdtemp(path.join(os.tmpdir(), 'lutsra-smoke-')) : null;
+if (smokeUserData) childEnvironment.LUTSRA_SMOKE_USER_DATA = smokeUserData;
 
 const child = spawn(electronPath, ['.', ...process.argv.slice(2)], {
   env: childEnvironment,

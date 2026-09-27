@@ -2,7 +2,7 @@
 
 ## Mục tiêu
 
-Phase 3 đã hoàn thành nền tảng giao diện, theme persistence và icon abstraction. Phase 3.1 chỉ tinh chỉnh cách trình bày để Audio Lutstra có cảm giác gọn, cân đối và phù hợp với desktop music library hơn. Playback, queue behavior, Electron IPC, database, scanner và public contracts không thay đổi.
+Phase 3 đã hoàn thành nền tảng giao diện, theme persistence và icon abstraction. Phase 3.1 chỉ tinh chỉnh cách trình bày để Lutsra có cảm giác gọn, cân đối và phù hợp với desktop music library hơn. Playback, queue behavior, Electron IPC, database, scanner và public contracts không thay đổi.
 
 Hướng hình ảnh chính là **desktop library hiện đại, mật độ vừa phải**, lấy Feishin làm tham khảo cấu trúc. Musicat, Tauon và Harmonoid chỉ bổ sung các pattern phù hợp; không sao chép source code, icon hay asset của các dự án này.
 
@@ -65,8 +65,8 @@ Hướng hình ảnh chính là **desktop library hiện đại, mật độ v�
 ## Definition of Done
 
 - Các màn hình Home, Songs, Albums, Album Detail, Artists, Artist Detail, Folders, Playlists, Playlist Detail, Now Playing và Settings dùng cùng hierarchy, spacing và interaction states.
-- Cả 8 preset (`midnight`, `graphite`, `ocean`, `forest`, `porcelain`, `cloud`, `sky`, `sage`) không có màu chữ, border hoặc control bị mất tương phản.
-- Kiểm tra mỗi preset với ít nhất một accent tối và một accent sáng trong sáu accent hiện có.
+- Cả hai theme (`dark`, `light`) không có màu chữ, border hoặc control bị mất tương phản.
+- Kiểm tra mỗi theme với ít nhất một accent tối và một accent sáng trong sáu accent hiện có.
 - Không có regression ở scan, playlist, queue, playback, timeline hoặc settings persistence.
 - Angular tests, Electron backend tests, production build và Electron smoke test thành công.
 - Người dùng nghiệm thu trực quan ở cả hai kích thước cửa sổ trước khi bắt đầu Phase 4.

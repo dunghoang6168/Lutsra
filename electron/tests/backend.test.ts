@@ -23,7 +23,7 @@ import type { IAudioMetadata } from 'music-metadata';
 import './artist-metadata.test.js';
 
 test('lyrics service reads only a bounded sidecar inside a registered music folder', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-lyrics-test-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lutsra-lyrics-test-'));
   const musicRoot = path.join(root, 'music');
   const audioPath = path.join(musicRoot, 'Song.flac');
   const lyricPath = path.join(musicRoot, 'Song.lrc');
@@ -58,18 +58,18 @@ test('lyrics service reads only a bounded sidecar inside a registered music fold
 });
 
 test('renamed app migrates the newest legacy library and artwork without changing the source', async () => {
-  const appData = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-profile-test-'));
+  const appData = await mkdtemp(path.join(os.tmpdir(), 'lutsra-profile-test-'));
   try {
     const olderRoot = path.join(appData, 'audio-blabla');
-    const newerRoot = path.join(appData, 'Audio BlaBla');
-    const targetRoot = path.join(appData, 'Audio Lutstra');
+    const newerRoot = path.join(appData, 'Audio Lutstra');
+    const targetRoot = path.join(appData, 'Lutsra');
     await mkdir(olderRoot);
     await mkdir(path.join(newerRoot, 'artwork-cache'), { recursive: true });
 
     const older = new DatabaseService(path.join(olderRoot, 'audio-blabla.sqlite'));
     older.saveSettings({ defaultVolume: 0.2 });
     older.close();
-    const newer = new DatabaseService(path.join(newerRoot, 'audio-blabla.sqlite'));
+    const newer = new DatabaseService(path.join(newerRoot, 'audio-lutstra.sqlite'));
     newer.saveSettings({ defaultVolume: 0.7 });
     const oldArtwork = path.join(newerRoot, 'artwork-cache', 'cover.jpg');
     await writeFile(oldArtwork, 'artwork');
@@ -77,13 +77,13 @@ test('renamed app migrates the newest legacy library and artwork without changin
     newer.close();
 
     assert.equal(await migrateLegacyProfile(targetRoot, appData), newerRoot);
-    const migrated = new DatabaseService(path.join(targetRoot, 'audio-lutstra.sqlite'));
+    const migrated = new DatabaseService(path.join(targetRoot, 'lutsra.sqlite'));
     assert.equal(migrated.getSettings().defaultVolume, 0.7);
     assert.deepEqual(migrated.getSettings().hiddenSongColumns, []);
     assert.equal(migrated.resolveArtwork('a'.repeat(64))?.path, path.join(targetRoot, 'artwork-cache', 'cover.jpg'));
     migrated.close();
     assert.equal(await migrateLegacyProfile(targetRoot, appData), null);
-    const original = new DatabaseService(path.join(newerRoot, 'audio-blabla.sqlite'));
+    const original = new DatabaseService(path.join(newerRoot, 'audio-lutstra.sqlite'));
     assert.equal(original.resolveArtwork('a'.repeat(64))?.path, oldArtwork);
     original.close();
   } finally {
@@ -91,9 +91,27 @@ test('renamed app migrates the newest legacy library and artwork without changin
   }
 });
 
+test('profile migration still accepts Audio BlaBla when Audio Lutstra was never launched', async () => {
+  const appData = await mkdtemp(path.join(os.tmpdir(), 'lutsra-legacy-profile-test-'));
+  try {
+    const legacyRoot = path.join(appData, 'Audio BlaBla');
+    const targetRoot = path.join(appData, 'Lutsra');
+    await mkdir(legacyRoot);
+    const legacy = new DatabaseService(path.join(legacyRoot, 'audio-blabla.sqlite'));
+    legacy.saveSettings({ defaultVolume: 0.45 });
+    legacy.close();
+
+    assert.equal(await migrateLegacyProfile(targetRoot, appData), legacyRoot);
+    const migrated = new DatabaseService(path.join(targetRoot, 'lutsra.sqlite'));
+    assert.equal(migrated.getSettings().defaultVolume, 0.45);
+    migrated.close();
+  } finally {
+    await rm(appData, { recursive: true, force: true });
+  }
+});
 test('settings IPC accepts allowlisted themes and rejects invalid values', () => {
-  assert.deepEqual(validSettings({ themePreset: 'sage', accentColor: 'amber' }), { themePreset: 'sage', accentColor: 'amber' });
-  assert.throws(() => validSettings({ themePreset: 'light' }), /Invalid theme preset/);
+  assert.deepEqual(validSettings({ themePreset: 'light', accentColor: 'amber' }), { themePreset: 'light', accentColor: 'amber' });
+  assert.throws(() => validSettings({ themePreset: 'sage' }), /Invalid theme preset/);
   assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
   assert.deepEqual(validSettings({ hiddenSongColumns: ['artist', 'codec', 'artist'] }), { hiddenSongColumns: ['artist', 'codec'] });
   assert.throws(() => validSettings({ hiddenSongColumns: ['title'] }), /Invalid Songs columns/);
@@ -161,7 +179,7 @@ test('detailed metadata mapping preserves parser values without inventing missin
 });
 
 test('track details service rejects files outside registered music roots', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-details-security-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-details-security-'));
   const libraryPath = path.join(temporaryRoot, 'Music');
   const outsidePath = path.join(temporaryRoot, 'outside.wav');
   const database = new DatabaseService(path.join(temporaryRoot, 'library.sqlite'));
@@ -190,16 +208,16 @@ test('path helpers normalize identity and reject sibling traversal', () => {
 });
 
 test('file responses support full content, byte ranges, HEAD and missing files', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-range-test-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-range-test-'));
   const filePath = path.join(temporaryRoot, 'audio.bin');
   const content = Buffer.from(Array.from({ length: 256 }, (_, index) => index));
   try {
     await writeFile(filePath, content);
 
-    const full = await createFileResponse(filePath, new Request('music://track/test'), 'audio/test', 'app://audio-lutstra');
+    const full = await createFileResponse(filePath, new Request('music://track/test'), 'audio/test', 'app://lutsra');
     assert.equal(full.status, 200);
     assert.equal(full.headers.get('accept-ranges'), 'bytes');
-    assert.equal(full.headers.get('access-control-allow-origin'), 'app://audio-lutstra');
+    assert.equal(full.headers.get('access-control-allow-origin'), 'app://lutsra');
     assert.equal(full.headers.get('vary'), 'Origin');
     assert.equal(full.headers.get('content-length'), '256');
     assert.deepEqual(Buffer.from(await full.arrayBuffer()), content);
@@ -231,7 +249,7 @@ test('file responses support full content, byte ranges, HEAD and missing files',
 });
 
 test('library snapshot stores album track IDs in disc and track order', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-album-order-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-album-order-'));
   const databasePath = path.join(temporaryRoot, 'library.sqlite');
   const libraryPath = path.join(temporaryRoot, 'Music');
   const database = new DatabaseService(databasePath);
@@ -254,7 +272,7 @@ test('library snapshot stores album track IDs in disc and track order', async ()
 });
 
 test('folder artwork is imported and refreshed when audio files are unchanged', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-folder-cover-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-folder-cover-'));
   const libraryPath = path.join(temporaryRoot, 'Music');
   const albumPath = path.join(libraryPath, 'Album');
   const artworkPath = path.join(temporaryRoot, 'artwork');
@@ -312,7 +330,7 @@ test('folder artwork is imported and refreshed when audio files are unchanged', 
 });
 
 test('album artwork prefers embedded art even when a folder cover is encountered first', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-cover-priority-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-cover-priority-'));
   const database = new DatabaseService(path.join(temporaryRoot, 'library.sqlite'));
   try {
     const folder = database.addFolder(temporaryRoot, 'Music');
@@ -330,7 +348,7 @@ test('album artwork prefers embedded art even when a folder cover is encountered
 });
 
 test('scanner, reconciliation, playlists, settings and database persistence', async () => {
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-test-'));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lutsra-test-'));
   const libraryPath = path.join(temporaryRoot, 'Music');
   const databasePath = path.join(temporaryRoot, 'library.sqlite');
   const artworkPath = path.join(temporaryRoot, 'artwork');
@@ -370,14 +388,14 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     const withDuplicates = database.addPlaylistTracks(playlist.id, [firstTrackId, firstTrackId]);
     assert.equal(withDuplicates.entries.length, 2);
     assert.notEqual(withDuplicates.entries[0]?.id, withDuplicates.entries[1]?.id);
-    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'ocean', accentColor: 'cyan', hiddenSongColumns: ['artist', 'codec'] });
+    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'dark', accentColor: 'cyan', hiddenSongColumns: ['artist', 'codec'] });
 
     database.close();
     database = new DatabaseService(databasePath);
     assert.equal(database.listPlaylists()[0]?.entries.length, 2);
     assert.equal(database.getSettings().defaultVolume, 0.35);
     assert.equal(database.getSettings().repeatMode, 'all');
-    assert.equal(database.getSettings().themePreset, 'ocean');
+    assert.equal(database.getSettings().themePreset, 'dark');
     assert.equal(database.getSettings().accentColor, 'cyan');
     assert.deepEqual(database.getSettings().hiddenSongColumns, ['artist', 'codec']);
 

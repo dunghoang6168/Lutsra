@@ -10,7 +10,7 @@ export class MockSettingsGateway implements SettingsGateway {
     defaultVolume: 0.8,
     repeatMode: 'off',
     shuffle: false,
-    themePreset: 'midnight',
+    themePreset: 'dark',
     accentColor: 'violet',
     hiddenSongColumns: [],
   };

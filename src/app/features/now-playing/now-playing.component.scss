@@ -7,9 +7,29 @@
       scrollbar-width: auto;
       scrollbar-color: auto;
       padding: var(--space-8);
-      background: radial-gradient(circle at top right, var(--color-accent-muted), transparent 50%), var(--bg-app);
+      background: var(--bg-app);
       display: flex;
       flex-direction: column;
+    }
+
+    .now-playing-page.has-artwork-palette {
+      --artwork-glow-opacity: 0.15;
+      --artwork-secondary-opacity: 0.12;
+      --artwork-wash-start-opacity: 0.18;
+      --artwork-wash-end-opacity: 0.10;
+      --artwork-glow-position: 25% 41%;
+      background:
+        radial-gradient(ellipse 115% 115% at var(--artwork-glow-position), rgb(var(--artwork-primary) / var(--artwork-glow-opacity)), transparent 88%),
+        radial-gradient(ellipse 130% 110% at 82% 55%, rgb(var(--artwork-secondary) / var(--artwork-secondary-opacity)), transparent 95%),
+        linear-gradient(110deg, rgb(var(--artwork-primary) / var(--artwork-wash-start-opacity)), rgb(var(--artwork-primary) / var(--artwork-wash-end-opacity))),
+        var(--bg-app);
+    }
+
+    :host-context(html[data-theme='light']) .now-playing-page.has-artwork-palette {
+      --artwork-glow-opacity: 0.08;
+      --artwork-secondary-opacity: 0.06;
+      --artwork-wash-start-opacity: 0.07;
+      --artwork-wash-end-opacity: 0.05;
     }
 
     .now-playing-page::-webkit-scrollbar {
@@ -28,17 +48,10 @@
       background: var(--color-scrollbar-thumb-hover);
     }
 
-    .now-playing-page::-webkit-scrollbar-button,
-    .now-playing-page::-webkit-scrollbar-button:single-button,
-    .now-playing-page::-webkit-scrollbar-button:vertical:start:decrement,
-    .now-playing-page::-webkit-scrollbar-button:vertical:end:increment {
+    .now-playing-page::-webkit-scrollbar-button {
       display: none !important;
       width: 0 !important;
       height: 0 !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      background: transparent;
-      -webkit-appearance: none;
     }
 
     .now-playing-content {
@@ -57,6 +70,23 @@
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .artwork-glow-img {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      filter: blur(32px) brightness(2.4);
+      opacity: 0.94;
+      pointer-events: none;
+    }
+
+    :host-context(html[data-theme='light']) .artwork-glow-img {
+      opacity: 0.50;
     }
 
     .lyrics-line:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
@@ -99,12 +129,13 @@
     .lyrics-message { color: var(--text-secondary); font-size: var(--font-size-sm); }
 
     .large-artwork-card {
+      position: relative;
+      z-index: 1;
       width: 100%;
       aspect-ratio: 1;
       border-radius: var(--radius-xl);
       overflow: hidden;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 30px var(--accent-glow);
-      border: 1px solid var(--border-default);
+      box-shadow: var(--shadow-lg);
     }
 
     .large-artwork-img {
@@ -132,6 +163,19 @@
       min-width: 0;
     }
 
+    .track-heading-card,
+    .inline-controls {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+
+    .track-heading-card {
+      min-width: 0;
+      padding: var(--space-3);
+      margin-bottom: var(--space-3);
+    }
+
     .track-title {
       font-size: var(--font-size-3xl);
       font-weight: 800;
@@ -147,7 +191,7 @@
       gap: var(--space-2);
       font-size: var(--font-size-md);
       color: var(--text-secondary);
-      margin-bottom: var(--space-6);
+      margin-bottom: 0;
     }
 
     .track-artist {
@@ -161,9 +205,6 @@
 
     /* Inline Controls */
     .inline-controls {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
       padding: var(--space-3);
       margin-bottom: 0;
     }
@@ -431,6 +472,9 @@
     }
 
     @media (max-width: 960px) {
+      .now-playing-page.has-artwork-palette {
+        --artwork-glow-position: 50% 22%;
+      }
       .now-playing-content {
         display: flex;
         flex-direction: column;
@@ -453,6 +497,9 @@
 
     @container main-content (max-width: 760px) {
       .now-playing-page { padding: var(--space-4); }
+      .now-playing-page.has-artwork-palette {
+        --artwork-glow-position: 50% 22%;
+      }
       .now-playing-content {
         display: flex;
         flex-direction: column;

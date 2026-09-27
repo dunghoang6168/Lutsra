@@ -48,7 +48,7 @@
           <div class="card-header appearance-header">
             <div>
               <h2>Appearance & Theme</h2>
-              <span class="card-desc">Personalize your desktop experience with curated dark/light palettes and accent tones</span>
+              <span class="card-desc">Choose a light or dark look and your favorite accent color</span>
             </div>
             <!-- Theme Save State Feedback -->
             <div class="theme-status-indicator" [attr.aria-live]="'polite'">
@@ -74,73 +74,13 @@
           }
 
           <div class="appearance-sections">
-            <!-- Dark Themes Group -->
             <div class="theme-group">
               <div class="theme-group-header">
-                <span class="group-icon dark-icon" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                </span>
-                <span class="group-title">Dark Themes</span>
-                <span class="group-tag">Deep tones</span>
+                <span class="group-title">Theme</span>
               </div>
 
-              <div class="preset-cards-grid" role="radiogroup" aria-label="Dark Theme Presets">
-                @for (preset of darkThemePresets; track preset.id) {
-                  <div
-                    class="preset-card"
-                    [class.active]="themeService.themePreset() === preset.id"
-                    role="radio"
-                    tabindex="0"
-                    [attr.aria-checked]="themeService.themePreset() === preset.id"
-                    (click)="themeService.setThemePreset(preset.id)"
-                    (keydown.enter)="themeService.setThemePreset(preset.id)"
-                    (keydown.space)="$event.preventDefault(); themeService.setThemePreset(preset.id)">
-
-                    <div class="swatch-preview" [style.--p-canvas]="preset.canvas" [style.--p-sidebar]="preset.sidebar" [style.--p-surface]="preset.surface" [style.--p-border]="preset.border" [style.--p-text]="preset.text">
-                      <div class="swatch-sidebar">
-                        <div class="swatch-bar"></div>
-                        <div class="swatch-bar short"></div>
-                        <div class="swatch-bar"></div>
-                      </div>
-                      <div class="swatch-main">
-                        <div class="swatch-header"></div>
-                        <div class="swatch-content">
-                          <div class="swatch-surface">
-                            <div class="swatch-line"></div>
-                            <div class="swatch-line short"></div>
-                          </div>
-                        </div>
-                      </div>
-                      @if (themeService.themePreset() === preset.id) {
-                        <div class="selected-indicator" aria-hidden="true">
-                          <app-icon name="check" [size]="12" />
-                        </div>
-                      }
-                    </div>
-
-                    <div class="preset-info">
-                      <div class="preset-title-row">
-                        <span class="preset-name">{{ preset.label }}</span>
-                      </div>
-                      <span class="preset-desc">{{ preset.description }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-
-            <!-- Light Themes Group -->
-            <div class="theme-group">
-              <div class="theme-group-header">
-                <span class="group-icon light-icon" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                </span>
-                <span class="group-title">Light Themes</span>
-                <span class="group-tag">Crisp tones</span>
-              </div>
-
-              <div class="preset-cards-grid" role="radiogroup" aria-label="Light Theme Presets">
-                @for (preset of lightThemePresets; track preset.id) {
+              <div class="preset-cards-grid" role="radiogroup" aria-label="Theme">
+                @for (preset of themePresets; track preset.id) {
                   <div
                     class="preset-card"
                     [class.active]="themeService.themePreset() === preset.id"
@@ -317,35 +257,34 @@
 
         <app-song-columns-settings />
 
-        <!-- Section 3: About & Architecture -->
+        <!-- Section 3: About -->
         <section class="settings-card card-base">
           <div class="card-header">
-            <h2>About Audio Lutstra</h2>
-            <span class="card-desc">Technical specification & build info</span>
+            <h2>About Lutsra</h2>
+            <span class="card-desc">Your music library, all in one place</span>
           </div>
+
+          <p class="about-description">
+            Lutsra helps you enjoy the music stored on your computer. Add your music folders,
+            explore your collection, and keep your favorite tracks close at hand.
+          </p>
 
           <div class="about-grid">
             <div class="about-item">
-              <span class="about-label">Frontend Framework</span>
-              <span class="about-value">Angular 21 (Standalone, Signals)</span>
+              <span class="about-label">Your library</span>
+              <span class="about-value">Browse songs, albums, artists, and folders</span>
             </div>
             <div class="about-item">
-              <span class="about-label">Language</span>
-              <span class="about-value">TypeScript 5.9 (Strict Mode)</span>
+              <span class="about-label">Playlists</span>
+              <span class="about-value">Collect and organize the tracks you love</span>
             </div>
             <div class="about-item">
-              <span class="about-label">Styles & Icons</span>
-              <span class="about-value">SCSS, CSS Variables, Native SVG Icons</span>
+              <span class="about-label">Playback</span>
+              <span class="about-value">Control your queue, shuffle, and repeat</span>
             </div>
             <div class="about-item">
-              <span class="about-label">State Management</span>
-              <span class="about-value">Angular Signals & Computed (No NgRx)</span>
-            </div>
-            <div class="about-item">
-              <span class="about-label">Integration Phase</span>
-              <span class="about-value">
-                {{ isDesktop ? 'Phase 2 Complete (Electron Desktop)' : 'Browser Mode (Mock Adapters)' }}
-              </span>
+              <span class="about-label">Make it yours</span>
+              <span class="about-value">Choose a theme and accent color</span>
             </div>
           </div>
         </section>

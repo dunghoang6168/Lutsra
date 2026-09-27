@@ -66,7 +66,7 @@ describe('SidebarComponent', () => {
     expect(element.querySelector('.nav-menu .sidebar-section-title')).toBeNull();
     expect(toggle.title).toBe('Collapse sidebar');
     expect(toggle.getAttribute('aria-label')).toBe('Collapse sidebar');
-    expect(element.textContent).not.toContain('Audio Lutstra');
+    expect(element.textContent).not.toContain('Lutsra');
     expect(element.textContent).not.toContain('Hi-Res Player');
     expect(fixture.debugElement.query(By.directive(IconComponent)).componentInstance.name()).toBe('chevron-left');
   });

@@ -20,14 +20,14 @@ let mainWindow: BrowserWindowType | null = null;
 let database: DatabaseService | null = null;
 
 if (smokeTest) {
-  const smokeUserData = process.env['AUDIO_LUTSTRA_SMOKE_USER_DATA'];
+  const smokeUserData = process.env['LUTSRA_SMOKE_USER_DATA'];
   if (!smokeUserData) throw new Error('Smoke test userData path was not provided by the launcher');
   app.setPath('userData', smokeUserData);
 }
 
-function createWindow(): void {
+function createWindow(smokeArtworkUrl?: string): void {
   mainWindow = new BrowserWindow({
-    name: 'audio-lutstra-main',
+    name: 'lutsra-main',
     windowStatePersistence: true,
     width: 1280,
     height: 800,
@@ -49,13 +49,13 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, target) => {
-    const allowed = target.startsWith('app://audio-lutstra/') || (development && target.startsWith('http://localhost:4200/'));
+    const allowed = target.startsWith('app://lutsra/') || (development && target.startsWith('http://localhost:4200/'));
     if (!allowed) event.preventDefault();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (development) void mainWindow.loadURL('http://localhost:4200/');
-  else void mainWindow.loadURL('app://audio-lutstra/index.html');
+  else void mainWindow.loadURL('app://lutsra/index.html');
 
   if (smokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -66,19 +66,38 @@ function createWindow(): void {
       mainWindow?.webContents.on('page-title-updated', (_event, title) => {
         if (!title.startsWith('smoke:')) return;
         clearTimeout(timeout);
-        const [pong, trackCount] = title.slice(6).split(':');
-        if (pong !== 'pong') {
-          console.error('[smoke] IPC ping did not return pong');
+        const [pong, trackCount, artworkResult] = title.slice(6).split(':');
+        if (pong !== 'pong' || artworkResult !== 'ok') {
+          console.error('[smoke] IPC or artwork Canvas check failed', { pong, artworkResult });
           app.exit(1);
           return;
         }
-        console.info('[smoke]', { pong, trackCount: Number(trackCount) });
+        console.info('[smoke]', { pong, trackCount: Number(trackCount), artworkResult });
         app.quit();
       });
       void mainWindow?.webContents.executeJavaScript(`Promise.all([
         window.desktop.ping(),
         window.desktop.library.getSnapshot(),
-      ]).then(([pong, snapshot]) => { document.title = 'smoke:' + pong + ':' + snapshot.tracks.length; })`);
+        new Promise((resolve) => {
+          const image = new Image();
+          image.crossOrigin = 'anonymous';
+          image.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = canvas.height = 1;
+              const context = canvas.getContext('2d');
+              if (!context) throw new Error('Canvas 2D is unavailable');
+              context.drawImage(image, 0, 0, 1, 1);
+              context.getImageData(0, 0, 1, 1);
+              resolve('ok');
+            } catch { resolve('failed'); }
+          };
+          image.onerror = () => resolve('failed');
+          image.src = '${smokeArtworkUrl}';
+        }),
+      ]).then(([pong, snapshot, artworkResult]) => {
+        document.title = 'smoke:' + pong + ':' + snapshot.tracks.length + ':' + artworkResult;
+      })`);
     });
   }
 }
@@ -90,7 +109,7 @@ app.whenReady().then(async () => {
     const migratedFrom = await migrateLegacyProfile(userData, app.getPath('appData'));
     if (migratedFrom) console.info('[profile] Migrated legacy library from', migratedFrom);
   }
-  database = new DatabaseService(path.join(userData, 'audio-lutstra.sqlite'));
+  database = new DatabaseService(path.join(userData, 'lutsra.sqlite'));
   const artwork = new ArtworkService(path.join(userData, 'artwork-cache'), database);
   const scanner = new ScannerService(database, artwork, (progress) => broadcastProgress(mainWindow, progress));
   const trackDetails = new TrackDetailsService(database);
@@ -98,13 +117,16 @@ app.whenReady().then(async () => {
   const artistMetadata = new ArtistMetadataService(database, artwork, (update) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('artist-metadata:updated', update);
   });
-  const rendererRoot = path.join(app.getAppPath(), 'dist', 'audio-lutstra', 'browser');
+  const rendererRoot = path.join(app.getAppPath(), 'dist', 'lutsra', 'browser');
 
   installProtocolHandlers(database, rendererRoot, development);
   registerIpc(database, scanner, trackDetails, artistMetadata, lyrics, () => mainWindow, development);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
-  createWindow();
+  const smokeArtworkHash = smokeTest
+    ? await artwork.saveBuffer(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6dssAAAAASUVORK5CYII=', 'base64'), 'image/png')
+    : null;
+  createWindow(smokeArtworkHash ? `music://artwork/${smokeArtworkHash}` : undefined);
 
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 }).catch((error) => {

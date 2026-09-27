@@ -6,6 +6,7 @@ import { MockPlaybackEngine, MockSettingsGateway } from '../../core/mock';
 import { MOCK_TRACKS } from '../../core/mock/fixtures/mock-data';
 import { PlayerService } from '../../core/player/player.service';
 import { NowPlayingComponent } from './now-playing.component';
+import { ArtworkPaletteService } from './artwork-palette.service';
 
 describe('NowPlayingComponent', () => {
   let fixture: ComponentFixture<NowPlayingComponent>;
@@ -51,6 +52,114 @@ describe('NowPlayingComponent', () => {
     rightPanels.closeTrackDetails(false);
     fixture.detectChanges();
     expect(getComputedStyle(summary).display).not.toBe('none');
+  });
+
+  it('renders a decorative cover glow that follows the track and disappears without artwork', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const originalTheme = document.documentElement.getAttribute('data-theme');
+    host.style.display = 'block';
+    document.body.appendChild(host);
+    try {
+      const cover = host.querySelector<HTMLImageElement>('.large-artwork-img')!;
+      const glow = host.querySelector<HTMLImageElement>('.artwork-glow-img')!;
+      expect(glow.src).toBe(cover.src);
+      expect(glow.alt).toBe('');
+      expect(glow.getAttribute('aria-hidden')).toBe('true');
+      expect(getComputedStyle(glow).pointerEvents).toBe('none');
+      expect(getComputedStyle(glow).filter).toContain('blur(32px) brightness(2.4)');
+      expect(glow.getBoundingClientRect().width).toBeCloseTo(cover.getBoundingClientRect().width, 0);
+      document.documentElement.setAttribute('data-theme', 'dark');
+      expect(getComputedStyle(glow).opacity).toBe('0.94');
+      document.documentElement.setAttribute('data-theme', 'light');
+      expect(getComputedStyle(glow).opacity).toBe('0.5');
+
+      const differentCover = MOCK_TRACKS.find((track) => track.artwork && track.artwork !== MOCK_TRACKS[0].artwork)!;
+      player.currentTrack.set(differentCover);
+      fixture.detectChanges();
+      expect(host.querySelector<HTMLImageElement>('.artwork-glow-img')!.src)
+        .toBe(host.querySelector<HTMLImageElement>('.large-artwork-img')!.src);
+      player.currentTrack.set(MOCK_TRACKS.find((track) => !track.artwork)!);
+      fixture.detectChanges();
+      expect(host.querySelector('.artwork-glow-img')).toBeNull();
+    } finally {
+      if (originalTheme === null) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', originalTheme);
+      host.remove();
+    }
+  });
+
+  it('updates the page palette for the current cover and ignores a late previous cover', async () => {
+    const paletteService = TestBed.inject(ArtworkPaletteService);
+    let resolveOld!: (value: { primary: string; secondary: string } | null) => void;
+    const oldPalette = new Promise<{ primary: string; secondary: string } | null>((resolve) => { resolveOld = resolve; });
+    const getPalette = spyOn(paletteService, 'getPalette').and.returnValues(
+      oldPalette,
+      Promise.resolve({ primary: '30 90 210', secondary: '210 50 80' }),
+    );
+    player.currentTrack.set(MOCK_TRACKS[1]);
+    fixture.detectChanges();
+    player.currentTrack.set(MOCK_TRACKS[2]);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const page = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.now-playing-page')!;
+    expect(getPalette).toHaveBeenCalledTimes(2);
+    expect(page.classList).toContain('has-artwork-palette');
+    expect(page.style.getPropertyValue('--artwork-primary')).toBe('30 90 210');
+    resolveOld({ primary: '220 30 20', secondary: '220 30 20' });
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(page.style.getPropertyValue('--artwork-primary')).toBe('30 90 210');
+
+    player.currentTrack.set(MOCK_TRACKS.find((track) => !track.artwork)!);
+    fixture.detectChanges();
+    expect(page.classList).not.toContain('has-artwork-palette');
+  });
+
+  it('spreads cover colors across the page without an accent border or glow on the cover', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const container = document.createElement('div');
+    const originalTheme = document.documentElement.getAttribute('data-theme');
+    const originalAccent = document.documentElement.getAttribute('data-accent');
+    container.style.cssText = 'width: 1000px; height: 800px; container-type: inline-size; container-name: main-content;';
+    host.style.cssText = 'display: block; height: 100%;';
+    document.body.appendChild(container);
+    container.appendChild(host);
+    try {
+      fixture.componentInstance.artworkPalette.set({ primary: '210 120 30', secondary: '40 90 170' });
+      fixture.detectChanges();
+      const page = host.querySelector<HTMLElement>('.now-playing-page')!;
+      const cover = host.querySelector<HTMLElement>('.large-artwork-card')!;
+      document.documentElement.setAttribute('data-theme', 'dark');
+      const background = getComputedStyle(page).backgroundImage;
+      const coverShadow = getComputedStyle(cover).boxShadow;
+      expect(background).toContain('radial-gradient');
+      expect(background).toContain('linear-gradient');
+      expect(getComputedStyle(cover).borderTopWidth).toBe('0px');
+      expect(getComputedStyle(page).getPropertyValue('--artwork-wash-end-opacity').trim()).toBe('0.10');
+      const initialPosition = matchMedia('(max-width: 960px)').matches ? '50% 22%' : '25% 41%';
+      expect(getComputedStyle(page).getPropertyValue('--artwork-glow-position').trim()).toBe(initialPosition);
+
+      document.documentElement.setAttribute('data-accent', 'rose');
+      expect(getComputedStyle(page).backgroundImage).toBe(background);
+      expect(getComputedStyle(cover).boxShadow).toBe(coverShadow);
+
+      document.documentElement.setAttribute('data-theme', 'light');
+      expect(getComputedStyle(page).getPropertyValue('--artwork-wash-end-opacity').trim()).toBe('0.05');
+      container.style.width = '700px';
+      expect(getComputedStyle(page).getPropertyValue('--artwork-glow-position').trim()).toBe('50% 22%');
+
+      fixture.componentInstance.artworkPalette.set(null);
+      fixture.detectChanges();
+      expect(getComputedStyle(page).backgroundImage).toBe('none');
+    } finally {
+      if (originalTheme === null) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', originalTheme);
+      if (originalAccent === null) document.documentElement.removeAttribute('data-accent');
+      else document.documentElement.setAttribute('data-accent', originalAccent);
+      container.remove();
+    }
   });
 
   it('puts lyrics below controls at the same width when the main content narrows', async () => {

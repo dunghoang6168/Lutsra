@@ -6,8 +6,8 @@ import {
   DEFAULT_ACCENT_COLOR,
   DEFAULT_THEME_PRESET,
   isAccentColor,
-  isThemePreset,
   LIGHT_THEME_PRESETS,
+  normalizeThemePreset,
   ThemePreset,
 } from '../models';
 
@@ -105,7 +105,7 @@ export class ThemeService {
 
   private normalize(themePreset: unknown, accentColor: unknown): ThemeSelection {
     return {
-      themePreset: isThemePreset(themePreset) ? themePreset : DEFAULT_THEME_PRESET,
+      themePreset: normalizeThemePreset(themePreset),
       accentColor: isAccentColor(accentColor) ? accentColor : DEFAULT_ACCENT_COLOR,
     };
   }

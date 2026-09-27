@@ -4,24 +4,27 @@ import path from 'node:path';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { isPathInside } from '../utils/path-utils.js';
 
-const OLD_DATABASE_NAME = 'audio-blabla.sqlite';
-const NEW_DATABASE_NAME = 'audio-lutstra.sqlite';
-const OLD_PROFILE_NAMES = ['Audio BlaBla', 'audio-blabla'];
+const NEW_DATABASE_NAME = 'lutsra.sqlite';
+const LEGACY_PROFILES = [
+  { name: 'Audio Lutstra', databaseName: 'audio-lutstra.sqlite' },
+  { name: 'Audio BlaBla', databaseName: 'audio-blabla.sqlite' },
+  { name: 'audio-blabla', databaseName: 'audio-blabla.sqlite' },
+] as const;
 
 /** Copies the most recently used legacy profile on first launch, leaving the original untouched. */
 export async function migrateLegacyProfile(targetUserData: string, appData: string): Promise<string | null> {
   const targetDatabase = path.join(targetUserData, NEW_DATABASE_NAME);
   if (await exists(targetDatabase)) return null;
 
-  const candidates = await Promise.all(OLD_PROFILE_NAMES.map(async (name) => {
-    const root = path.join(appData, name);
+  const candidates = await Promise.all(LEGACY_PROFILES.map(async (profile) => {
+    const root = path.join(appData, profile.name);
     if (path.resolve(root).toLowerCase() === path.resolve(targetUserData).toLowerCase()) return null;
     try {
-      const info = await stat(path.join(root, OLD_DATABASE_NAME));
-      return info.isFile() ? { root, modified: info.mtimeMs } : null;
+      const info = await stat(path.join(root, profile.databaseName));
+      return info.isFile() ? { root, databaseName: profile.databaseName, modified: info.mtimeMs } : null;
     } catch { return null; }
   }));
-  const source = candidates.filter((value): value is { root: string; modified: number } => value !== null)
+  const source = candidates.filter((value): value is { root: string; databaseName: string; modified: number } => value !== null)
     .sort((left, right) => right.modified - left.modified)[0];
   if (!source) return null;
 
@@ -34,7 +37,7 @@ export async function migrateLegacyProfile(targetUserData: string, appData: stri
   let sourceDatabase: DatabaseSync | null = null;
   let migratedDatabase: DatabaseSync | null = null;
   try {
-    sourceDatabase = new DatabaseSync(path.join(source.root, OLD_DATABASE_NAME), { readOnly: true });
+    sourceDatabase = new DatabaseSync(path.join(source.root, source.databaseName), { readOnly: true });
     await backup(sourceDatabase, temporaryDatabase);
     sourceDatabase.close();
     sourceDatabase = null;
