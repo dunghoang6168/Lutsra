@@ -1,5 +1,30 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+
+interface NativePlaybackState {
+  playing: boolean;
+  playWhenReady: boolean;
+  playbackState: number;
+  positionMs: number;
+  durationMs: number;
+  index: number;
+  count: number;
+  title: string;
+}
+
+interface NativePlaybackPlugin {
+  pickAndPlay(): Promise<NativePlaybackState>;
+  playTestQueue(): Promise<NativePlaybackState>;
+  getState(): Promise<NativePlaybackState>;
+  play(): Promise<NativePlaybackState>;
+  pause(): Promise<NativePlaybackState>;
+  next(): Promise<NativePlaybackState>;
+  previous(): Promise<NativePlaybackState>;
+  seekTo(options: { positionMs: number }): Promise<NativePlaybackState>;
+  addListener(eventName: 'state', listener: (state: NativePlaybackState) => void): Promise<PluginListenerHandle>;
+}
+
+const nativePlayback = registerPlugin<NativePlaybackPlugin>('SpikePlayback');
 
 @Component({
   selector: 'app-android-spike',
@@ -8,6 +33,29 @@ import { Capacitor } from '@capacitor/core';
     <main>
       <h1>Audio Lutstra · Android spike</h1>
       <p>Thiết bị: {{ platform }}</p>
+      @if (nativeAvailable) {
+        <section>
+          <h2>Media3 native</h2>
+          <p>Chọn nhiều bài để thử next/previous từ màn hình khóa và tai nghe. Hàng chờ nằm trong dịch vụ Android.</p>
+          <button type="button" (click)="chooseNativeFiles()">Chọn nhạc cho Media3</button>
+          <button type="button" (click)="playNativeTestQueue()">Phát 2 âm mẫu</button>
+          <p>Bài: {{ nativeState()?.title || 'Chưa chọn' }}
+            @if (nativeState()?.count) { ({{ (nativeState()?.index || 0) + 1 }}/{{ nativeState()?.count }}) }
+          </p>
+          <p>Trạng thái: {{ nativeState()?.playing ? 'Đang phát' : 'Dừng/tạm dừng' }}
+            · {{ nativeState()?.positionMs || 0 }} ms
+            @if (nativeError()) { · Lỗi: {{ nativeError() }} }
+          </p>
+          <div class="controls">
+            <button type="button" (click)="nativeAction('previous')">Trước</button>
+            <button type="button" (click)="nativeAction('pause')">Tạm dừng</button>
+            <button type="button" (click)="nativeAction('play')">Phát</button>
+            <button type="button" (click)="nativeAction('next')">Tiếp</button>
+          </div>
+          <button type="button" (click)="nativeSeekForward()">Tua +10 giây</button>
+        </section>
+      }
+      <h2>WebView baseline</h2>
       <p>Chọn lần lượt MP3, FLAC và WAV trên điện thoại. Ghi kết quả sau khi khóa màn hình và bấm nút tai nghe.</p>
       <label for="audio-file">Chọn file âm thanh</label>
       <input id="audio-file" type="file" accept="audio/*,.mp3,.flac,.wav" (change)="selectFile($event)">
@@ -25,6 +73,9 @@ import { Capacitor } from '@capacitor/core';
     :host { display: block; min-height: 100vh; background: #141721; color: #f4f5fb; font: 16px system-ui, sans-serif; }
     main { max-width: 34rem; margin: auto; padding: max(2rem, env(safe-area-inset-top)) 1.25rem 2rem; }
     h1 { font-size: 1.5rem; }
+    section { border: 1px solid #636a80; border-radius: .75rem; padding: 1rem; margin: 1.5rem 0; }
+    button { background: #464f91; color: white; border: 0; border-radius: .5rem; padding: .7rem .85rem; margin: .25rem; font: inherit; }
+    .controls { display: flex; flex-wrap: wrap; }
     p { line-height: 1.5; }
     label { display: block; margin: 1.5rem 0 .5rem; }
     input, audio { display: block; width: 100%; margin-bottom: 1rem; }
@@ -34,12 +85,16 @@ import { Capacitor } from '@capacitor/core';
 export class AndroidSpikeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('player') private player!: ElementRef<HTMLAudioElement>;
   readonly platform = Capacitor.getPlatform();
+  readonly nativeAvailable = Capacitor.isNativePlatform();
+  readonly nativeState = signal<NativePlaybackState | null>(null);
+  readonly nativeError = signal('');
   readonly fileName = signal('');
   readonly status = signal('Sẵn sàng');
   readonly log = signal<string[]>([]);
   readonly codecs: string;
 
   private objectUrl: string | null = null;
+  private nativeListener: PluginListenerHandle | null = null;
 
   constructor() {
     const probe = new Audio();
@@ -52,6 +107,13 @@ export class AndroidSpikeComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    if (this.nativeAvailable) {
+      void nativePlayback.addListener('state', state => this.nativeState.set(state))
+        .then(handle => { this.nativeListener = handle; })
+        .catch(error => this.nativeError.set(String(error)));
+      void nativePlayback.getState().then(state => this.nativeState.set(state))
+        .catch(error => this.nativeError.set(String(error)));
+    }
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => this.mediaAction('play', () => this.player.nativeElement.play()));
@@ -87,12 +149,49 @@ export class AndroidSpikeComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    void this.nativeListener?.remove();
     this.player.nativeElement.pause();
     if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
     if ('mediaSession' in navigator) {
       for (const action of ['play', 'pause', 'stop', 'seekto'] as MediaSessionAction[]) {
         navigator.mediaSession.setActionHandler(action, null);
       }
+    }
+  }
+
+  async chooseNativeFiles(): Promise<void> {
+    try {
+      this.nativeError.set('');
+      this.nativeState.set(await nativePlayback.pickAndPlay());
+    } catch (error) {
+      this.nativeError.set(String(error));
+    }
+  }
+
+  async playNativeTestQueue(): Promise<void> {
+    try {
+      this.nativeError.set('');
+      this.nativeState.set(await nativePlayback.playTestQueue());
+    } catch (error) {
+      this.nativeError.set(String(error));
+    }
+  }
+
+  async nativeAction(action: 'play' | 'pause' | 'next' | 'previous'): Promise<void> {
+    try {
+      this.nativeError.set('');
+      this.nativeState.set(await nativePlayback[action]());
+    } catch (error) {
+      this.nativeError.set(String(error));
+    }
+  }
+
+  async nativeSeekForward(): Promise<void> {
+    try {
+      this.nativeError.set('');
+      this.nativeState.set(await nativePlayback.seekTo({ positionMs: (this.nativeState()?.positionMs || 0) + 10000 }));
+    } catch (error) {
+      this.nativeError.set(String(error));
     }
   }
 
