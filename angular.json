@@ -45,6 +45,10 @@
           "configurations": {
             "android-spike": {
               "browser": "src/main.android-spike.ts",
+              "index": {
+                "input": "src/index.android-spike.html",
+                "output": "index.html"
+              },
               "tsConfig": "tsconfig.android-spike.json",
               "outputPath": "dist/android-spike",
               "optimization": false,

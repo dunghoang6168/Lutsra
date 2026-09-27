@@ -7,7 +7,7 @@ This is a separate Android development branch, **not Phase 5**. The first produc
 - Branch: `android/spike`, created from desktop commit `1bc32fa`. Uncommitted desktop changes remain in the `main` worktree.
 - On the desktop working tree with uncommitted changes, 184 Angular tests and 33 backend tests passed; its Angular and Electron production build passed on 2026-09-27. On this Android branch, 177 Angular tests and 33 backend tests passed, and both the Android spike web build/sync and default Angular/Electron production build passed. The Angular tests used Edge as `CHROME_BIN` because Chrome is absent.
 - Capacitor 8 Android project and a dedicated Angular spike entry have been generated. `npm run build:android:spike` is the web build and Capacitor sync command.
-- A debug APK was built successfully on 2026-09-27 and copied to the workspace's ignored `release/Android-Spike-debug.apk` (SHA-256 `03D6E007DCF69FFC23E17BFDBF201F74FA26FB4626F2E3B43282BD2AC997F19B`). No device is connected to `adb`, so it has not been installed or tested on a phone. This host now has Android Studio/SDK. Its bundled JDK 25 is incompatible with this project's Gradle 8.14.3; a JDK 21 copy was extracted under the user's temporary directory for the successful build. Gradle installed SDK Platform 36 and Build Tools 35 automatically.
+- A debug APK was built on 2026-09-27 and copied to the workspace's ignored `release/Android-Spike-debug.apk` (SHA-256 `B4C66C69FCA8A2A17CA26AC435FAAC2D8D0F26EC3AE46F99F67646765865AE37`). It installed and launched on a Motorola moto g stylus 5G (2024), Android 15/API 35, WebView 153.0.8010.36. The first build showed a blank screen because the Angular index retained the desktop root selector; a dedicated spike index fixed it. The phone screen then showed a selected FLAC file playing with the elapsed time advancing. Audible output, seek, lock-screen controls, wired headset, and Bluetooth remain unverified. This host's bundled JDK 25 is incompatible with this project's Gradle 8.14.3; a JDK 21 copy was extracted under the user's temporary directory for the successful build. Gradle installed SDK Platform 36 and Build Tools 35 automatically.
 
 ## What this spike measures
 
@@ -17,7 +17,7 @@ For each device, record model, Android version/API, WebView version, audio route
 
 | Device | Android/API | WebView | MP3 | FLAC | WAV | Locked screen | Wired headset | Bluetooth | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Device 1 | pending | pending | pending | pending | pending | pending | pending | pending | pending |
+| Motorola moto g stylus 5G (2024) | 15 / API 35 | 153.0.8010.36 | pending | playback timer advances; audible output unverified | pending | pending | pending | pending | partial |
 | Device 2 | pending | pending | pending | pending | pending | pending | pending | pending | pending |
 
 ### Acceptance gate for continuing to C–F
