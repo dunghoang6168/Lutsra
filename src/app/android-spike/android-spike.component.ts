@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { AndroidLibraryGateway } from '../core/android/android-library.gateway';
 
 interface NativePlaybackState {
   playing: boolean;
@@ -34,6 +35,13 @@ const nativePlayback = registerPlugin<NativePlaybackPlugin>('SpikePlayback');
       <h1>Audio Lutstra · Android spike</h1>
       <p>Thiết bị: {{ platform }}</p>
       @if (nativeAvailable) {
+        <section>
+          <h2>Thư viện theo thư mục</h2>
+          <button type="button" (click)="chooseFolder()">Chọn thư mục nhạc</button>
+          <button type="button" (click)="scanLibrary()">Quét lại thư mục đã chọn</button>
+          <p>Android sẽ hỏi quyền truy cập thư mục bạn chọn. Ứng dụng ghi nhớ quyền đó để quét lại sau này.</p>
+          <p>{{ libraryStatus() }}</p>
+        </section>
         <section>
           <h2>Media3 native</h2>
           <p>Chọn nhiều bài để thử next/previous từ màn hình khóa và tai nghe. Hàng chờ nằm trong dịch vụ Android.</p>
@@ -91,10 +99,12 @@ export class AndroidSpikeComponent implements AfterViewInit, OnDestroy {
   readonly fileName = signal('');
   readonly status = signal('Sẵn sàng');
   readonly log = signal<string[]>([]);
+  readonly libraryStatus = signal('Chưa quét');
   readonly codecs: string;
 
   private objectUrl: string | null = null;
   private nativeListener: PluginListenerHandle | null = null;
+  private readonly library = new AndroidLibraryGateway();
 
   constructor() {
     const probe = new Audio();
@@ -165,6 +175,25 @@ export class AndroidSpikeComponent implements AfterViewInit, OnDestroy {
       this.nativeState.set(await nativePlayback.pickAndPlay());
     } catch (error) {
       this.nativeError.set(String(error));
+    }
+  }
+
+  async scanLibrary(): Promise<void> {
+    this.libraryStatus.set('Đang quét...');
+    try {
+      const snapshot = await this.library.getLibrary();
+      this.libraryStatus.set(`${snapshot.folders.length} thư mục · ${snapshot.tracks.length} bài hát · ${snapshot.albums.length} album · ${snapshot.artists.length} nghệ sĩ`);
+    } catch (error) {
+      this.libraryStatus.set(`Không thể quét: ${String(error)}`);
+    }
+  }
+
+  async chooseFolder(): Promise<void> {
+    try {
+      await this.library.selectAndAddMusicFolders();
+      await this.scanLibrary();
+    } catch (error) {
+      this.libraryStatus.set(`Không thể thêm thư mục: ${String(error)}`);
     }
   }
 
