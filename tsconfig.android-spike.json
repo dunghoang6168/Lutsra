@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/android-spike"
+  },
+  "files": [
+    "src/main.android-spike.ts"
+  ]
+}

@@ -43,6 +43,13 @@
             "scripts": []
           },
           "configurations": {
+            "android-spike": {
+              "browser": "src/main.android-spike.ts",
+              "tsConfig": "tsconfig.android-spike.json",
+              "outputPath": "dist/android-spike",
+              "optimization": false,
+              "sourceMap": true
+            },
             "production": {
               "optimization": {
                 "scripts": true,
