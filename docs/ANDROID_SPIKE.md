@@ -7,7 +7,7 @@ This is a separate Android development branch, **not Phase 5**. The first produc
 - Branch: `android/spike`, created from desktop commit `1bc32fa`. Uncommitted desktop changes remain in the `main` worktree.
 - On the desktop working tree with uncommitted changes, 184 Angular tests and 33 backend tests passed; its Angular and Electron production build passed on 2026-09-27. On this Android branch, 177 Angular tests and 33 backend tests passed, and both the Android spike web build/sync and default Angular/Electron production build passed. The Angular tests used Edge as `CHROME_BIN` because Chrome is absent.
 - Capacitor 8 Android project and a dedicated Angular spike entry have been generated. `npm run build:android:spike` is the web build and Capacitor sync command.
-- No APK has been produced or tested yet. This host has no Android Studio/SDK, `adb`, or connected devices. Its visible Java installation is Java 8. Android Studio supplies the JDK required by Capacitor 8; see [Capacitor environment setup](https://capacitorjs.com/docs/getting-started/environment-setup).
+- A debug APK was built successfully on 2026-09-27 and copied to the workspace's ignored `release/Android-Spike-debug.apk` (SHA-256 `03D6E007DCF69FFC23E17BFDBF201F74FA26FB4626F2E3B43282BD2AC997F19B`). No device is connected to `adb`, so it has not been installed or tested on a phone. This host now has Android Studio/SDK. Its bundled JDK 25 is incompatible with this project's Gradle 8.14.3; a JDK 21 copy was extracted under the user's temporary directory for the successful build. Gradle installed SDK Platform 36 and Build Tools 35 automatically.
 
 ## What this spike measures
 
@@ -32,7 +32,7 @@ An installable test APK, results from at least two physical devices or Android v
 
 ## Build and device run
 
-Install Android Studio 2025.2.1 or newer and the Android SDK, then connect a phone with USB debugging. From this branch's worktree:
+Install Android Studio and SDK Platform 36, select JDK 21 for Gradle, then connect a phone with USB debugging. From this branch's worktree:
 
 ```powershell
 npm ci
@@ -41,4 +41,4 @@ cd android
 .\gradlew.bat assembleDebug
 ```
 
-The debug APK will be at `android/app/build/outputs/apk/debug/app-debug.apk`. Install it with `adb install -r` and open **Audio Lutstra Spike**. Use the on-screen log to record headset and lock-screen actions. This test project contains no MediaStore permission yet; the permission findings at this stage concern the system picker. A follow-up native MediaStore permission probe is needed before the C adapter.
+Set `JAVA_HOME` to a JDK 21 directory and `ANDROID_HOME` to the Android SDK directory before the Gradle command if they are not configured globally. The debug APK is at `android/app/build/outputs/apk/debug/app-debug.apk`. After `adb devices` shows the phone as `device`, install with `adb install -r <apk path>` and open **Audio Lutstra Spike**. Use the on-screen log to record headset and lock-screen actions. This test project contains no MediaStore permission yet; the permission findings at this stage concern the system picker. A follow-up native MediaStore permission probe is needed before the C adapter.
