@@ -6,10 +6,11 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { SpectrumVisualizerComponent } from '../../shared/components/spectrum-visualizer/spectrum-visualizer.component';
 import { RightPanelService } from '../../core/layout/right-panel.service';
+import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
+import { ArtworkGlowPositionService } from '../../core/layout/artwork-glow-position.service';
 import { LYRICS_GATEWAY } from '../../core/contracts';
 import { LyricLine } from '../../core/models';
 import { activeLyricIndex, parseLrc } from './lrc-parser';
-import { ArtworkPalette, ArtworkPaletteService } from './artwork-palette.service';
 
 @Component({
   selector: 'app-now-playing',
@@ -21,20 +22,41 @@ import { ArtworkPalette, ArtworkPaletteService } from './artwork-palette.service
 export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   readonly player = inject(PlayerService);
   readonly rightPanels = inject(RightPanelService);
+  readonly layoutPreference = inject(LayoutPreferenceService);
+  private readonly artworkGlowPosition = inject(ArtworkGlowPositionService);
   private readonly lyricsGateway = inject(LYRICS_GATEWAY);
-  private readonly paletteService = inject(ArtworkPaletteService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly lyricsStatus = signal<'loading' | 'ready' | 'missing' | 'unsupported' | 'error'>('loading');
   readonly lyricLines = signal<LyricLine[]>([]);
   readonly activeLineIndex = computed(() => activeLyricIndex(this.lyricLines(), this.player.currentTime()));
-  readonly artworkPalette = signal<ArtworkPalette | null>(null);
   private isTimelineScrubbing = false;
   private lyricsRequest = 0;
-  private paletteRequest = 0;
   private lastTrackKey: string | null = null;
   private destroyed = false;
   private lastScrolledLine: number | null = null;
   private scrollFrame: number | null = null;
+  private glowFrame: number | null = null;
+  private glowCard: HTMLElement | null = null;
+  private glowPage: HTMLElement | null = null;
+  private glowObserver: ResizeObserver | null = null;
+  private readonly scheduleGlowPosition = (): void => {
+    if (this.glowFrame !== null) return;
+    this.glowFrame = requestAnimationFrame(() => {
+      this.glowFrame = null;
+      if (this.destroyed || !this.glowCard) return;
+      const appLayout = this.host.nativeElement.closest<HTMLElement>('.app-layout');
+      if (!appLayout) return;
+      const cover = this.glowCard.getBoundingClientRect();
+      const layout = appLayout.getBoundingClientRect();
+      if (!cover.width || !cover.height) return;
+      this.artworkGlowPosition.setBounds({
+        left: cover.left - layout.left,
+        top: cover.top - layout.top,
+        width: cover.width,
+        height: cover.height,
+      });
+    });
+  };
 
   private readonly trackEffect = effect(() => {
     const trackId = this.player.currentTrack()?.id ?? null;
@@ -60,16 +82,6 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
     });
   });
 
-  private readonly paletteEffect = effect(() => {
-    const artwork = this.player.currentTrack()?.artwork;
-    const request = ++this.paletteRequest;
-    this.artworkPalette.set(null);
-    if (!artwork) return;
-    void this.paletteService.getPalette(artwork).then((palette) => {
-      if (!this.destroyed && request === this.paletteRequest) this.artworkPalette.set(palette);
-    });
-  });
-
   openTrackDetails(event: MouseEvent): void {
     this.rightPanels.openTrackDetails(event.currentTarget as HTMLElement);
   }
@@ -77,12 +89,13 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.lyricsRequest++;
-    this.paletteRequest++;
     if (this.scrollFrame !== null) cancelAnimationFrame(this.scrollFrame);
+    this.disconnectGlow();
     this.rightPanels.closeTrackDetails(false);
   }
 
   ngAfterViewChecked(): void {
+    this.syncGlowTarget();
     if (this.lyricsStatus() !== 'ready') return;
     const active = this.activeLineIndex();
     if (active === this.lastScrolledLine) return;
@@ -100,6 +113,41 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
       const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
       viewport.scrollTo({ top: Math.max(0, top), behavior });
     });
+  }
+
+  private syncGlowTarget(): void {
+    const card = this.layoutPreference.mode() === 'inset' && this.player.currentTrack()?.artwork
+      ? this.host.nativeElement.querySelector<HTMLElement>('.large-artwork-card') : null;
+    if (card === this.glowCard) {
+      if (card) this.scheduleGlowPosition();
+      return;
+    }
+    this.disconnectGlow();
+    if (!card) return;
+
+    this.glowCard = card;
+    this.glowPage = this.host.nativeElement.querySelector<HTMLElement>('.now-playing-page');
+    this.glowPage?.addEventListener('scroll', this.scheduleGlowPosition, { passive: true });
+    window.addEventListener('resize', this.scheduleGlowPosition);
+    this.glowObserver = new ResizeObserver(this.scheduleGlowPosition);
+    this.glowObserver.observe(card);
+    const content = this.host.nativeElement.querySelector<HTMLElement>('.now-playing-content');
+    if (content) this.glowObserver.observe(content);
+    const main = this.host.nativeElement.closest<HTMLElement>('.main-content');
+    if (main) this.glowObserver.observe(main);
+    this.scheduleGlowPosition();
+  }
+
+  private disconnectGlow(): void {
+    this.glowObserver?.disconnect();
+    this.glowObserver = null;
+    this.glowPage?.removeEventListener('scroll', this.scheduleGlowPosition);
+    this.glowPage = null;
+    window.removeEventListener('resize', this.scheduleGlowPosition);
+    if (this.glowFrame !== null) cancelAnimationFrame(this.glowFrame);
+    this.glowFrame = null;
+    this.glowCard = null;
+    this.artworkGlowPosition.clear();
   }
 
   seekToLyric(line: LyricLine): void { this.player.seek(line.time); }

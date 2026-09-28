@@ -4,7 +4,8 @@ Lutsra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. D�
 
 V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
 
-**Phiên bản hiện tại: 0.2.0 (desktop Windows).** Checkpoint này chốt các cải tiến giao diện và trải nghiệm nghe nhạc trên desktop dưới tên Lutsra. Android được phát triển sau checkpoint này, với mục tiêu phiên bản 0.3.0; ứng dụng Android chưa nằm trong bản 0.2.0.
+**Phiên bản hiện tại: 0.2.1 (desktop Windows).** Bản này tiếp tục hoàn thiện giao diện, bố cục và trải nghiệm duyệt thư viện sau checkpoint 0.2.0. Android được phát triển sau bản desktop này, với mục tiêu phiên bản 0.3.0; ứng dụng Android chưa nằm trong bản 0.2.1.
+
 ## Trạng thái hiện tại
 
 Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn thành. Các chức năng V1 đã được nghiệm thu thủ công trên Windows:
@@ -19,11 +20,12 @@ Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn 
 - Phase 3 bổ sung semantic design tokens; giao diện hiện có 2 theme Dark/Light, 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
 - Phase 3.2 bổ sung real-time spectrum visualizer trên Now Playing, lấy dữ liệu FFT từ chính `HTMLAudioElement` qua Web Audio API.
 - Phase 3.3–3.5 bổ sung Track Properties, app header tích hợp, global search, Media Session cho phím media, metadata nghệ sĩ online và cấu trúc component TS/HTML/SCSS tách biệt.
-- Checkpoint desktop 0.2.0 đạt 184 Angular tests, 34 backend tests, production build, Electron smoke test và bản Windows unpacked.
+- Bản 0.2.1 bổ sung hai kiểu bố cục Panel/Classic có lưu vào settings, điều khiển sidebar, sắp xếp và ẩn/hiện các cột Songs, điều hướng Folders theo URL, hiển thị lyrics đồng bộ từ file `.lrc` cùng tên với bài hát và hiệu ứng nền theo artwork ở Now Playing.
+- Trên mã nguồn hiện tại, 218 Angular tests, 34 backend tests, typecheck Electron, production build và Electron smoke test đều thành công. Bản Windows unpacked đã được kiểm tra ở checkpoint 0.2.0; chưa xác nhận đóng gói Windows cho 0.2.1.
 
 Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Dự án đã có cấu hình tạo NSIS installer và bản portable Windows nhưng chưa có app icon chính thức, code signing hoặc bản phát hành công khai. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
-Giao diện hiện tại là nền tảng ổn định để sử dụng và tiếp tục tinh chỉnh. Phase 3.1 tập trung vào visual refinement dựa trên các ứng dụng desktop music player tham khảo; phase này không thay đổi playback, IPC, database hoặc scanner.
+Giao diện hiện tại là nền tảng để sử dụng và tiếp tục tinh chỉnh. Tài liệu Phase 3.1 ghi lại brief thiết kế ở thời điểm trước; các bổ sung 0.2.1 về lyrics và settings đã mở rộng IPC và dữ liệu lưu trữ.
 
 ## Chức năng V1
 
@@ -31,12 +33,12 @@ Giao diện hiện tại là nền tảng ổn định để sử dụng và ti�
 | --- | --- |
 | Music folders | Chọn nhiều thư mục bằng native picker, scan recursive, xóa root khỏi library mà không xóa file |
 | Metadata | Title, artist, album artist, album, genre, year, track/disc number, duration, codec, bitrate, sample rate, bit depth, channels và embedded artwork |
-| Library | Browse Songs, Albums, Artists và cấu trúc filesystem trong Folders |
+| Library | Browse Songs, Albums, Artists và cấu trúc filesystem trong Folders; tìm kiếm, lọc và tùy chỉnh cột Songs |
 | Playback | Play, pause/resume, previous/next, seek, volume/mute, repeat off/one/all và shuffle |
 | Queue | Queue độc lập thứ tự library, hỗ trợ chuyển bài, xóa và clear |
 | Playlists | Tạo, đổi tên, xóa, thêm/xóa/sắp xếp entry; cho phép cùng track xuất hiện nhiều lần |
 | Persistence | SQLite lưu folder, track, directory snapshot, playlist, settings và scan run |
-| Desktop UX | Bottom player, Now Playing, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
+| Desktop UX | Bố cục Panel/Classic, sidebar có thể thu gọn hoặc ẩn, bottom player, Now Playing, lyrics `.lrc` đồng bộ, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
 
 Định dạng scanner ưu tiên: **MP3, FLAC, WAV, M4A/AAC, OGG và Opus**. Việc đọc được metadata không đảm bảo Chromium phát được mọi codec/container. File không được Chromium hỗ trợ sẽ tạo playback error; V1 không transcoding.
 
@@ -102,6 +104,8 @@ src/app/
     mock/            # Browser mock adapters, fixtures và scenarios
     models/          # Domain models
     player/          # PlayerService và queue state
+    layout/          # Layout preference, navigation và artwork glow
+    settings/        # Tùy chọn cột Songs
     theme/           # ThemeService và theme persistence
   features/          # Home, Songs, Albums, Artists, Folders, Playlists...
   shared/            # Sidebar, player bar, queue drawer, icon, spectrum visualizer và pipes
@@ -165,8 +169,8 @@ npm run package:win
 
 Artifact được tạo trong `release/`:
 
-- `Lutsra-Setup-0.2.0-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
-- `Lutsra-Portable-0.2.0-x64.exe`: chạy trực tiếp, không cần cài đặt.
+- `Lutsra-Setup-0.2.1-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
+- `Lutsra-Portable-0.2.1-x64.exe`: chạy trực tiếp, không cần cài đặt.
 
 Để tạo bản unpacked phục vụ kiểm tra nhanh mà không sinh installer:
 
@@ -183,6 +187,7 @@ Database và artwork vẫn nằm trong thư mục `userData` của Windows, tác
 ```bash
 npm test -- --watch=false --browsers=ChromeHeadless
 npm run test:electron
+npx tsc -p electron/tsconfig.json --noEmit
 npm run smoke:electron
 ```
 
@@ -206,6 +211,8 @@ Lần mở đầu tiên sau khi đổi tên, ứng dụng sao chép thư viện,
 Track ID là SHA-256 của normalized canonical path. Trên Windows identity không phân biệt hoa thường. Scanner dùng `fileSize + lastModified` để bỏ qua metadata không đổi, giới hạn metadata concurrency ở 4 và ghi tối đa 100 tracks mỗi batch. Scan thành công mới reconcile file mất; root lỗi không xóa snapshot library cũ.
 
 Artwork chỉ nhận JPEG, PNG hoặc WebP tối đa 10 MiB. Nội dung được hash để deduplicate và Track chỉ giữ URL protocol, không giữ base64 lặp lại.
+
+Lyrics cục bộ được đọc từ file `.lrc` có cùng tên gốc và nằm cạnh file audio. Main Process kiểm tra đường dẫn thuộc music root đã đăng ký, giới hạn file ở 1 MiB và hỗ trợ UTF-8, UTF-16LE, UTF-16BE. Now Playing hỗ trợ dòng có timestamp và thẻ `offset`; có thể bấm dòng lyrics để seek. Không có tìm kiếm hoặc tải lyrics online.
 
 ## Giới hạn V1
 

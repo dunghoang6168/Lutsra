@@ -40,6 +40,23 @@ describe('PlayerBarComponent (Keyboard & Controls)', () => {
     expect(component).toBeTruthy();
   });
 
+  it('renders as an inset rounded panel', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const panel = host.querySelector<HTMLElement>('.player-bar')!;
+    const hostStyle = getComputedStyle(host);
+    const panelStyle = getComputedStyle(panel);
+
+    expect(hostStyle.paddingTop).toBe('8px');
+    expect(hostStyle.paddingRight).toBe('8px');
+    expect(hostStyle.paddingBottom).toBe('8px');
+    expect(hostStyle.paddingLeft).toBe('8px');
+    expect(panelStyle.borderTopWidth).toBe('1px');
+    expect(panelStyle.borderRightWidth).toBe('1px');
+    expect(panelStyle.borderBottomWidth).toBe('1px');
+    expect(panelStyle.borderLeftWidth).toBe('1px');
+    expect(panelStyle.borderTopLeftRadius).toBe('12px');
+  });
+
   it('should omit source quality while keeping volume and queue controls for an active track', () => {
     playerService.currentTrack.set(testTrack);
     fixture.detectChanges();
@@ -69,52 +86,6 @@ describe('PlayerBarComponent (Keyboard & Controls)', () => {
     expect(getComputedStyle(controlButton).height).toBe('32px');
     expect(getComputedStyle(playButton).width).toBe('32px');
     expect(getComputedStyle(playButton).height).toBe('32px');
-  });
-
-  it('should toggle play/pause on global Space key when focus is not on interactive elements', () => {
-    const toggleSpy = spyOn(playerService, 'togglePlayPause');
-    const event = new KeyboardEvent('keydown', { code: 'Space', cancelable: true });
-    const preventDefaultSpy = spyOn(event, 'preventDefault');
-
-    // Focus is on body (default)
-    component.onGlobalKeyDown(event);
-
-    expect(preventDefaultSpy).toHaveBeenCalled();
-    expect(toggleSpy).toHaveBeenCalled();
-  });
-
-  it('should NOT toggle playback or preventDefault on Space key when focus is on a button', () => {
-    const toggleSpy = spyOn(playerService, 'togglePlayPause');
-    const button = document.createElement('button');
-    document.body.appendChild(button);
-    button.focus();
-
-    const event = new KeyboardEvent('keydown', { code: 'Space', cancelable: true });
-    const preventDefaultSpy = spyOn(event, 'preventDefault');
-
-    component.onGlobalKeyDown(event);
-
-    expect(preventDefaultSpy).not.toHaveBeenCalled();
-    expect(toggleSpy).not.toHaveBeenCalled();
-
-    document.body.removeChild(button);
-  });
-
-  it('should NOT toggle playback on Space key when focus is on an input or textarea', () => {
-    const toggleSpy = spyOn(playerService, 'togglePlayPause');
-    const input = document.createElement('input');
-    document.body.appendChild(input);
-    input.focus();
-
-    const event = new KeyboardEvent('keydown', { code: 'Space', cancelable: true });
-    const preventDefaultSpy = spyOn(event, 'preventDefault');
-
-    component.onGlobalKeyDown(event);
-
-    expect(preventDefaultSpy).not.toHaveBeenCalled();
-    expect(toggleSpy).not.toHaveBeenCalled();
-
-    document.body.removeChild(input);
   });
 
   it('should seek on pointer press and drag', () => {

@@ -39,8 +39,10 @@ test('lyrics service reads only a bounded sidecar inside a registered music fold
   try {
     assert.equal(await service.get(trackId), null);
     assert.equal(await service.get('track-unknown'), null);
+    assert.deepEqual(await service.findTracksWithLyrics([trackId, 'track-unknown']), []);
     await writeFile(lyricPath, '\ufeff[00:01.00]Hello');
     assert.equal(await service.get(trackId), '[00:01.00]Hello');
+    assert.deepEqual(await service.findTracksWithLyrics([trackId, 'track-unknown']), [trackId]);
     await writeFile(lyricPath, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('[00:02.00]World', 'utf16le')]));
     assert.equal(await service.get(trackId), '[00:02.00]World');
     const bigEndianText = Buffer.from('[00:03.00]Again', 'utf16le');
@@ -49,9 +51,11 @@ test('lyrics service reads only a bounded sidecar inside a registered music fold
     assert.equal(await service.get(trackId), '[00:03.00]Again');
     await writeFile(lyricPath, Buffer.alloc(1024 * 1024 + 1));
     await assert.rejects(service.get(trackId), /too large/);
+    assert.deepEqual(await service.findTracksWithLyrics([trackId]), [trackId]);
     resolvedPath = path.join(root, 'outside.flac');
     await writeFile(resolvedPath, 'audio');
     await assert.rejects(service.get(trackId), /outside registered music folders/);
+    assert.deepEqual(await service.findTracksWithLyrics([trackId]), []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -80,6 +84,8 @@ test('renamed app migrates the newest legacy library and artwork without changin
     const migrated = new DatabaseService(path.join(targetRoot, 'lutsra.sqlite'));
     assert.equal(migrated.getSettings().defaultVolume, 0.7);
     assert.deepEqual(migrated.getSettings().hiddenSongColumns, []);
+    assert.deepEqual(migrated.getSettings().songColumnOrder, ['artist', 'album', 'duration', 'codec', 'sampleRate', 'lyrics']);
+    assert.equal(migrated.getSettings().layoutMode, 'inset');
     assert.equal(migrated.resolveArtwork('a'.repeat(64))?.path, path.join(targetRoot, 'artwork-cache', 'cover.jpg'));
     migrated.close();
     assert.equal(await migrateLegacyProfile(targetRoot, appData), null);
@@ -113,7 +119,14 @@ test('settings IPC accepts allowlisted themes and rejects invalid values', () =>
   assert.deepEqual(validSettings({ themePreset: 'light', accentColor: 'amber' }), { themePreset: 'light', accentColor: 'amber' });
   assert.throws(() => validSettings({ themePreset: 'sage' }), /Invalid theme preset/);
   assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
+  assert.deepEqual(validSettings({ layoutMode: 'classic' }), { layoutMode: 'classic' });
+  assert.throws(() => validSettings({ layoutMode: 'floating' }), /Invalid layout mode/);
   assert.deepEqual(validSettings({ hiddenSongColumns: ['artist', 'codec', 'artist'] }), { hiddenSongColumns: ['artist', 'codec'] });
+  assert.deepEqual(validSettings({ hiddenSongColumns: ['lyrics'] }), { hiddenSongColumns: ['lyrics'] });
+  const songColumnOrder = ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate'];
+  assert.deepEqual(validSettings({ songColumnOrder }), { songColumnOrder });
+  assert.throws(() => validSettings({ songColumnOrder: ['lyrics', 'lyrics'] }), /Invalid Songs column order/);
+  assert.throws(() => validSettings({ songColumnOrder: ['title', 'artist', 'album', 'duration', 'codec', 'sampleRate'] }), /Invalid Songs column order/);
   assert.throws(() => validSettings({ hiddenSongColumns: ['title'] }), /Invalid Songs columns/);
   assert.throws(() => validSettings({ hiddenSongColumns: 'artist' }), /Invalid Songs columns/);
 });
@@ -388,7 +401,7 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     const withDuplicates = database.addPlaylistTracks(playlist.id, [firstTrackId, firstTrackId]);
     assert.equal(withDuplicates.entries.length, 2);
     assert.notEqual(withDuplicates.entries[0]?.id, withDuplicates.entries[1]?.id);
-    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'dark', accentColor: 'cyan', hiddenSongColumns: ['artist', 'codec'] });
+    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'dark', accentColor: 'cyan', layoutMode: 'classic', hiddenSongColumns: ['artist', 'codec'], songColumnOrder: ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate'] });
 
     database.close();
     database = new DatabaseService(databasePath);
@@ -397,7 +410,9 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     assert.equal(database.getSettings().repeatMode, 'all');
     assert.equal(database.getSettings().themePreset, 'dark');
     assert.equal(database.getSettings().accentColor, 'cyan');
+    assert.equal(database.getSettings().layoutMode, 'classic');
     assert.deepEqual(database.getSettings().hiddenSongColumns, ['artist', 'codec']);
+    assert.deepEqual(database.getSettings().songColumnOrder, ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate']);
 
     await unlink(audioPath);
     const reopenedScanner = new ScannerService(database, new ArtworkService(artworkPath, database), () => undefined);

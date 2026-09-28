@@ -35,8 +35,8 @@
           } @else {
             <h3>Mock Environment (Browser Mode)</h3>
             <p>
-              Settings, folder modifications and playlists are preserved in-memory across route navigation.
-              Reloading the browser resets them to fixture defaults; native filesystem access is only available in Electron.
+              Layout preference is saved in this browser. Other settings, folder modifications and playlists are
+              preserved in-memory across route navigation and reset on reload; native filesystem access is only available in Electron.
             </p>
           }
         </div>
@@ -158,6 +158,8 @@
             </div>
           </div>
         </section>
+
+        <app-layout-settings />
 
         <!-- Section 1: Music Folders & Library Management -->
         <section class="settings-card card-base">

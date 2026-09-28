@@ -26,11 +26,43 @@ describe('SongColumnsSettingsComponent', () => {
     const title = section.querySelector('input[aria-label="Show Title column (always visible)"]') as HTMLInputElement;
     const artist = section.querySelector('input[aria-label="Show Artist column"]') as HTMLInputElement;
     const album = section.querySelector('input[aria-label="Show Album column"]') as HTMLInputElement;
+    const lyrics = section.querySelector('input[aria-label="Show Lyrics column"]') as HTMLInputElement;
     expect(title.checked).toBeTrue();
     expect(title.disabled).toBeTrue();
     expect(artist.checked).toBeFalse();
     expect(album.checked).toBeTrue();
-    expect(section.querySelectorAll('input[type="checkbox"]').length).toBe(8);
+    expect(lyrics.checked).toBeTrue();
+    expect(section.querySelectorAll('input[type="checkbox"]').length).toBe(9);
+  });
+
+  it('persists the Lyrics column choice', async () => {
+    const lyrics = fixture.nativeElement.querySelector('input[aria-label="Show Lyrics column"]') as HTMLInputElement;
+    lyrics.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(saveSettings).toHaveBeenCalledOnceWith({ hiddenSongColumns: ['artist', 'lyrics'] });
+    expect(lyrics.checked).toBeFalse();
+  });
+
+  it('numbers hidden columns and moves only the six middle columns', async () => {
+    const cards = () => Array.from(fixture.nativeElement.querySelectorAll('.song-column-option') as NodeListOf<HTMLElement>);
+    expect(cards().map((card) => card.dataset['column'])).toEqual([
+      'index', 'title', 'artist', 'album', 'duration', 'codec', 'sampleRate', 'lyrics', 'actions',
+    ]);
+    expect(cards().map((card) => card.querySelector('.song-column-position')?.textContent?.trim()))
+      .toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    expect(cards()[2].querySelector('input')?.checked).toBeFalse();
+    expect((fixture.nativeElement.querySelector('[aria-label="Move Artist column earlier"]') as HTMLButtonElement).disabled).toBeTrue();
+    expect((fixture.nativeElement.querySelector('[aria-label="Move Lyrics column later"]') as HTMLButtonElement).disabled).toBeTrue();
+
+    (fixture.nativeElement.querySelector('[aria-label="Move Album column earlier"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(cards().map((card) => card.dataset['column'])).toEqual([
+      'index', 'title', 'album', 'artist', 'duration', 'codec', 'sampleRate', 'lyrics', 'actions',
+    ]);
+    expect(saveSettings).toHaveBeenCalledOnceWith({ songColumnOrder: ['album', 'artist', 'duration', 'codec', 'sampleRate', 'lyrics'] });
+    expect(cards()[3].querySelector('input')?.checked).toBeFalse();
   });
 
   it('saves a column switch immediately and updates its checked state', async () => {

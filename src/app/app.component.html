@@ -1,13 +1,41 @@
 
-    <div class="app-layout">
-      <app-header />
+    <div class="app-layout" [class.layout-classic]="layoutPreference.mode() === 'classic'">
+      @if (nowPlayingArtwork(); as artwork) {
+        <div class="now-playing-backdrop" aria-hidden="true">
+          @if (layoutPreference.mode() === 'classic') {
+            <img class="classic-ambient-img" [src]="artwork" alt="" />
+          } @else if (artworkGlowPosition.bounds(); as bounds) {
+            @if (panelGlow(); as glow) {
+              @if (glow.source === artwork) {
+                @if (glow.url) {
+                  <img class="panel-edge-glow-img" [src]="glow.url" alt=""
+                    [style.left.px]="bounds.left - bounds.width * edgeGlowSpread"
+                    [style.top.px]="bounds.top - bounds.height * edgeGlowSpread"
+                    [style.width.px]="bounds.width * (1 + edgeGlowSpread * 2)"
+                    [style.height.px]="bounds.height * (1 + edgeGlowSpread * 2)" />
+                } @else {
+                  <img class="panel-glow-img" [src]="artwork" alt=""
+                    [style.left.px]="bounds.left" [style.top.px]="bounds.top"
+                    [style.width.px]="bounds.width" [style.height.px]="bounds.height" />
+                }
+              }
+            }
+          }
+        </div>
+      }
+      <app-header
+        [sidebarHidden]="isSidebarHidden()"
+        (toggleSidebarVisibility)="onToggleSidebarVisibility()"
+      />
 
       <!-- Main Workspace (Sidebar + Router Content + Queue Drawer) -->
-      <div class="workspace">
-        <app-sidebar
-          [isCollapsed]="isSidebarCollapsed()"
-          (toggleCollapse)="onToggleSidebar()"
-        />
+      <div class="workspace" [class.has-ambient-artwork]="nowPlayingArtwork()">
+        @if (!isSidebarHidden()) {
+          <app-sidebar
+            [isCollapsed]="isSidebarCollapsed()"
+            (toggleCollapse)="onToggleSidebar()"
+          />
+        }
 
         <main class="main-content" role="main">
           <router-outlet />
@@ -21,9 +49,10 @@
         />
       </div>
 
-      <!-- Fixed Bottom Player Bar -->
-      <app-player-bar
-        [isQueueOpen]="isQueueOpen()"
-        (toggleQueue)="onToggleQueue()"
-      />
+      @if (showPlayerBar()) {
+        <app-player-bar
+          [isQueueOpen]="isQueueOpen()"
+          (toggleQueue)="onToggleQueue()"
+        />
+      }
     </div>

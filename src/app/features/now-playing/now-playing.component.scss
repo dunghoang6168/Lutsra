@@ -7,29 +7,9 @@
       scrollbar-width: auto;
       scrollbar-color: auto;
       padding: var(--space-8);
-      background: var(--bg-app);
+      background: transparent;
       display: flex;
       flex-direction: column;
-    }
-
-    .now-playing-page.has-artwork-palette {
-      --artwork-glow-opacity: 0.15;
-      --artwork-secondary-opacity: 0.12;
-      --artwork-wash-start-opacity: 0.18;
-      --artwork-wash-end-opacity: 0.10;
-      --artwork-glow-position: 25% 41%;
-      background:
-        radial-gradient(ellipse 115% 115% at var(--artwork-glow-position), rgb(var(--artwork-primary) / var(--artwork-glow-opacity)), transparent 88%),
-        radial-gradient(ellipse 130% 110% at 82% 55%, rgb(var(--artwork-secondary) / var(--artwork-secondary-opacity)), transparent 95%),
-        linear-gradient(110deg, rgb(var(--artwork-primary) / var(--artwork-wash-start-opacity)), rgb(var(--artwork-primary) / var(--artwork-wash-end-opacity))),
-        var(--bg-app);
-    }
-
-    :host-context(html[data-theme='light']) .now-playing-page.has-artwork-palette {
-      --artwork-glow-opacity: 0.08;
-      --artwork-secondary-opacity: 0.06;
-      --artwork-wash-start-opacity: 0.07;
-      --artwork-wash-end-opacity: 0.05;
     }
 
     .now-playing-page::-webkit-scrollbar {
@@ -56,12 +36,11 @@
 
     .now-playing-content {
       display: grid;
-      grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, min(52vh, max(340px, 33%))) minmax(0, 1fr);
       column-gap: var(--space-8);
       row-gap: var(--space-4);
-      max-width: 1100px;
       margin: auto;
-      width: 100%;
+      width: min(100%, max(1100px, 80%), 180vh);
       align-items: stretch;
     }
 
@@ -71,22 +50,6 @@
       grid-row: 1;
       min-width: 0;
       position: relative;
-      isolation: isolate;
-    }
-
-    .artwork-glow-img {
-      position: absolute;
-      inset: 0 auto auto 0;
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
-      filter: blur(32px) brightness(2.4);
-      opacity: 0.94;
-      pointer-events: none;
-    }
-
-    :host-context(html[data-theme='light']) .artwork-glow-img {
-      opacity: 0.50;
     }
 
     .lyrics-line:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
@@ -94,7 +57,7 @@
       grid-column: 1;
       grid-row: 2;
       min-width: 0;
-      height: 240px;
+      height: clamp(240px, 28vh, 520px);
       padding: var(--space-4);
       border-radius: var(--radius-lg);
       border: 1px solid var(--border-default);
@@ -135,6 +98,10 @@
       aspect-ratio: 1;
       border-radius: var(--radius-xl);
       overflow: hidden;
+      box-shadow: none;
+    }
+
+    .now-playing-page.layout-classic .large-artwork-card {
       box-shadow: var(--shadow-lg);
     }
 
@@ -174,6 +141,57 @@
       min-width: 0;
       padding: var(--space-3);
       margin-bottom: var(--space-3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+
+    .track-heading-text {
+      min-width: 0;
+    }
+
+    .heading-queue-btn {
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .heading-queue-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface-hover);
+    }
+
+    .heading-queue-btn.active {
+      color: var(--accent-primary);
+      background: var(--accent-muted);
+      border-color: var(--accent-primary);
+    }
+
+    .heading-queue-btn:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .heading-queue-btn .queue-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: var(--radius-full);
+      padding: 1px 5px;
+      line-height: 1;
     }
 
     .track-title {
@@ -182,6 +200,7 @@
       color: var(--text-primary);
       line-height: 1.2;
       margin-bottom: var(--space-2);
+      overflow-wrap: anywhere;
     }
 
     .artist-album-row {
@@ -206,6 +225,7 @@
     /* Inline Controls */
     .inline-controls {
       padding: var(--space-3);
+      margin-top: auto;
       margin-bottom: 0;
     }
 
@@ -472,20 +492,18 @@
     }
 
     @media (max-width: 960px) {
-      .now-playing-page.has-artwork-palette {
-        --artwork-glow-position: 50% 22%;
-      }
       .now-playing-content {
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
+        width: 100%;
       }
       .artwork-column { width: 260px; max-width: 100%; order: 1; }
       .details-column, .technical-specs-card, .lyrics-card { width: min(100%, 520px); max-width: 100%; }
       .details-column { order: 2; }
       .technical-specs-card { order: 3; }
-      .lyrics-card { order: 4; }
+      .lyrics-card { order: 4; height: 240px; }
       .lyrics-card h2, .lyrics-line { text-align: left; }
       .artist-album-row {
         justify-content: center;
@@ -497,9 +515,6 @@
 
     @container main-content (max-width: 760px) {
       .now-playing-page { padding: var(--space-4); }
-      .now-playing-page.has-artwork-palette {
-        --artwork-glow-position: 50% 22%;
-      }
       .now-playing-content {
         display: flex;
         flex-direction: column;
@@ -507,13 +522,14 @@
         gap: var(--space-5);
         margin: 0 auto;
         text-align: center;
+        width: 100%;
       }
       .artwork-column { width: min(100%, 340px); max-width: 100%; }
       .artwork-column { order: 1; }
       .details-column, .lyrics-card, .technical-specs-card { width: min(100%, 520px); max-width: 100%; }
       .details-column { order: 2; }
       .technical-specs-card { order: 3; }
-      .lyrics-card { order: 4; }
+      .lyrics-card { order: 4; height: 240px; }
       .lyrics-card h2, .lyrics-line { text-align: left; }
       .artist-album-row { justify-content: center; }
       .specs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

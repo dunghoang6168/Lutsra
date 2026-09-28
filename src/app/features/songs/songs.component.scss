@@ -203,12 +203,14 @@
     }
 
     .col-index { width: 4%; text-align: center; }
-    .col-title { width: 27%; }
+    .col-title { width: 23%; }
     .col-artist { width: 15%; }
-    .col-album { width: 18%; }
+    .col-album { width: 16%; }
     .col-duration { width: 7%; font-family: var(--font-family-mono); }
     .col-codec { width: 8%; }
-    .col-quality { width: 12%; font-family: var(--font-family-mono); }
+    .col-quality { width: 11%; font-family: var(--font-family-mono); }
+    .col-lyrics { width: 7%; text-align: center; }
+    .lyrics-check { color: var(--accent-primary); display: inline-flex; vertical-align: middle; }
     .col-actions { width: 9%; text-align: right; }
 
     .songs-table .user-hidden { display: none; }
@@ -430,10 +432,11 @@
     @container main-content (max-width: 780px) {
       .col-codec, .col-quality { display: none; }
       .col-index { width: 5%; }
-      .col-title { width: 34%; }
+      .col-title { width: 31%; }
       .col-artist { width: 20%; }
-      .col-album { width: 22%; }
+      .col-album { width: 18%; }
       .col-duration { width: 9%; }
+      .col-lyrics { width: 7%; }
       .col-actions { width: 10%; }
       .songs-table .col-actions, .songs-table .col-index { padding-inline: 4px; }
       .row-action-btn { width: 22px; }
@@ -442,15 +445,16 @@
     @container main-content (max-width: 600px) {
       .col-album { display: none; }
       .col-index { width: 7%; }
-      .col-title { width: 44%; }
-      .col-artist { width: 26%; }
+      .col-title { width: 37%; }
+      .col-artist { width: 20%; }
       .col-duration { width: 11%; }
+      .col-lyrics { width: 52px; }
       .col-actions { width: 54px; }
       .row-action-btn { width: 20px; height: 24px; }
     }
 
     @container main-content (max-width: 440px) {
-      .col-artist { display: none; }
+      .col-artist, .col-lyrics { display: none; }
       .col-index { width: 32px; }
       .col-title { width: auto; }
       .col-duration { width: 52px; }

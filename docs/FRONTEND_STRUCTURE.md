@@ -17,7 +17,7 @@ New components must use external HTML and SCSS. Inline `template` or `styles` me
 `src/styles.scss` is only the global entrypoint. It composes these modules with `@use`:
 
 - `_tokens.scss`: semantic color aliases, typography, spacing, dimensions, radii, shadows, and transitions.
-- `_themes.scss`: the eight theme presets, accent palettes, and light-theme overrides.
+- `_themes.scss`: dark and light themes, six accent palettes, and light-theme overrides.
 - `_base.scss`: reset, document layout, focus, scrollbar, and native control defaults.
 - `_primitives.scss`: reusable buttons, badges, cards, form controls, tables, modal actions, and loading/empty/error states.
 - `_utilities.scss`: small single-purpose helpers such as truncation and screen-reader-only text.

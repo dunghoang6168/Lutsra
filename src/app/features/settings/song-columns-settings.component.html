@@ -1,29 +1,57 @@
 <section class="settings-card card-base" aria-labelledby="songs-settings-title">
   <div class="card-header">
     <h2 id="songs-settings-title">Songs</h2>
-    <span class="card-desc">Choose which columns appear in the Songs table. Narrow windows may hide additional columns.</span>
+    <span class="card-desc">Choose which columns appear and use the arrows to change their order. Hidden columns keep their position. Narrow windows may hide additional columns.</span>
   </div>
   @if (errorMessage()) {
     <p class="song-columns-error" role="alert">{{ errorMessage() }}</p>
   }
   <div class="song-columns-grid">
-    <div class="song-column-option locked">
+    <div class="song-column-option fixed" data-column="index">
+      <span class="song-column-position">1</span>
+      <div class="song-column-copy">
+        <span class="song-column-name">Track number</span>
+        <span class="song-column-desc">Position in the current list</span>
+      </div>
+      <input type="checkbox" [checked]="isSongColumnVisible('index')" [disabled]="isLoading()"
+        (change)="onSongColumnChange('index', $any($event.target).checked)"
+        aria-label="Show Track number column" />
+    </div>
+    <div class="song-column-option locked" data-column="title">
+      <span class="song-column-position">2</span>
       <div class="song-column-copy">
         <span class="song-column-name">Title</span>
         <span class="song-column-desc">Always visible so each track can be identified</span>
       </div>
       <input type="checkbox" checked disabled aria-label="Show Title column (always visible)" />
     </div>
-    @for (column of songColumnOptions; track column.id) {
-      <label class="song-column-option">
+    @for (column of movableColumns(); track column.id; let idx = $index) {
+      <div class="song-column-option" [attr.data-column]="column.id">
+        <span class="song-column-position">{{ idx + 3 }}</span>
         <span class="song-column-copy">
           <span class="song-column-name">{{ column.label }}</span>
           <span class="song-column-desc">{{ column.description }}</span>
         </span>
+        <span class="song-column-move-controls">
+          <button type="button" [disabled]="isLoading() || idx === 0" (click)="moveColumn(column.id, -1)"
+            [attr.aria-label]="'Move ' + column.label + ' column earlier'" title="Move earlier">↑</button>
+          <button type="button" [disabled]="isLoading() || idx === movableColumns().length - 1" (click)="moveColumn(column.id, 1)"
+            [attr.aria-label]="'Move ' + column.label + ' column later'" title="Move later">↓</button>
+        </span>
         <input type="checkbox" [checked]="isSongColumnVisible(column.id)" [disabled]="isLoading()"
           (change)="onSongColumnChange(column.id, $any($event.target).checked)"
           [attr.aria-label]="'Show ' + column.label + ' column'" />
-      </label>
+      </div>
     }
+    <div class="song-column-option fixed" data-column="actions">
+      <span class="song-column-position">9</span>
+      <div class="song-column-copy">
+        <span class="song-column-name">Actions</span>
+        <span class="song-column-desc">Play Next and Add to Queue</span>
+      </div>
+      <input type="checkbox" [checked]="isSongColumnVisible('actions')" [disabled]="isLoading()"
+        (change)="onSongColumnChange('actions', $any($event.target).checked)"
+        aria-label="Show Actions column" />
+    </div>
   </div>
 </section>

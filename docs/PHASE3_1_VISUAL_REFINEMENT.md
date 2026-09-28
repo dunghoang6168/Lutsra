@@ -1,5 +1,7 @@
 # Phase 3.1 — Visual refinement
 
+> Tài liệu này ghi lại brief và baseline của Phase 3.1. Trạng thái sản phẩm hiện tại và kết quả kiểm thử 0.2.1 nằm trong [README](../README.md); các ràng buộc trong brief có thể đã được thay đổi ở những phase sau.
+
 ## Mục tiêu
 
 Phase 3 đã hoàn thành nền tảng giao diện, theme persistence và icon abstraction. Phase 3.1 chỉ tinh chỉnh cách trình bày để Lutsra có cảm giác gọn, cân đối và phù hợp với desktop music library hơn. Playback, queue behavior, Electron IPC, database, scanner và public contracts không thay đổi.

@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../../core/player/player.service';
@@ -92,28 +92,4 @@ export class PlayerBarComponent {
   }
 
   finishVolumeAdjustment(): void { this.isVolumeAdjusting.set(false); }
-
-  @HostListener('window:keydown', ['$event'])
-  onGlobalKeyDown(event: KeyboardEvent): void {
-    const activeEl = document.activeElement as HTMLElement | null;
-    const activeTag = (activeEl?.tagName || '').toLowerCase();
-
-    // Skip global playback toggle if focus is inside form fields, buttons, links, or contenteditable
-    if (
-      activeTag === 'input' ||
-      activeTag === 'textarea' ||
-      activeTag === 'select' ||
-      activeTag === 'button' ||
-      activeTag === 'a' ||
-      activeEl?.getAttribute('role') === 'button' ||
-      activeEl?.isContentEditable
-    ) {
-      return;
-    }
-
-    if (event.code === 'Space') {
-      event.preventDefault();
-      this.player.togglePlayPause();
-    }
-  }
 }

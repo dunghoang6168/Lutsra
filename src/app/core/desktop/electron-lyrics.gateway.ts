@@ -7,4 +7,10 @@ export class ElectronLyricsGateway implements LyricsGateway {
     if (!api) return Promise.reject(new Error('Electron desktop API is unavailable'));
     return api.library.getLyrics(trackId);
   }
+
+  findTracksWithLyrics(trackIds: string[]): Promise<string[]> {
+    const api = getDesktopApi();
+    if (!api) return Promise.reject(new Error('Electron desktop API is unavailable'));
+    return api.library.findTracksWithLyrics(trackIds);
+  }
 }

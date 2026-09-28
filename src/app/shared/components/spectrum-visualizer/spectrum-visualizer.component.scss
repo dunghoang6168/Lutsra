@@ -1,6 +1,8 @@
 
     :host {
       display: block;
+      flex: 1 1 152px;
+      min-height: 152px;
       margin-bottom: var(--space-6);
     }
 
@@ -10,7 +12,7 @@
 
     .spectrum-panel {
       position: relative;
-      height: 152px;
+      height: 100%;
       overflow: hidden;
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
@@ -40,11 +42,13 @@
 
     @media (max-width: 960px), (max-height: 700px) {
       :host {
+        flex-basis: 104px;
+        min-height: 104px;
         margin-bottom: var(--space-4);
       }
 
       .spectrum-panel {
-        height: 104px;
+        height: 100%;
       }
 
       .spectrum-label {

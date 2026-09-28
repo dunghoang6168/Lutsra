@@ -1,0 +1,29 @@
+<section class="settings-card card-base" aria-labelledby="layout-settings-title">
+  <div class="card-header">
+    <h2 id="layout-settings-title">Layout</h2>
+    <span class="card-desc">Choose how the navigation and player frame the workspace</span>
+  </div>
+  <div class="layout-options" role="group" aria-label="Application layout">
+    <button type="button" class="layout-option"
+      [class.active]="layoutPreference.mode() === 'inset'"
+      [attr.aria-pressed]="layoutPreference.mode() === 'inset'"
+      (click)="layoutPreference.setMode('inset')">
+      <span class="layout-option-title">Panel</span>
+      <span class="layout-option-description">Rounded navigation and player panels. Player appears when music is available.</span>
+    </button>
+    <button type="button" class="layout-option"
+      [class.active]="layoutPreference.mode() === 'classic'"
+      [attr.aria-pressed]="layoutPreference.mode() === 'classic'"
+      (click)="layoutPreference.setMode('classic')">
+      <span class="layout-option-title">Classic</span>
+      <span class="layout-option-description">Navigation and player touch the edges. Player is always visible.</span>
+    </button>
+  </div>
+  <p class="layout-save-status" aria-live="polite">
+    @if (layoutPreference.saveState() === 'saving') { Saving layout… }
+    @else if (layoutPreference.saveState() === 'saved') { Layout saved }
+  </p>
+  @if (layoutPreference.saveState() === 'error') {
+    <p class="layout-save-error" role="alert">{{ layoutPreference.errorMessage() }}</p>
+  }
+</section>

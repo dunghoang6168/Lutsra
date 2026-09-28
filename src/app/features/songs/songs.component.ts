@@ -1,8 +1,8 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { LIBRARY_GATEWAY } from '../../core/contracts';
+import { LIBRARY_GATEWAY, LYRICS_GATEWAY } from '../../core/contracts';
 import { compareAlbumTracks, SongColumn, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { SongColumnPreferencesService } from '../../core/settings/song-column-preferences.service';
@@ -27,11 +27,14 @@ const UNKNOWN_YEAR = 'unknown';
 })
 export class SongsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
+  private readonly lyricsGateway = inject(LYRICS_GATEWAY);
   readonly songColumns = inject(SongColumnPreferencesService);
   private readonly destroyRef = inject(DestroyRef);
+  private lyricsRequestVersion = 0;
   readonly player = inject(PlayerService);
 
   readonly tracks = signal<Track[]>([]);
+  readonly lyricTrackIds = signal<ReadonlySet<string>>(new Set());
   readonly isLoading = signal<boolean>(true);
   readonly searchQuery = signal<string>('');
   readonly sortColumn = signal<SortColumn>('title');
@@ -55,6 +58,33 @@ export class SongsComponent implements OnInit {
   readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.activeFilterCount()));
   readonly selectedTrackId = signal<string | null>(null);
   readonly noticeMessage = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      const tracks = this.tracks();
+      const hidden = this.songColumns.isHidden('lyrics');
+      const loadingPreferences = this.songColumns.isLoading();
+      const version = ++this.lyricsRequestVersion;
+      this.lyricTrackIds.set(new Set());
+      if (hidden || loadingPreferences || !tracks.length) return;
+      void this.loadLyricsAvailability(tracks.map((track) => track.id), version);
+    });
+    this.destroyRef.onDestroy(() => { ++this.lyricsRequestVersion; });
+  }
+
+  private async loadLyricsAvailability(trackIds: string[], version: number): Promise<void> {
+    try {
+      const found = new Set<string>();
+      for (let offset = 0; offset < trackIds.length; offset += 500) {
+        const batch = await this.lyricsGateway.findTracksWithLyrics(trackIds.slice(offset, offset + 500));
+        if (version !== this.lyricsRequestVersion) return;
+        batch.forEach((id) => found.add(id));
+        this.lyricTrackIds.set(new Set(found));
+      }
+    } catch {
+      if (version === this.lyricsRequestVersion) this.lyricTrackIds.set(new Set());
+    }
+  }
 
   readonly filteredTracks = computed<Track[]>(() => {
     const list = this.tracks();

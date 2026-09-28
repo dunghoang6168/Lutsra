@@ -158,12 +158,15 @@
                 <thead>
                   <tr>
                     <th class="col-num">#</th>
-                    <th class="col-title">File Name</th>
+                    <th class="col-title">Title</th>
+                    <th class="col-codec">Codec</th>
+                    <th class="col-lyrics">Lyrics</th>
                     <th class="col-duration">Duration</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (file of filesInCurrentFolder(); track file.id; let i = $index) {
+                    @let track = tracksById().get(file.trackId ?? '');
                     <tr
                       class="file-row"
                       (dblclick)="onPlayFile(file)"
@@ -173,11 +176,19 @@
                       <td class="col-title">
                         <div class="file-name-cell">
                           <app-icon name="file-audio" [size]="16" class="music-icon" />
-                          <span class="file-name truncate">{{ file.name }}</span>
+                          <span class="file-title truncate" [title]="track?.title || file.name">{{ track?.title || file.name }}</span>
                         </div>
                       </td>
+                      <td class="col-codec">
+                        <span class="badge-codec" [class.hi-res]="track && isHiRes(track)">{{ track?.codec || 'UNKNOWN' }}</span>
+                      </td>
+                      <td class="col-lyrics" [attr.aria-label]="lyricTrackIds().has(file.trackId ?? '') ? 'Lyrics available' : 'No lyrics'">
+                        @if (lyricTrackIds().has(file.trackId ?? '')) {
+                          <app-icon name="check" [size]="17" [strokeWidth]="2.5" class="lyrics-check" />
+                        }
+                      </td>
                       <td class="col-duration">
-                        {{ getTrackDuration(file.trackId) | duration }}
+                        {{ (track?.duration ?? 0) | duration }}
                       </td>
                     </tr>
                   }

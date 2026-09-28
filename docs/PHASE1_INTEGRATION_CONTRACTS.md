@@ -34,13 +34,31 @@ Preload expose duy nhất `window.desktop`:
 interface DesktopApi {
   readonly runtime: 'electron';
   ping(): Promise<'pong'>;
+  windowControls: {
+    setTitleBarAppearance(mode: 'light' | 'dark'): Promise<void>;
+  };
   library: {
     getSnapshot(): Promise<LibrarySnapshot>;
     getFolderTree(folderId: string): Promise<FolderNode | null>;
+    getTrackDetails(trackId: string): Promise<TrackDetails>;
+    getLyrics(trackId: string): Promise<string | null>;
+    findTracksWithLyrics(trackIds: string[]): Promise<string[]>;
     selectAndAddFolders(): Promise<MusicFolder[]>;
     removeFolder(folderId: string): Promise<void>;
     startScan(folderIds?: string[]): Promise<void>;
     onScanProgress(listener: (value: ScanProgress) => void): () => void;
+  };
+  artistMetadata: {
+    refreshMissing(force?: boolean): Promise<void>;
+    ensureArtist(artistId: string): Promise<void>;
+    refreshArtist(artistId: string): Promise<ArtistOnlineMetadata | null>;
+    searchCandidates(artistName: string): Promise<ArtistMatchCandidate[]>;
+    setArtistMatch(artistId: string, musicBrainzId: string): Promise<ArtistOnlineMetadata | null>;
+    setWikipediaOverride(artistId: string, url: string | null): Promise<ArtistOnlineMetadata | null>;
+    selectCustomAvatar(artistId: string): Promise<string | null>;
+    clearCustomAvatar(artistId: string): Promise<void>;
+    openSource(url: string): Promise<void>;
+    onUpdated(listener: (update: ArtistMetadataUpdate) => void): () => void;
   };
   playlists: {
     list(): Promise<Playlist[]>;
@@ -59,6 +77,8 @@ interface DesktopApi {
 ```
 
 Callback progress chỉ nhận domain value, không nhận Electron event object. Main kiểm tra sender origin, kiểu dữ liệu, giới hạn chuỗi/danh sách và format ID.
+
+`LyricsGateway` cung cấp `getLyrics(trackId)` và `findTracksWithLyrics(trackIds)`. Backend chỉ đọc file `.lrc` cùng tên với file audio trong music root đã đăng ký; file bị giới hạn ở 1 MiB. `Settings` hiện lưu cả `layoutMode` (`inset` hoặc `classic`), `hiddenSongColumns` và `songColumnOrder`; Main xác thực các giá trị này trước khi lưu.
 
 ## PlaybackEngine
 
@@ -128,6 +148,7 @@ Các bảng hiện có:
 - `playlist_entries`
 - `settings`
 - `scan_runs`
+- `artist_metadata`
 
 Database bật foreign keys và WAL. Migration chạy trong transaction; lỗi sẽ rollback. Artwork binary nằm ngoài SQLite và được tham chiếu bằng content hash.
 

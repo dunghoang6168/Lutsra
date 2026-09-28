@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SettingsGateway } from '../contracts/settings.gateway';
-import { normalizeHiddenSongColumns, Settings } from '../models';
+import { DEFAULT_LAYOUT_MODE, DEFAULT_SONG_COLUMN_ORDER, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
 import { MOCK_FOLDERS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -12,7 +12,9 @@ export class MockSettingsGateway implements SettingsGateway {
     shuffle: false,
     themePreset: 'dark',
     accentColor: 'violet',
+    layoutMode: readLayoutMode(),
     hiddenSongColumns: [],
+    songColumnOrder: [...DEFAULT_SONG_COLUMN_ORDER],
   };
 
   async getSettings(): Promise<Settings> {
@@ -25,8 +27,22 @@ export class MockSettingsGateway implements SettingsGateway {
     this.settings = {
       ...this.settings,
       ...settings,
+      layoutMode: isLayoutMode(settings.layoutMode) ? settings.layoutMode : this.settings.layoutMode,
       hiddenSongColumns: settings.hiddenSongColumns === undefined ? this.settings.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns),
+      songColumnOrder: settings.songColumnOrder === undefined ? this.settings.songColumnOrder : normalizeSongColumnOrder(settings.songColumnOrder),
     };
+    if (settings.layoutMode !== undefined) {
+      try { localStorage.setItem('lutsra.layout.mode', this.settings.layoutMode); } catch { /* Browser storage is optional. */ }
+    }
     return JSON.parse(JSON.stringify(this.settings));
+  }
+}
+
+function readLayoutMode(): Settings['layoutMode'] {
+  try {
+    const mode = localStorage.getItem('lutsra.layout.mode');
+    return isLayoutMode(mode) ? mode : DEFAULT_LAYOUT_MODE;
+  } catch {
+    return DEFAULT_LAYOUT_MODE;
   }
 }

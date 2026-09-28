@@ -122,7 +122,9 @@ class SettingsGatewayStub implements SettingsGateway {
     shuffle: false,
     themePreset: 'dark',
     accentColor: 'violet',
+    layoutMode: 'inset',
     hiddenSongColumns: [],
+    songColumnOrder: ['artist', 'album', 'duration', 'codec', 'sampleRate', 'lyrics'],
   };
 
   async getSettings(): Promise<Settings> {

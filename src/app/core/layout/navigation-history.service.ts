@@ -19,7 +19,7 @@ export class NavigationHistoryService {
   constructor() {
     this.recordNavigation(this.router.url);
     this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
-      if (event instanceof NavigationEnd) this.recordNavigation(event.urlAfterRedirects);
+      if (event instanceof NavigationEnd) this.recordNavigation(event.urlAfterRedirects, this.router.currentNavigation()?.extras.replaceUrl === true);
       else if (event instanceof NavigationCancel || event instanceof NavigationError) this.pendingIndex = null;
     });
   }
@@ -34,7 +34,7 @@ export class NavigationHistoryService {
     void this.router.navigateByUrl(destination);
   }
 
-  private recordNavigation(url: string): void {
+  private recordNavigation(url: string, replaceCurrent = false): void {
     if (!url || url === '/') return;
     if (this.pendingIndex !== null) {
       const targetIndex = this.pendingIndex;
@@ -47,6 +47,10 @@ export class NavigationHistoryService {
     const currentIndex = this.currentIndex();
     const entries = this.entries();
     if (currentIndex >= 0 && entries[currentIndex] === url) return;
+    if (replaceCurrent && currentIndex >= 0) {
+      this.entries.update((items) => items.map((item, index) => index === currentIndex ? url : item));
+      return;
+    }
     const nextEntries = [...entries.slice(0, currentIndex + 1), url];
     this.entries.set(nextEntries);
     this.currentIndex.set(nextEntries.length - 1);

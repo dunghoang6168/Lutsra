@@ -8,6 +8,7 @@ import { ThemeService } from '../../core/theme/theme.service';
 import { getDesktopApi } from '../../core/desktop/desktop-api';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { SongColumnsSettingsComponent } from './song-columns-settings.component';
+import { LayoutSettingsComponent } from './layout-settings.component';
 
 export interface ThemePresetOption {
   id: ThemePreset;
@@ -23,7 +24,7 @@ export interface ThemePresetOption {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SongColumnsSettingsComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SongColumnsSettingsComponent, LayoutSettingsComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })

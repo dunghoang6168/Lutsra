@@ -1,8 +1,26 @@
 
+    :host {
+      display: block;
+      flex: 0 0 auto;
+      padding: 8px;
+      z-index: 10;
+    }
+
+    :host-context(.layout-classic) {
+      padding: 0;
+    }
+
+    :host-context(.layout-classic) .player-bar {
+      border: 0;
+      border-top: 1px solid var(--color-border-subtle);
+      border-radius: 0;
+    }
+
     .player-bar {
       height: var(--player-bar-height);
       background: var(--color-surface);
-      border-top: 1px solid var(--color-border-subtle);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
       transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
       display: grid;
       grid-template-columns: 280px 1fr 320px;
@@ -10,7 +28,6 @@
       padding: 0 var(--space-4);
       flex-shrink: 0;
       user-select: none;
-      z-index: 10;
     }
 
     /* Left: Track Info */

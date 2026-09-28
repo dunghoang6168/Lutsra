@@ -24,7 +24,7 @@ export async function migrateLegacyProfile(targetUserData: string, appData: stri
       return info.isFile() ? { root, databaseName: profile.databaseName, modified: info.mtimeMs } : null;
     } catch { return null; }
   }));
-  const source = candidates.filter((value): value is { root: string; databaseName: string; modified: number } => value !== null)
+  const source = candidates.filter((value) => value !== null)
     .sort((left, right) => right.modified - left.modified)[0];
   if (!source) return null;
 

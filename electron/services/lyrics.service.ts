@@ -1,4 +1,4 @@
-import { open, realpath } from 'node:fs/promises';
+import { open, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { DatabaseService } from './database.service.js';
 import { isPathInside } from '../utils/path-utils.js';
@@ -7,6 +7,29 @@ const MAX_LRC_BYTES = 1024 * 1024;
 
 export class LyricsService {
   constructor(private readonly database: DatabaseService) {}
+
+  async findTracksWithLyrics(trackIds: string[]): Promise<string[]> {
+    const roots = this.database.listFolders().map((folder) => folder.path);
+    const found: string[] = [];
+    for (let offset = 0; offset < trackIds.length; offset += 32) {
+      const batch = await Promise.all(trackIds.slice(offset, offset + 32).map(async (id) => {
+        const track = this.database.resolveTrack(id);
+        if (!track) return null;
+        try {
+          const audioPath = await realpath(track.path);
+          if (!roots.some((root) => isPathInside(audioPath, root))) return null;
+          const parsed = path.parse(audioPath);
+          const lyricPath = await realpath(path.join(parsed.dir, `${parsed.name}.lrc`));
+          if (!roots.some((root) => isPathInside(lyricPath, root))) return null;
+          return (await stat(lyricPath)).isFile() ? id : null;
+        } catch {
+          return null;
+        }
+      }));
+      found.push(...batch.filter((id): id is string => id !== null));
+    }
+    return found;
+  }
 
   async get(trackId: string): Promise<string | null> {
     const track = this.database.resolveTrack(trackId);

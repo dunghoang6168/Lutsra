@@ -2,11 +2,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AUDIO_ANALYSIS_ENGINE, LYRICS_GATEWAY, LyricsGateway, PLAYBACK_ENGINE, SETTINGS_GATEWAY } from '../../core/contracts';
 import { RightPanelService } from '../../core/layout/right-panel.service';
+import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
 import { MockPlaybackEngine, MockSettingsGateway } from '../../core/mock';
 import { MOCK_TRACKS } from '../../core/mock/fixtures/mock-data';
 import { PlayerService } from '../../core/player/player.service';
 import { NowPlayingComponent } from './now-playing.component';
-import { ArtworkPaletteService } from './artwork-palette.service';
 
 describe('NowPlayingComponent', () => {
   let fixture: ComponentFixture<NowPlayingComponent>;
@@ -15,6 +15,7 @@ describe('NowPlayingComponent', () => {
   let lyricsGateway: jasmine.SpyObj<LyricsGateway>;
 
   beforeEach(async () => {
+    localStorage.removeItem('lutsra.layout.mode');
     lyricsGateway = jasmine.createSpyObj<LyricsGateway>('LyricsGateway', ['getLyrics']);
     lyricsGateway.getLyrics.and.resolveTo('[00:01.00]First line\n[00:08.00]Second line\n[00:15.00]Third line\n[00:22.00]Fourth line');
     await TestBed.configureTestingModule({
@@ -38,7 +39,88 @@ describe('NowPlayingComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => fixture.destroy());
+  afterEach(() => {
+    fixture.destroy();
+    localStorage.removeItem('lutsra.layout.mode');
+  });
+
+  it('places the shared queue toggle in the track heading and reflects its count and open state', () => {
+    player.queue.set([{ id: 'queued-track', track: MOCK_TRACKS[0], originalIndex: 0 }]);
+    fixture.detectChanges();
+    const heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.track-heading-card')!;
+    const button = heading.querySelector<HTMLButtonElement>('.heading-queue-btn')!;
+    expect(button).not.toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.getAttribute('aria-controls')).toBe('queue-drawer');
+    expect(button.querySelector('.queue-badge')?.textContent?.trim()).toBe('1');
+    expect(heading.querySelector('h1')?.textContent).toContain(MOCK_TRACKS[0].title);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.volume-slider')).toBeNull();
+
+    button.click();
+    fixture.detectChanges();
+    expect(rightPanels.isQueueOpen()).toBeTrue();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.classList).toContain('active');
+    button.click();
+    fixture.detectChanges();
+    expect(rightPanels.isQueueOpen()).toBeFalse();
+  });
+
+  it('uses the footer queue button in Classic layout', async () => {
+    await TestBed.inject(LayoutPreferenceService).setMode('classic');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.heading-queue-btn')).toBeNull();
+  });
+
+  it('removes the cover shadow in Panel and restores it when switching to Classic', async () => {
+    const host = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(host);
+    try {
+      const page = host.querySelector<HTMLElement>('.now-playing-page')!;
+      const cover = host.querySelector<HTMLElement>('.large-artwork-card')!;
+      const radius = getComputedStyle(cover).borderRadius;
+      expect(page.classList).not.toContain('layout-classic');
+      expect(getComputedStyle(cover).boxShadow).toBe('none');
+
+      const layout = TestBed.inject(LayoutPreferenceService);
+      await layout.setMode('classic');
+      fixture.detectChanges();
+      expect(page.classList).toContain('layout-classic');
+      expect(getComputedStyle(cover).boxShadow).not.toBe('none');
+      expect(getComputedStyle(cover).borderRadius).toBe(radius);
+
+      await layout.setMode('inset');
+      fixture.detectChanges();
+      expect(getComputedStyle(cover).boxShadow).toBe('none');
+    } finally {
+      host.remove();
+    }
+  });
+
+  it('keeps the queue button beside the title at wide and narrow content widths', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const container = document.createElement('div');
+    container.style.cssText = 'width: 1000px; height: 800px; container-type: inline-size; container-name: main-content;';
+    host.style.cssText = 'display: block; height: 100%;';
+    document.body.appendChild(container);
+    container.appendChild(host);
+    try {
+      const heading = host.querySelector<HTMLElement>('.track-heading-card')!;
+      const title = host.querySelector<HTMLElement>('.track-heading-text')!;
+      const button = host.querySelector<HTMLElement>('.heading-queue-btn')!;
+      for (const width of [1000, 520, 280]) {
+        container.style.width = `${width}px`;
+        const headingRect = heading.getBoundingClientRect();
+        const titleRect = title.getBoundingClientRect();
+        const buttonRect = button.getBoundingClientRect();
+        expect(buttonRect.left).toBeGreaterThanOrEqual(titleRect.right);
+        expect(buttonRect.right).toBeLessThanOrEqual(headingRect.right);
+        expect(heading.scrollWidth).toBeLessThanOrEqual(heading.clientWidth);
+      }
+    } finally {
+      container.remove();
+    }
+  });
 
   it('hides the technical summary while Track Properties is open', () => {
     const summary = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.technical-specs-card')!;
@@ -54,110 +136,35 @@ describe('NowPlayingComponent', () => {
     expect(getComputedStyle(summary).display).not.toBe('none');
   });
 
-  it('renders a decorative cover glow that follows the track and disappears without artwork', () => {
+  it('renders the cover without a second glow inside the page', () => {
     const host = fixture.nativeElement as HTMLElement;
-    const originalTheme = document.documentElement.getAttribute('data-theme');
-    host.style.display = 'block';
-    document.body.appendChild(host);
-    try {
-      const cover = host.querySelector<HTMLImageElement>('.large-artwork-img')!;
-      const glow = host.querySelector<HTMLImageElement>('.artwork-glow-img')!;
-      expect(glow.src).toBe(cover.src);
-      expect(glow.alt).toBe('');
-      expect(glow.getAttribute('aria-hidden')).toBe('true');
-      expect(getComputedStyle(glow).pointerEvents).toBe('none');
-      expect(getComputedStyle(glow).filter).toContain('blur(32px) brightness(2.4)');
-      expect(glow.getBoundingClientRect().width).toBeCloseTo(cover.getBoundingClientRect().width, 0);
-      document.documentElement.setAttribute('data-theme', 'dark');
-      expect(getComputedStyle(glow).opacity).toBe('0.94');
-      document.documentElement.setAttribute('data-theme', 'light');
-      expect(getComputedStyle(glow).opacity).toBe('0.5');
-
-      const differentCover = MOCK_TRACKS.find((track) => track.artwork && track.artwork !== MOCK_TRACKS[0].artwork)!;
-      player.currentTrack.set(differentCover);
-      fixture.detectChanges();
-      expect(host.querySelector<HTMLImageElement>('.artwork-glow-img')!.src)
-        .toBe(host.querySelector<HTMLImageElement>('.large-artwork-img')!.src);
-      player.currentTrack.set(MOCK_TRACKS.find((track) => !track.artwork)!);
-      fixture.detectChanges();
-      expect(host.querySelector('.artwork-glow-img')).toBeNull();
-    } finally {
-      if (originalTheme === null) document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', originalTheme);
-      host.remove();
-    }
-  });
-
-  it('updates the page palette for the current cover and ignores a late previous cover', async () => {
-    const paletteService = TestBed.inject(ArtworkPaletteService);
-    let resolveOld!: (value: { primary: string; secondary: string } | null) => void;
-    const oldPalette = new Promise<{ primary: string; secondary: string } | null>((resolve) => { resolveOld = resolve; });
-    const getPalette = spyOn(paletteService, 'getPalette').and.returnValues(
-      oldPalette,
-      Promise.resolve({ primary: '30 90 210', secondary: '210 50 80' }),
-    );
-    player.currentTrack.set(MOCK_TRACKS[1]);
+    expect(host.querySelector<HTMLImageElement>('.large-artwork-img')?.getAttribute('src')).toBe(MOCK_TRACKS[0].artwork!);
+    expect(host.querySelector('.artwork-glow-img')).toBeNull();
+    const differentCover = MOCK_TRACKS.find((track) => track.artwork && track.artwork !== MOCK_TRACKS[0].artwork)!;
+    player.currentTrack.set(differentCover);
     fixture.detectChanges();
-    player.currentTrack.set(MOCK_TRACKS[2]);
-    fixture.detectChanges();
-    await Promise.resolve();
-    fixture.detectChanges();
-
-    const page = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.now-playing-page')!;
-    expect(getPalette).toHaveBeenCalledTimes(2);
-    expect(page.classList).toContain('has-artwork-palette');
-    expect(page.style.getPropertyValue('--artwork-primary')).toBe('30 90 210');
-    resolveOld({ primary: '220 30 20', secondary: '220 30 20' });
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(page.style.getPropertyValue('--artwork-primary')).toBe('30 90 210');
-
+    expect(host.querySelector<HTMLImageElement>('.large-artwork-img')?.getAttribute('src')).toBe(differentCover.artwork!);
     player.currentTrack.set(MOCK_TRACKS.find((track) => !track.artwork)!);
     fixture.detectChanges();
-    expect(page.classList).not.toContain('has-artwork-palette');
+    expect(host.querySelector('.large-artwork-img')).toBeNull();
   });
 
-  it('spreads cover colors across the page without an accent border or glow on the cover', () => {
+  it('lets the shared workspace ambient show through the page while keeping the cover raised', () => {
     const host = fixture.nativeElement as HTMLElement;
     const container = document.createElement('div');
-    const originalTheme = document.documentElement.getAttribute('data-theme');
-    const originalAccent = document.documentElement.getAttribute('data-accent');
     container.style.cssText = 'width: 1000px; height: 800px; container-type: inline-size; container-name: main-content;';
     host.style.cssText = 'display: block; height: 100%;';
     document.body.appendChild(container);
     container.appendChild(host);
     try {
-      fixture.componentInstance.artworkPalette.set({ primary: '210 120 30', secondary: '40 90 170' });
-      fixture.detectChanges();
       const page = host.querySelector<HTMLElement>('.now-playing-page')!;
       const cover = host.querySelector<HTMLElement>('.large-artwork-card')!;
-      document.documentElement.setAttribute('data-theme', 'dark');
-      const background = getComputedStyle(page).backgroundImage;
-      const coverShadow = getComputedStyle(cover).boxShadow;
-      expect(background).toContain('radial-gradient');
-      expect(background).toContain('linear-gradient');
-      expect(getComputedStyle(cover).borderTopWidth).toBe('0px');
-      expect(getComputedStyle(page).getPropertyValue('--artwork-wash-end-opacity').trim()).toBe('0.10');
-      const initialPosition = matchMedia('(max-width: 960px)').matches ? '50% 22%' : '25% 41%';
-      expect(getComputedStyle(page).getPropertyValue('--artwork-glow-position').trim()).toBe(initialPosition);
-
-      document.documentElement.setAttribute('data-accent', 'rose');
-      expect(getComputedStyle(page).backgroundImage).toBe(background);
-      expect(getComputedStyle(cover).boxShadow).toBe(coverShadow);
-
-      document.documentElement.setAttribute('data-theme', 'light');
-      expect(getComputedStyle(page).getPropertyValue('--artwork-wash-end-opacity').trim()).toBe('0.05');
-      container.style.width = '700px';
-      expect(getComputedStyle(page).getPropertyValue('--artwork-glow-position').trim()).toBe('50% 22%');
-
-      fixture.componentInstance.artworkPalette.set(null);
-      fixture.detectChanges();
+      expect(getComputedStyle(page).backgroundColor).toBe('rgba(0, 0, 0, 0)');
       expect(getComputedStyle(page).backgroundImage).toBe('none');
+      expect(getComputedStyle(cover).borderTopWidth).toBe('0px');
+      container.style.width = '700px';
+      expect(getComputedStyle(page).backgroundColor).toBe('rgba(0, 0, 0, 0)');
     } finally {
-      if (originalTheme === null) document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', originalTheme);
-      if (originalAccent === null) document.documentElement.removeAttribute('data-accent');
-      else document.documentElement.setAttribute('data-accent', originalAccent);
       container.remove();
     }
   });
@@ -215,7 +222,7 @@ describe('NowPlayingComponent', () => {
     expect(getComputedStyle(page, '::-webkit-scrollbar').width).toBe('6px');
   });
 
-  it('shows the cover and a fixed lyric viewport with all lines', async () => {
+  it('shows the cover and a height-aware lyric viewport with all lines', async () => {
     await fixture.whenStable();
     player.currentTime.set(8.5);
     fixture.detectChanges();
@@ -238,7 +245,10 @@ describe('NowPlayingComponent', () => {
     expect(lines[1].classList).toContain('active');
     expect(card.querySelector('h2')!.textContent).toBe('Lyrics');
     expect(element.querySelector('.lyrics-expand')).toBeNull();
-    expect(getComputedStyle(card).height).toBe('240px');
+    const isStacked = matchMedia('(max-width: 960px)').matches ||
+      !!cover.closest('.main-content') && cover.closest('.main-content')!.getBoundingClientRect().width <= 760;
+    const expectedLyricHeight = isStacked ? 240 : Math.min(520, Math.max(240, innerHeight * 0.28));
+    expect(card.getBoundingClientRect().height).toBeCloseTo(expectedLyricHeight, 0);
     expect(getComputedStyle(lines[0]).fontSize).toBe('14px');
     expect(getComputedStyle(viewport).overflowY).toBe('hidden');
     expect(getComputedStyle(viewport).maskImage).toContain('linear-gradient');

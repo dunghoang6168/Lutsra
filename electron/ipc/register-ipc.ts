@@ -26,6 +26,7 @@ export function registerIpc(database: DatabaseService, scanner: ScannerService, 
   handle('library:get-folder-tree', (_event, folderId) => database.getFolderTree(validId(folderId)), development);
   handle('library:get-track-details', (_event, trackId) => trackDetails.get(validId(trackId)), development);
   handle('library:get-lyrics', (_event, trackId) => lyrics.get(validId(trackId)), development);
+  handle('library:find-tracks-with-lyrics', (_event, trackIds) => lyrics.findTracksWithLyrics(validIdArray(trackIds)), development);
   handle('library:select-and-add-folders', async () => {
     const window = getWindow();
     const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'multiSelections'] };

@@ -2,37 +2,15 @@
     <header class="app-header">
       <div class="titlebar-content">
         <div class="header-left">
-          <div #menuRoot class="app-menu-root">
-            <button
-              type="button"
-              class="header-button menu-trigger"
-              [class.active]="menuOpen()"
-              [attr.aria-expanded]="menuOpen()"
-              aria-haspopup="menu"
-              aria-label="Open application menu"
-              (click)="toggleMenu()">
-              <app-icon name="more-horizontal" [size]="21" />
-            </button>
-            @if (menuOpen()) {
-              <div class="app-menu" role="menu" aria-label="Application menu">
-                <button type="button" role="menuitem" [disabled]="actionsDisabled()" (click)="addMusicFolder()">
-                  <app-icon name="folder" [size]="17" />
-                  <span>Add Music Folder…</span>
-                </button>
-                <button type="button" role="menuitem" [disabled]="actionsDisabled()" (click)="rescanLibrary()">
-                  <app-icon name="refresh-cw" [size]="17" />
-                  <span>Rescan Library</span>
-                </button>
-                @if (menuError()) {
-                  <p class="menu-error" role="alert">{{ menuError() }}</p>
-                }
-                <footer>
-                  <strong>Lutsra</strong>
-                  <span>{{ isDesktop ? 'Desktop mode' : 'Browser demo mode' }}</span>
-                </footer>
-              </div>
-            }
-          </div>
+          <button
+            type="button"
+            class="header-button sidebar-visibility-button"
+            [attr.aria-label]="sidebarHidden() ? 'Show sidebar' : 'Hide sidebar'"
+            [attr.title]="sidebarHidden() ? 'Show sidebar' : 'Hide sidebar'"
+            [attr.aria-expanded]="!sidebarHidden()"
+            (click)="toggleSidebarVisibility.emit()">
+            <app-icon name="panel-left" [size]="18" />
+          </button>
 
           <div class="navigation-buttons" aria-label="Navigation history">
             <button type="button" class="header-button" [disabled]="!history.canGoBack()" (click)="history.back()" aria-label="Go back" title="Back">

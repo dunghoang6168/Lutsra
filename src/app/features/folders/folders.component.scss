@@ -344,6 +344,25 @@
 
     .col-num { width: 40px; text-align: center; color: var(--text-muted); }
     .col-title { min-width: 250px; }
+    .col-codec { width: 100px; }
+    .badge-codec {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-family: var(--font-family-mono);
+      letter-spacing: 0.05em;
+    }
+    .badge-codec.hi-res {
+      background: var(--color-accent-muted);
+      color: var(--color-text-accent);
+      border: 1px solid var(--color-accent-glow);
+    }
+    .col-lyrics { width: 88px; }
+    .files-table th.col-lyrics, .files-table td.col-lyrics { text-align: center; }
+    .lyrics-check { color: var(--accent-primary); display: inline-flex; vertical-align: middle; }
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
 
     .file-name-cell {
@@ -351,6 +370,8 @@
       align-items: center;
       gap: var(--space-2);
     }
+
+    .file-title { min-width: 0; }
 
     .music-icon {
       color: var(--text-muted);

@@ -13,6 +13,7 @@ export type IconName =
   | 'chevron-left'
   | 'chevron-right'
   | 'menu'
+  | 'panel-left'
   | 'more-horizontal'
   | 'play'
   | 'pause'

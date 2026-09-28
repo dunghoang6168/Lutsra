@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
-import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
+import { LIBRARY_GATEWAY, LYRICS_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
 import { Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { SongsComponent } from './songs.component';
@@ -11,17 +11,20 @@ describe('SongsComponent browsing', () => {
   let component: SongsComponent;
   let getLibrary: jasmine.Spy;
   let getSettings: jasmine.Spy;
+  let findTracksWithLyrics: jasmine.Spy;
   let scanProgress: Subject<{ isScanning: boolean }>;
 
   beforeEach(async () => {
     scanProgress = new Subject();
     getLibrary = jasmine.createSpy('getLibrary').and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] });
     getSettings = jasmine.createSpy('getSettings').and.resolveTo({ hiddenSongColumns: [] });
+    findTracksWithLyrics = jasmine.createSpy('findTracksWithLyrics').and.callFake(async (ids: string[]) => ids.filter((id) => id === 'one'));
     await TestBed.configureTestingModule({
       imports: [SongsComponent],
       providers: [
         { provide: LIBRARY_GATEWAY, useValue: { getLibrary, scanProgress$: scanProgress } },
         { provide: SETTINGS_GATEWAY, useValue: { getSettings } },
+        { provide: LYRICS_GATEWAY, useValue: { findTracksWithLyrics } },
         { provide: PlayerService, useValue: { currentTrack: signal(null), isPlaying: signal(false), isShuffle: signal(false), playCollection: jasmine.createSpy('playCollection') } },
       ],
     }).compileComponents();
@@ -153,6 +156,52 @@ describe('SongsComponent browsing', () => {
     expect(fixture.nativeElement.querySelector('th.col-title').classList.contains('user-hidden')).toBeFalse();
     expect(trackIds(component)).toEqual(['one']);
     expect(component.sortColumn()).toBe('title');
+  });
+
+  it('shows a Lyrics check for matching files and hides the column when disabled', async () => {
+    component.tracks.set([
+      createTrack('one', 'First', 'Artist', 'Album', 2024, 20, null),
+      createTrack('two', 'Second', 'Artist', 'Album', 2024, 20, null),
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const rows = Array.from(fixture.nativeElement.querySelectorAll('.song-row') as NodeListOf<HTMLElement>);
+    expect(findTracksWithLyrics).toHaveBeenCalledWith(['one', 'two']);
+    expect(rows.map((row) => Boolean(row.querySelector('.lyrics-check')))).toEqual([true, false]);
+    expect(rows[0].querySelector('.col-lyrics')?.getAttribute('aria-label')).toBe('Lyrics available');
+    expect(rows[1].querySelector('.col-lyrics')?.getAttribute('aria-label')).toBe('No lyrics');
+    const swatch = document.createElement('span');
+    swatch.style.color = 'var(--accent-primary)';
+    fixture.nativeElement.append(swatch);
+    expect(getComputedStyle(rows[0].querySelector('.lyrics-check')!).color).toBe(getComputedStyle(swatch).color);
+
+    component.songColumns.hiddenSongColumns.set(['lyrics']);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('th.col-lyrics').classList.contains('user-hidden')).toBeTrue();
+    expect(rows[0].querySelector('.col-lyrics')?.classList.contains('user-hidden')).toBeTrue();
+  });
+
+  it('keeps headers and cells aligned after reordering, including hidden columns', async () => {
+    component.tracks.set([createTrack('one', 'First', 'Artist One', 'Album One', 2024, 20, 96000)]);
+    component.songColumns.songColumnOrder.set(['lyrics', 'sampleRate', 'codec', 'duration', 'album', 'artist']);
+    component.songColumns.hiddenSongColumns.set(['codec']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th') as NodeListOf<HTMLElement>);
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('.song-row td') as NodeListOf<HTMLElement>);
+    expect(headers.map((element) => element.classList[0])).toEqual([
+      'col-index', 'col-title', 'col-lyrics', 'col-quality', 'col-codec', 'col-duration', 'col-album', 'col-artist', 'col-actions',
+    ]);
+    expect(cells.map((element) => element.classList[0])).toEqual(headers.map((element) => element.classList[0]));
+    expect(headers[4].classList.contains('user-hidden')).toBeTrue();
+    expect(cells[4].classList.contains('user-hidden')).toBeTrue();
+    component.songColumns.hiddenSongColumns.set([]);
+    fixture.detectChanges();
+    expect(headers[4].classList.contains('user-hidden')).toBeFalse();
+    (headers[7] as HTMLElement).click();
+    expect(component.sortColumn()).toBe('artist');
   });
 
   it('applies searchable artist and album choices to the visible songs', () => {

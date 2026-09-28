@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, effect, inject, signal, viewChild,
+  ChangeDetectionStrategy, Component, HostListener, computed, effect, inject, input, output, viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive } from '@angular/router';
@@ -20,24 +20,20 @@ import { IconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppHeaderComponent {
+  readonly sidebarHidden = input(false);
+  readonly toggleSidebarVisibility = output<void>();
   private readonly gateway = inject(LIBRARY_GATEWAY);
   private readonly theme = inject(ThemeService);
-  private readonly menuRoot = viewChild.required<ElementRef<HTMLElement>>('menuRoot');
   private readonly search = viewChild.required(GlobalSearchComponent);
   private readonly desktopApi = getDesktopApi();
   private wasScanning = false;
 
   readonly history = inject(NavigationHistoryService);
-  readonly isDesktop = Boolean(this.desktopApi);
-  readonly menuOpen = signal(false);
-  readonly actionPending = signal(false);
-  readonly menuError = signal<string | null>(null);
   readonly scanProgress = toSignal(this.gateway.scanProgress$, {
     initialValue: {
       isScanning: false, scannedFiles: 0, audioFiles: 0, currentPath: null, error: null,
     } satisfies ScanProgress,
   });
-  readonly actionsDisabled = computed(() => this.actionPending() || this.scanProgress().isScanning);
   readonly statusLabel = computed(() => {
     const progress = this.scanProgress();
     if (progress.isScanning) return `Scanning · ${progress.scannedFiles}`;
@@ -64,56 +60,11 @@ export class AppHeaderComponent {
     });
   }
 
-  toggleMenu(): void {
-    this.menuOpen.update((open) => !open);
-    this.menuError.set(null);
-  }
-  closeMenu(): void { this.menuOpen.set(false); }
-
-  async addMusicFolder(): Promise<void> {
-    if (this.actionsDisabled()) return;
-    this.actionPending.set(true);
-    this.menuError.set(null);
-    try {
-      const folders = await this.gateway.selectAndAddMusicFolders();
-      if (folders.length) await this.gateway.requestScan(folders.map((folder) => folder.id));
-      this.closeMenu();
-    } catch (error) {
-      this.menuError.set(message(error, 'Music folder could not be added.'));
-    } finally {
-      this.actionPending.set(false);
-    }
-  }
-
-  async rescanLibrary(): Promise<void> {
-    if (this.actionsDisabled()) return;
-    this.actionPending.set(true);
-    this.menuError.set(null);
-    try {
-      await this.gateway.requestScan();
-      this.closeMenu();
-    } catch (error) {
-      this.menuError.set(message(error, 'Library scan could not be started.'));
-    } finally {
-      this.actionPending.set(false);
-    }
-  }
-
-  @HostListener('document:pointerdown', ['$event'])
-  onDocumentPointerDown(event: PointerEvent): void {
-    if (!this.menuRoot().nativeElement.contains(event.target as Node)) this.closeMenu();
-  }
-
   @HostListener('window:keydown', ['$event'])
   onWindowKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') { this.closeMenu(); return; }
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === 'k') {
       event.preventDefault();
       this.search().focus();
     }
   }
-}
-
-function message(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
 }

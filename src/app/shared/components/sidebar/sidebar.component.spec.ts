@@ -20,6 +20,30 @@ describe('SidebarComponent', () => {
 
   afterEach(() => fixture.destroy());
 
+  it('keeps an inset, rounded frame in collapsed and expanded states', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const sidebar = host.querySelector<HTMLElement>('.sidebar')!;
+    const padding = getComputedStyle(host);
+
+    expect(padding.paddingTop).toBe('8px');
+    expect(padding.paddingRight).toBe('8px');
+    expect(padding.paddingBottom).toBe('8px');
+    expect(padding.paddingLeft).toBe('8px');
+
+    for (const collapsed of [true, false]) {
+      fixture.componentRef.setInput('isCollapsed', collapsed);
+      fixture.detectChanges();
+      const style = getComputedStyle(sidebar);
+      expect(style.borderTopWidth).toBe('1px');
+      expect(style.borderRightWidth).toBe('1px');
+      expect(style.borderBottomWidth).toBe('1px');
+      expect(style.borderLeftWidth).toBe('1px');
+      expect(style.borderTopLeftRadius).toBe('12px');
+      expect(style.overflow).toBe('hidden');
+      expect(getComputedStyle(host.querySelector<HTMLElement>('.nav-menu')!).overflowY).toBe('auto');
+    }
+  });
+
   it('aligns the collapsed navigation controls with the sidebar toggle', () => {
     const element = fixture.nativeElement as HTMLElement;
     const toggle = element.querySelector<HTMLButtonElement>('.sidebar-toggle-btn')!;
@@ -38,6 +62,40 @@ describe('SidebarComponent', () => {
       expect(style.width).toBe('36px');
       expect(style.height).toBe('36px');
       expect(style.padding).toBe('0px');
+    }
+  });
+
+  it('leaves three pixels between the Panel border and each collapsed control', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(host);
+    try {
+      const sidebar = host.querySelector<HTMLElement>('.sidebar')!;
+      const border = sidebar.getBoundingClientRect();
+      const borderWidth = Number.parseFloat(getComputedStyle(sidebar).borderLeftWidth);
+      const controls = host.querySelectorAll<HTMLElement>('.sidebar-toggle-btn, .nav-item');
+      for (const control of controls) {
+        const rect = control.getBoundingClientRect();
+        expect(Math.round(rect.left - border.left - borderWidth)).toBe(3);
+        expect(Math.round(border.right - rect.right - borderWidth)).toBe(3);
+      }
+    } finally {
+      host.remove();
+    }
+  });
+
+  it('keeps the original collapsed width in Classic layout', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'layout-classic';
+    wrapper.appendChild(host);
+    document.body.appendChild(wrapper);
+    try {
+      const sidebar = host.querySelector<HTMLElement>('.sidebar')!;
+      const expectedWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-collapsed-width').trim();
+      expect(getComputedStyle(sidebar).width).toBe(expectedWidth);
+      expect(getComputedStyle(host.querySelector<HTMLElement>('.nav-menu')!).paddingLeft).not.toBe('0px');
+    } finally {
+      wrapper.remove();
     }
   });
 

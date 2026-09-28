@@ -1,14 +1,9 @@
 
-    <div class="now-playing-page" [class.has-artwork-palette]="artworkPalette()"
-      [style.--artwork-primary]="artworkPalette()?.primary"
-      [style.--artwork-secondary]="artworkPalette()?.secondary">
+    <div class="now-playing-page" [class.layout-classic]="layoutPreference.mode() === 'classic'">
       @if (player.currentTrack(); as track) {
         <div class="now-playing-content" [class.has-lyrics]="lyricsStatus() !== 'missing'">
           <!-- Cover -->
           <div class="artwork-column">
-            @if (track.artwork) {
-              <img [src]="track.artwork" alt="" aria-hidden="true" class="artwork-glow-img" />
-            }
             <div class="large-artwork-card">
               @if (track.artwork) {
                 <img [src]="track.artwork" [alt]="track.title" class="large-artwork-img" />
@@ -24,22 +19,40 @@
           <div class="details-column">
             <!-- Title & Artist -->
             <div class="track-heading-card">
-              <h1 class="track-title" [title]="track.title">{{ track.title }}</h1>
-              <div class="artist-album-row">
-                <span class="track-artist">{{ track.artist || 'Unknown Artist' }}</span>
-                @if (track.album) {
-                  <span class="dot-separator">•</span>
-                  <span class="track-album">{{ track.album }}</span>
-                }
-                @if (track.year) {
-                  <span class="dot-separator">•</span>
-                  <span class="track-year">{{ track.year }}</span>
-                }
-                @if (track.genre) {
-                  <span class="dot-separator">•</span>
-                  <span class="track-genre">{{ track.genre }}</span>
-                }
+              <div class="track-heading-text">
+                <h1 class="track-title" [title]="track.title">{{ track.title }}</h1>
+                <div class="artist-album-row">
+                  <span class="track-artist">{{ track.artist || 'Unknown Artist' }}</span>
+                  @if (track.album) {
+                    <span class="dot-separator">•</span>
+                    <span class="track-album">{{ track.album }}</span>
+                  }
+                  @if (track.year) {
+                    <span class="dot-separator">•</span>
+                    <span class="track-year">{{ track.year }}</span>
+                  }
+                  @if (track.genre) {
+                    <span class="dot-separator">•</span>
+                    <span class="track-genre">{{ track.genre }}</span>
+                  }
+                </div>
               </div>
+              @if (layoutPreference.mode() === 'inset') {
+                <button
+                  type="button"
+                  class="heading-queue-btn"
+                  [class.active]="rightPanels.isQueueOpen()"
+                  (click)="rightPanels.toggleQueue()"
+                  [attr.aria-expanded]="rightPanels.isQueueOpen()"
+                  aria-controls="queue-drawer"
+                  aria-label="Toggle Playback Queue Drawer"
+                  title="Toggle Queue Drawer">
+                  <app-icon name="queue" [size]="18" />
+                  @if (player.queue().length > 0) {
+                    <span class="queue-badge">{{ player.queue().length }}</span>
+                  }
+                </button>
+              }
             </div>
 
             <app-spectrum-visualizer />

@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { LIBRARY_GATEWAY, PLAYBACK_ENGINE, SETTINGS_GATEWAY, type LibraryGateway } from '../../../core/contracts';
 import { MockPlaybackEngine, MockSettingsGateway } from '../../../core/mock';
-import type { MusicFolder, ScanProgress } from '../../../core/models';
+import type { ScanProgress } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { AppHeaderComponent } from './app-header.component';
 
@@ -19,8 +19,6 @@ describe('AppHeaderComponent', () => {
     ]);
     Object.defineProperty(gateway, 'scanProgress$', { value: progress.asObservable() });
     gateway.getLibrary.and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] });
-    gateway.selectAndAddMusicFolders.and.resolveTo([folder]);
-    gateway.requestScan.and.resolveTo();
     await TestBed.configureTestingModule({
       imports: [AppHeaderComponent],
       providers: [
@@ -64,20 +62,29 @@ describe('AppHeaderComponent', () => {
     }
   });
 
-  it('keeps Settings out of the application menu', () => {
-    fixture.componentInstance.toggleMenu();
-    fixture.detectChanges();
-    const menu = (fixture.nativeElement as HTMLElement).querySelector('.app-menu') as HTMLElement;
-    expect(menu.textContent).not.toContain('Settings');
-    expect(menu.textContent).toContain('Browser demo mode');
-  });
+  it('toggles the sidebar from the former menu position without rendering the application menu', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const button = element.querySelector<HTMLButtonElement>('.sidebar-visibility-button')!;
+    const navigation = element.querySelector<HTMLElement>('.navigation-buttons');
+    const emit = spyOn(fixture.componentInstance.toggleSidebarVisibility, 'emit');
+    expect(button.nextElementSibling).toBe(navigation);
+    expect(getComputedStyle(button).width).toBe(window.matchMedia('(max-width: 900px)').matches ? '34px' : '38px');
+    expect(getComputedStyle(button).getPropertyValue('-webkit-app-region')).toBe('no-drag');
+    expect(button.getAttribute('aria-label')).toBe('Hide sidebar');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.querySelector('app-icon svg rect')).not.toBeNull();
+    button.click();
+    expect(emit).toHaveBeenCalledTimes(1);
 
-  it('adds selected folders and starts a targeted scan', async () => {
-    fixture.componentInstance.toggleMenu();
-    await fixture.componentInstance.addMusicFolder();
-    expect(gateway.selectAndAddMusicFolders).toHaveBeenCalled();
-    expect(gateway.requestScan).toHaveBeenCalledWith([folder.id]);
-    expect(fixture.componentInstance.menuOpen()).toBeFalse();
+    fixture.componentRef.setInput('sidebarHidden', true);
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-label')).toBe('Show sidebar');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(element.querySelector('[aria-label="Open application menu"]')).toBeNull();
+    expect(element.querySelector('.app-menu')).toBeNull();
+    expect(element.querySelector('[aria-label="Go back"]')).not.toBeNull();
+    expect(element.querySelector('[aria-label="Go forward"]')).not.toBeNull();
+    expect(element.querySelector('[aria-label="Home"]')).not.toBeNull();
   });
 
   it('shows live scan progress and focuses search with Ctrl+K', () => {
@@ -102,5 +109,3 @@ describe('AppHeaderComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.runtime-status')).toBeNull();
   });
 });
-
-const folder: MusicFolder = { id: 'folder-test', path: 'D:\\Music', name: 'Music', addedAt: 1 };

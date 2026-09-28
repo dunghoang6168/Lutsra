@@ -136,46 +136,43 @@
                     </span>
                   }
                 </th>
-                <th class="col-artist sortable" [class.user-hidden]="isSongColumnHidden('artist')" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
-                  <span>Artist</span>
-                  @if (sortColumn() === 'artist') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
+                @for (column of songColumns.songColumnOrder(); track column) {
+                  @switch (column) {
+                    @case ('artist') {
+                      <th class="col-artist sortable" [class.user-hidden]="isSongColumnHidden('artist')" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
+                        <span>Artist</span>
+                        @if (sortColumn() === 'artist') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      </th>
+                    }
+                    @case ('album') {
+                      <th class="col-album sortable" [class.user-hidden]="isSongColumnHidden('album')" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
+                        <span>Album</span>
+                        @if (sortColumn() === 'album') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      </th>
+                    }
+                    @case ('duration') {
+                      <th class="col-duration sortable" [class.user-hidden]="isSongColumnHidden('duration')" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
+                        <span>Time</span>
+                        @if (sortColumn() === 'duration') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      </th>
+                    }
+                    @case ('codec') {
+                      <th class="col-codec sortable" [class.user-hidden]="isSongColumnHidden('codec')" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
+                        <span>Codec</span>
+                        @if (sortColumn() === 'codec') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      </th>
+                    }
+                    @case ('sampleRate') {
+                      <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
+                        <span>Sample Rate</span>
+                        @if (sortColumn() === 'sampleRate') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      </th>
+                    }
+                    @case ('lyrics') {
+                      <th class="col-lyrics" [class.user-hidden]="isSongColumnHidden('lyrics')">Lyrics</th>
+                    }
                   }
-                </th>
-                <th class="col-album sortable" [class.user-hidden]="isSongColumnHidden('album')" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
-                  <span>Album</span>
-                  @if (sortColumn() === 'album') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-duration sortable" [class.user-hidden]="isSongColumnHidden('duration')" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
-                  <span>Time</span>
-                  @if (sortColumn() === 'duration') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-codec sortable" [class.user-hidden]="isSongColumnHidden('codec')" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
-                  <span>Codec</span>
-                  @if (sortColumn() === 'codec') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
-                  <span>Sample Rate</span>
-                  @if (sortColumn() === 'sampleRate') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
+                }
                 <th class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -231,37 +228,46 @@
                     </div>
                   </td>
 
-                  <!-- Artist -->
-                  <td class="col-artist truncate" [class.user-hidden]="isSongColumnHidden('artist')" [title]="track.artist || 'Unknown Artist'">
-                    {{ track.artist || 'Unknown Artist' }}
-                  </td>
-
-                  <!-- Album -->
-                  <td class="col-album truncate" [class.user-hidden]="isSongColumnHidden('album')" [title]="track.album || 'Unknown Album'">
-                    {{ track.album || 'Unknown Album' }}
-                  </td>
-
-                  <!-- Duration -->
-                  <td class="col-duration" [class.user-hidden]="isSongColumnHidden('duration')">
-                    {{ track.duration | duration }}
-                  </td>
-
-                  <!-- Codec Badge -->
-                  <td class="col-codec" [class.user-hidden]="isSongColumnHidden('codec')">
-                    <span class="badge-codec" [class.hi-res]="isHiRes(track)">
-                      {{ track.codec || 'UNKNOWN' }}
-                    </span>
-                  </td>
-
-                  <!-- Sample Rate & Bit Depth -->
-                  <td class="col-quality" [class.user-hidden]="isSongColumnHidden('sampleRate')">
-                    <span class="quality-spec">
-                      {{ formatSampleRate(track.sampleRate) }}
-                      @if (track.bitDepth) {
-                        <span class="bit-depth">/ {{ track.bitDepth }}-bit</span>
+                  @for (column of songColumns.songColumnOrder(); track column) {
+                    @switch (column) {
+                      @case ('artist') {
+                        <td class="col-artist truncate" [class.user-hidden]="isSongColumnHidden('artist')" [title]="track.artist || 'Unknown Artist'">
+                          {{ track.artist || 'Unknown Artist' }}
+                        </td>
                       }
-                    </span>
-                  </td>
+                      @case ('album') {
+                        <td class="col-album truncate" [class.user-hidden]="isSongColumnHidden('album')" [title]="track.album || 'Unknown Album'">
+                          {{ track.album || 'Unknown Album' }}
+                        </td>
+                      }
+                      @case ('duration') {
+                        <td class="col-duration" [class.user-hidden]="isSongColumnHidden('duration')">
+                          {{ track.duration | duration }}
+                        </td>
+                      }
+                      @case ('codec') {
+                        <td class="col-codec" [class.user-hidden]="isSongColumnHidden('codec')">
+                          <span class="badge-codec" [class.hi-res]="isHiRes(track)">{{ track.codec || 'UNKNOWN' }}</span>
+                        </td>
+                      }
+                      @case ('sampleRate') {
+                        <td class="col-quality" [class.user-hidden]="isSongColumnHidden('sampleRate')">
+                          <span class="quality-spec">
+                            {{ formatSampleRate(track.sampleRate) }}
+                            @if (track.bitDepth) { <span class="bit-depth">/ {{ track.bitDepth }}-bit</span> }
+                          </span>
+                        </td>
+                      }
+                      @case ('lyrics') {
+                        <td class="col-lyrics" [class.user-hidden]="isSongColumnHidden('lyrics')"
+                          [attr.aria-label]="lyricTrackIds().has(track.id) ? 'Lyrics available' : 'No lyrics'">
+                          @if (lyricTrackIds().has(track.id)) {
+                            <app-icon name="check" [size]="17" [strokeWidth]="2.5" class="lyrics-check" />
+                          }
+                        </td>
+                      }
+                    }
+                  }
 
                   <!-- Row Actions -->
                   <td class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')" (click)="$event.stopPropagation()">
