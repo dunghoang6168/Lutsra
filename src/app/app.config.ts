@@ -13,6 +13,7 @@ import { getDesktopApi } from './core/desktop/desktop-api';
 import { ThemeService } from './core/theme/theme.service';
 import { MediaSessionService } from './core/media/media-session.service';
 import { LayoutPreferenceService } from './core/layout/layout-preference.service';
+import { AudioVisualizationPreferenceService } from './core/layout/audio-visualization-preference.service';
 
 const isDesktop = () => Boolean(getDesktopApi());
 const ACTIVE_AUDIO_ENGINE = new InjectionToken<PlaybackEngine & AudioAnalysisEngine>('ACTIVE_AUDIO_ENGINE');
@@ -32,6 +33,7 @@ export const appConfig: ApplicationConfig = {
     { provide: AUDIO_ANALYSIS_ENGINE, useExisting: ACTIVE_AUDIO_ENGINE },
     provideAppInitializer(() => inject(ThemeService).restore()),
     provideAppInitializer(() => inject(LayoutPreferenceService).restore()),
+    provideAppInitializer(() => inject(AudioVisualizationPreferenceService).restore()),
     provideAppInitializer(() => void inject(MediaSessionService)),
   ],
 };

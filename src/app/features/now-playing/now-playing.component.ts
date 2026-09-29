@@ -11,11 +11,14 @@ import { ArtworkGlowPositionService } from '../../core/layout/artwork-glow-posit
 import { LYRICS_GATEWAY } from '../../core/contracts';
 import { LyricLine } from '../../core/models';
 import { activeLyricIndex, parseLrc } from './lrc-parser';
+import { InlineVolumeControlComponent } from './inline-volume-control.component';
+import { WaveformSeekComponent } from './waveform-seek.component';
+import { AudioVisualizationPreferenceService } from '../../core/layout/audio-visualization-preference.service';
 
 @Component({
   selector: 'app-now-playing',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, SpectrumVisualizerComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, SpectrumVisualizerComponent, InlineVolumeControlComponent, WaveformSeekComponent],
   templateUrl: './now-playing.component.html',
   styleUrl: './now-playing.component.scss'
 })
@@ -23,12 +26,36 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   readonly player = inject(PlayerService);
   readonly rightPanels = inject(RightPanelService);
   readonly layoutPreference = inject(LayoutPreferenceService);
+  readonly audioVisualization = inject(AudioVisualizationPreferenceService);
   private readonly artworkGlowPosition = inject(ArtworkGlowPositionService);
   private readonly lyricsGateway = inject(LYRICS_GATEWAY);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly lyricsStatus = signal<'loading' | 'ready' | 'missing' | 'unsupported' | 'error'>('loading');
   readonly lyricLines = signal<LyricLine[]>([]);
   readonly activeLineIndex = computed(() => activeLyricIndex(this.lyricLines(), this.player.currentTime()));
+  readonly playbackMode = computed<'off' | 'shuffle' | 'repeat-all' | 'repeat-one' | 'combined'>(() => {
+    const shuffle = this.player.isShuffle();
+    const repeat = this.player.repeatMode();
+    if (shuffle && repeat !== 'off') return 'combined';
+    if (shuffle) return 'shuffle';
+    if (repeat === 'all') return 'repeat-all';
+    if (repeat === 'one') return 'repeat-one';
+    return 'off';
+  });
+  readonly playbackModeLabel = computed(() => {
+    const current = this.playbackMode();
+    const names = {
+      off: 'Off',
+      shuffle: 'Shuffle',
+      'repeat-all': 'Repeat All',
+      'repeat-one': 'Repeat One',
+      combined: `Shuffle and ${this.player.repeatMode() === 'one' ? 'Repeat One' : 'Repeat All'}`,
+    };
+    const next = current === 'off' ? 'Shuffle'
+      : current === 'shuffle' ? 'Repeat All'
+      : current === 'repeat-all' ? 'Repeat One' : 'Off';
+    return `Playback mode: ${names[current]}. Click for ${next}`;
+  });
   private isTimelineScrubbing = false;
   private lyricsRequest = 0;
   private lastTrackKey: string | null = null;
@@ -151,6 +178,16 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   }
 
   seekToLyric(line: LyricLine): void { this.player.seek(line.time); }
+
+  cyclePlaybackMode(): void {
+    const current = this.playbackMode();
+    const next = current === 'off' ? { shuffle: true, repeat: 'off' as const }
+      : current === 'shuffle' ? { shuffle: false, repeat: 'all' as const }
+      : current === 'repeat-all' ? { shuffle: false, repeat: 'one' as const }
+      : { shuffle: false, repeat: 'off' as const };
+    if (this.player.isShuffle() !== next.shuffle) this.player.setShuffle(next.shuffle);
+    if (this.player.repeatMode() !== next.repeat) this.player.setRepeatMode(next.repeat);
+  }
 
   onTimelinePointerDown(event: PointerEvent): void {
     if (!this.canSeek()) return;

@@ -30,6 +30,7 @@ export class PlaylistDetailComponent implements OnInit {
 
   readonly playlist = signal<Playlist | null>(null);
   readonly allLibraryTracks = signal<Track[]>([]);
+  readonly entryTracks = signal<ReadonlyMap<string, Track>>(new Map());
   readonly isLoading = signal<boolean>(true);
   readonly showAddTracksModal = signal<boolean>(false);
 
@@ -37,8 +38,7 @@ export class PlaylistDetailComponent implements OnInit {
     const pl = this.playlist();
     if (!pl) return [];
 
-    const trackMap = new Map<string, Track>();
-    this.allLibraryTracks().forEach((t) => trackMap.set(t.id, t));
+    const trackMap = this.entryTracks();
 
     const rows: PlaylistTrackRow[] = [];
     pl.entries.forEach((entry) => {
@@ -64,6 +64,7 @@ export class PlaylistDetailComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadPlaylist();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadPlaylist());
     await this.loadPlaylist();
   }
 
@@ -81,8 +82,14 @@ export class PlaylistDetailComponent implements OnInit {
         this.libraryGateway.getLibrary(),
       ]);
       const found = playlists.find((p) => p.id === id) || null;
+      const libraryTracks = new Map(lib.tracks.map((track) => [track.id, track]));
+      const missingIds = [...new Set(found?.entries.map((entry) => entry.trackId) ?? [])]
+        .filter((trackId) => !libraryTracks.has(trackId));
+      const missingTracks = await Promise.all(missingIds.map((trackId) => this.libraryGateway.getTrackById(trackId)));
+      missingTracks.forEach((track) => { if (track) libraryTracks.set(track.id, track); });
       this.playlist.set(found);
       this.allLibraryTracks.set(lib.tracks);
+      this.entryTracks.set(libraryTracks);
     } finally {
       this.isLoading.set(false);
     }
@@ -131,14 +138,14 @@ export class PlaylistDetailComponent implements OnInit {
   }
 
   onPlayAll(): void {
-    const tracks = this.trackRows().map((r) => r.track);
+    const tracks = this.trackRows().map((r) => r.track).filter((track) => track.isAvailable);
     if (tracks.length > 0) {
       this.player.playCollection(tracks, 0);
     }
   }
 
   onShufflePlay(): void {
-    const tracks = this.trackRows().map((r) => r.track);
+    const tracks = this.trackRows().map((r) => r.track).filter((track) => track.isAvailable);
     if (tracks.length > 0) {
       if (!this.player.isShuffle()) {
         this.player.toggleShuffle();

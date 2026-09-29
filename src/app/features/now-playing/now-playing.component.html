@@ -55,10 +55,16 @@
               }
             </div>
 
-            <app-spectrum-visualizer />
+            <div class="visualization-controls" [class.waveform-mode]="audioVisualization.mode() === 'waveform'">
+              @if (audioVisualization.mode() === 'waveform') {
+                <app-waveform-seek [track]="track" />
+              } @else {
+                <app-spectrum-visualizer />
+              }
 
             <!-- Embedded Timeline & Controls -->
             <div class="inline-controls">
+              @if (audioVisualization.mode() === 'spectrum') {
               <div class="timeline-group">
                 <span class="time-label">{{ player.currentTime() | duration }}</span>
                 <div
@@ -81,18 +87,35 @@
                 </div>
                 <span class="time-label">{{ player.duration() | duration }}</span>
               </div>
+              }
 
-              <div class="transport-buttons">
-                <button
-                  type="button"
-                  class="btn-icon"
-                  [class.active]="player.isShuffle()"
-                  (click)="player.toggleShuffle()"
-                  title="Toggle Shuffle"
-                  aria-label="Toggle Shuffle">
-                  <app-icon name="shuffle" [size]="16" />
-                </button>
+              <div class="transport-buttons" [class.panel-transport]="layoutPreference.mode() === 'inset'">
+                @if (layoutPreference.mode() === 'inset') {
+                  <button
+                    type="button"
+                    class="btn-icon playback-mode-button"
+                    [class.active]="playbackMode() !== 'off'"
+                    (click)="cyclePlaybackMode()"
+                    [title]="playbackModeLabel()"
+                    [attr.aria-label]="playbackModeLabel()">
+                    <app-icon [name]="playbackMode() === 'repeat-one' ? 'repeat-one' : playbackMode() === 'repeat-all' ? 'repeat' : 'shuffle'" [size]="16" />
+                    @if (playbackMode() === 'combined') {
+                      <app-icon name="repeat" [size]="10" class="mode-repeat" />
+                    }
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn-icon"
+                    [class.active]="player.isShuffle()"
+                    (click)="player.toggleShuffle()"
+                    title="Toggle Shuffle"
+                    aria-label="Toggle Shuffle">
+                    <app-icon name="shuffle" [size]="16" />
+                  </button>
+                }
 
+                <div class="transport-core">
                 <button
                   type="button"
                   class="btn-icon"
@@ -123,17 +146,23 @@
                   aria-label="Next Track">
                   <app-icon name="skip-forward" [size]="18" />
                 </button>
+                </div>
 
-                <button
-                  type="button"
-                  class="btn-icon"
-                  [class.active]="player.repeatMode() !== 'off'"
-                  (click)="player.cycleRepeatMode()"
-                  [title]="'Repeat Mode: ' + player.repeatMode()"
-                  aria-label="Toggle Repeat Mode">
-                  <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
-                </button>
+                @if (layoutPreference.mode() === 'classic') {
+                  <button
+                    type="button"
+                    class="btn-icon"
+                    [class.active]="player.repeatMode() !== 'off'"
+                    (click)="player.cycleRepeatMode()"
+                    [title]="'Repeat Mode: ' + player.repeatMode()"
+                    aria-label="Toggle Repeat Mode">
+                    <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
+                  </button>
+                } @else {
+                  <app-inline-volume-control class="panel-volume-control" />
+                }
               </div>
+            </div>
             </div>
           </div>
 

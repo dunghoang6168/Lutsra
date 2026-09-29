@@ -1,6 +1,6 @@
 # Phase 3.1 — Visual refinement
 
-> Tài liệu này ghi lại brief và baseline của Phase 3.1. Trạng thái sản phẩm hiện tại và kết quả kiểm thử 0.2.1 nằm trong [README](../README.md); các ràng buộc trong brief có thể đã được thay đổi ở những phase sau.
+> Tài liệu này ghi lại brief và baseline của Phase 3.1. Trạng thái sản phẩm hiện tại và kết quả kiểm thử 0.2.2 nằm trong [README](../README.md); các ràng buộc trong brief có thể đã được thay đổi ở những phase sau.
 
 ## Mục tiêu
 

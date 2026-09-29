@@ -26,4 +26,25 @@
   @if (layoutPreference.saveState() === 'error') {
     <p class="layout-save-error" role="alert">{{ layoutPreference.errorMessage() }}</p>
   }
+  <div class="visualization-setting">
+    <div>
+      <h3>Audio visualization</h3>
+      <p>Choose the display shown above the playback controls.</p>
+    </div>
+    <div class="visualization-options" role="group" aria-label="Audio visualization">
+      <button type="button" [class.active]="audioVisualization.mode() === 'spectrum'"
+        [attr.aria-pressed]="audioVisualization.mode() === 'spectrum'"
+        (click)="audioVisualization.setMode('spectrum')">Spectrum</button>
+      <button type="button" [class.active]="audioVisualization.mode() === 'waveform'"
+        [attr.aria-pressed]="audioVisualization.mode() === 'waveform'"
+        (click)="audioVisualization.setMode('waveform')">Waveform</button>
+    </div>
+  </div>
+  <p class="visualization-save-status" aria-live="polite">
+    @if (audioVisualization.saveState() === 'saving') { Saving visualization… }
+    @else if (audioVisualization.saveState() === 'saved') { Visualization saved }
+  </p>
+  @if (audioVisualization.saveState() === 'error') {
+    <p class="layout-save-error" role="alert">{{ audioVisualization.errorMessage() }}</p>
+  }
 </section>

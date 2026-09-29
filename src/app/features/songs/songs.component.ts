@@ -163,6 +163,7 @@ export class SongsComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadSongs();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadSongs());
     await Promise.all([this.loadSongs(), this.songColumns.load()]);
   }
 

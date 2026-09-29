@@ -1,0 +1,20 @@
+:host { display: block; min-width: 0; }
+.waveform-area { position: relative; height: clamp(140px, 22vh, 230px); min-width: 0; }
+.seek-surface { position: relative; width: 100%; height: 100%; cursor: pointer; touch-action: none; outline: none; }
+.seek-surface:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; border-radius: var(--radius-md); }
+.waveform-canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
+.played-layer { position: absolute; inset: 0; clip-path: inset(0 100% 0 0); pointer-events: none; }
+.preview-overlay { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 250ms ease; }
+.partial .preview-overlay { opacity: 1; transition: none; }
+.preview-complete .preview-overlay { opacity: 0; }
+.waveform-analysis { position: absolute; top: 8px; right: 12px; padding: 3px 7px; border-radius: var(--radius-full); background: var(--bg-elevated); color: var(--text-primary); font: 700 11px var(--font-family-mono); pointer-events: none; }
+.waveform-cursor { position: absolute; left: 12px; top: 9px; bottom: 31px; width: 2px; border-radius: 2px; background: var(--text-primary); box-shadow: 0 0 0 1px var(--bg-surface); pointer-events: none; }
+.waveform-times { position: absolute; bottom: 5px; left: 12px; right: 12px; display: flex; justify-content: space-between; pointer-events: none; }
+.waveform-times span { padding: 4px 9px; border-radius: var(--radius-full); background: var(--bg-elevated); color: var(--text-primary); font: 700 11px var(--font-family-mono); }
+.waveform-message { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-muted); font-size: var(--font-size-sm); pointer-events: none; }
+.waveform-area.fallback { height: 24px; display: flex; align-items: center; gap: var(--space-3); }
+.fallback .seek-surface { flex: 1; height: 18px; display: flex; align-items: center; }
+.fallback .waveform-canvas, .fallback .played-layer, .fallback .waveform-cursor, .fallback .preview-overlay { display: none; }
+.fallback-time { flex: 0 0 40px; text-align: center; color: var(--text-muted); font: var(--font-size-xs) var(--font-family-mono); }
+.fallback-track { width: 100%; height: 6px; border-radius: var(--radius-full); background: var(--border-default); overflow: hidden; }
+.fallback-track span { display: block; height: 100%; background: var(--accent-primary); }

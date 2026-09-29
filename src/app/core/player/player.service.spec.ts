@@ -3,6 +3,8 @@ import { PlayerService } from './player.service';
 import { PLAYBACK_ENGINE } from '../contracts/playback-engine.contract';
 import { MockPlaybackEngine } from '../mock/mock-playback.engine';
 import { Track } from '../models';
+import { LIBRARY_GATEWAY } from '../contracts';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 describe('PlayerService (Queue, Repeat, Shuffle, Playback)', () => {
   let service: PlayerService;
@@ -432,5 +434,49 @@ describe('PlayerService (Queue, Repeat, Shuffle, Playback)', () => {
       expect(service.isPlaying()).toBeFalse();
       expect(service.currentTime()).toBe(0);
     });
+  });
+});
+
+describe('PlayerService library reconciliation', () => {
+  const tracks: Track[] = ['one', 'two', 'three'].map((id) => ({
+    id, path: `D:/Music/${id}.flac`, fileName: `${id}.flac`, title: id,
+    artist: null, albumArtist: null, album: null, genre: null, year: null,
+    trackNumber: null, discNumber: null, duration: 60, codec: 'FLAC', bitrate: null,
+    sampleRate: null, bitDepth: null, channels: null, artwork: null, fileSize: null,
+    lastModified: null, isAvailable: true,
+  }));
+
+  it('stops a removed current track and keeps only valid queued tracks without autoplay', async () => {
+    const changed = new Subject<void>();
+    let libraryTracks = tracks;
+    TestBed.configureTestingModule({ providers: [
+      PlayerService,
+      { provide: PLAYBACK_ENGINE, useClass: MockPlaybackEngine },
+      { provide: LIBRARY_GATEWAY, useValue: {
+        getLibrary: async () => ({ tracks: libraryTracks, albums: [], artists: [], folders: [] }),
+        scanProgress$: new BehaviorSubject({ isScanning: false, scannedFiles: 0, audioFiles: 0, currentPath: null }),
+        libraryChanged$: changed.asObservable(),
+      } },
+    ] });
+    const service = TestBed.inject(PlayerService);
+    const engine = TestBed.inject(PLAYBACK_ENGINE) as MockPlaybackEngine;
+    const dispose = spyOn(engine, 'dispose').and.callThrough();
+    try {
+      await service.playCollection(tracks, 0);
+      service.toggleShuffle();
+      libraryTracks = [tracks[1], tracks[2]];
+      changed.next();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(dispose).toHaveBeenCalled();
+      expect(service.currentTrack()).toBeNull();
+      expect(service.isPlaying()).toBeFalse();
+      expect(service.currentIndex()).toBe(-1);
+      expect(service.queue().map((entry) => entry.track.id).sort()).toEqual(['three', 'two']);
+      service.toggleShuffle();
+      expect(service.queue().map((entry) => entry.track.id)).toEqual(['two', 'three']);
+      expect(service.currentTrack()).toBeNull();
+    } finally {
+      service.ngOnDestroy();
+    }
   });
 });

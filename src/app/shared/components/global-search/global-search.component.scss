@@ -28,7 +28,7 @@
       box-shadow: none;
     }
     input[type='search']::-webkit-search-cancel-button { display: none; }
-    input[type='search']:focus { border: 0; box-shadow: none; }
+    input[type='search']:focus { border: 0; box-shadow: none; outline: none; }
     input::placeholder { color: var(--text-muted); }
     kbd {
       flex: 0 0 auto;

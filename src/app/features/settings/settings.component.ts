@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
@@ -31,6 +32,7 @@ export interface ThemePresetOption {
 export class SettingsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly settingsGateway = inject(SETTINGS_GATEWAY);
+  private readonly destroyRef = inject(DestroyRef);
   readonly themeService = inject(ThemeService);
   readonly player = inject(PlayerService);
   readonly isDesktop = Boolean(getDesktopApi());
@@ -72,6 +74,7 @@ export class SettingsComponent implements OnInit {
   readonly errorMessage = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadFolders());
     await Promise.all([
       this.loadFolders(),
       this.loadSettings(),

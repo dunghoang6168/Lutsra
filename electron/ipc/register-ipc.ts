@@ -23,6 +23,7 @@ export function registerIpc(database: DatabaseService, scanner: ScannerService, 
     });
   }, development);
   handle('library:get-snapshot', () => database.getLibrary(), development);
+  handle('library:get-track-by-id', (_event, trackId) => database.getTrackById(validId(trackId)), development);
   handle('library:get-folder-tree', (_event, folderId) => database.getFolderTree(validId(folderId)), development);
   handle('library:get-track-details', (_event, trackId) => trackDetails.get(validId(trackId)), development);
   handle('library:get-lyrics', (_event, trackId) => lyrics.get(validId(trackId)), development);

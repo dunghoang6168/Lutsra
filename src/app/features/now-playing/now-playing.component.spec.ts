@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { AUDIO_ANALYSIS_ENGINE, LYRICS_GATEWAY, LyricsGateway, PLAYBACK_ENGINE, SETTINGS_GATEWAY } from '../../core/contracts';
 import { RightPanelService } from '../../core/layout/right-panel.service';
 import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
+import { AudioVisualizationPreferenceService } from '../../core/layout/audio-visualization-preference.service';
 import { MockPlaybackEngine, MockSettingsGateway } from '../../core/mock';
 import { MOCK_TRACKS } from '../../core/mock/fixtures/mock-data';
 import { PlayerService } from '../../core/player/player.service';
@@ -16,6 +17,7 @@ describe('NowPlayingComponent', () => {
 
   beforeEach(async () => {
     localStorage.removeItem('lutsra.layout.mode');
+    localStorage.removeItem('lutsra.audio.visualization');
     lyricsGateway = jasmine.createSpyObj<LyricsGateway>('LyricsGateway', ['getLyrics']);
     lyricsGateway.getLyrics.and.resolveTo('[00:01.00]First line\n[00:08.00]Second line\n[00:15.00]Third line\n[00:22.00]Fourth line');
     await TestBed.configureTestingModule({
@@ -42,6 +44,7 @@ describe('NowPlayingComponent', () => {
   afterEach(() => {
     fixture.destroy();
     localStorage.removeItem('lutsra.layout.mode');
+    localStorage.removeItem('lutsra.audio.visualization');
   });
 
   it('places the shared queue toggle in the track heading and reflects its count and open state', () => {
@@ -54,7 +57,7 @@ describe('NowPlayingComponent', () => {
     expect(button.getAttribute('aria-controls')).toBe('queue-drawer');
     expect(button.querySelector('.queue-badge')?.textContent?.trim()).toBe('1');
     expect(heading.querySelector('h1')?.textContent).toContain(MOCK_TRACKS[0].title);
-    expect((fixture.nativeElement as HTMLElement).querySelector('.volume-slider')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.panel-volume-control')).not.toBeNull();
 
     button.click();
     fixture.detectChanges();
@@ -70,6 +73,236 @@ describe('NowPlayingComponent', () => {
     await TestBed.inject(LayoutPreferenceService).setMode('classic');
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).querySelector('.heading-queue-btn')).toBeNull();
+  });
+
+  it('combines waveform seeking and playback controls in one card', async () => {
+    await TestBed.inject(AudioVisualizationPreferenceService).setMode('waveform');
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const card = host.querySelector<HTMLElement>('.visualization-controls.waveform-mode');
+    expect(card).not.toBeNull();
+    expect(card?.querySelector('app-waveform-seek')).not.toBeNull();
+    expect(card?.querySelector('.transport-buttons')).not.toBeNull();
+    expect(card?.querySelector('.timeline-group')).toBeNull();
+    expect(host.querySelector('app-spectrum-visualizer')).toBeNull();
+  });
+
+  it('cycles one Panel button through Off, Shuffle, Repeat All, and Repeat One', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const button = host.querySelector<HTMLButtonElement>('.playback-mode-button')!;
+    expect(host.querySelectorAll('.transport-buttons button').length).toBe(5);
+    expect(button.getAttribute('aria-label')).toContain('Playback mode: Off');
+    expect(button.classList).not.toContain('active');
+
+    const states = [
+      { shuffle: true, repeat: 'off', label: 'Shuffle' },
+      { shuffle: false, repeat: 'all', label: 'Repeat All' },
+      { shuffle: false, repeat: 'one', label: 'Repeat One' },
+      { shuffle: false, repeat: 'off', label: 'Off' },
+    ] as const;
+    for (const state of states) {
+      button.click();
+      fixture.detectChanges();
+      expect(player.isShuffle()).toBe(state.shuffle);
+      expect(player.repeatMode()).toBe(state.repeat);
+      expect(button.getAttribute('aria-label')).toContain(`Playback mode: ${state.label}`);
+      expect(button.classList.contains('active')).toBe(state.label !== 'Off');
+    }
+  });
+
+  it('reflects changes from other controls and clears a combined mode on the next click', () => {
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.playback-mode-button')!;
+    player.setRepeatMode('all');
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-label')).toContain('Repeat All');
+    player.setShuffle(true);
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-label')).toContain('Shuffle and Repeat All');
+    expect(button.querySelectorAll('app-icon').length).toBe(2);
+
+    button.click();
+    fixture.detectChanges();
+    expect(player.isShuffle()).toBeFalse();
+    expect(player.repeatMode()).toBe('off');
+    expect(button.getAttribute('aria-label')).toContain('Playback mode: Off');
+    button.click();
+    fixture.detectChanges();
+    expect(player.isShuffle()).toBeTrue();
+    expect(player.repeatMode()).toBe('off');
+
+    player.setRepeatMode('one');
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-label')).toContain('Shuffle and Repeat One');
+  });
+
+  it('keeps Classic Shuffle and Repeat as separate controls', async () => {
+    await TestBed.inject(LayoutPreferenceService).setMode('classic');
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.playback-mode-button')).toBeNull();
+    expect(host.querySelector('.panel-volume-control')).toBeNull();
+    expect(host.querySelectorAll('.transport-buttons button').length).toBe(5);
+    host.querySelector<HTMLButtonElement>('[aria-label="Toggle Shuffle"]')!.click();
+    host.querySelector<HTMLButtonElement>('[aria-label="Toggle Repeat Mode"]')!.click();
+    expect(player.isShuffle()).toBeTrue();
+    expect(player.repeatMode()).toBe('all');
+  });
+
+  it('keeps the Panel transport trio centered while volume opens at wide and narrow widths', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const container = document.createElement('div');
+    container.style.cssText = 'width: 1000px; height: 800px; container-type: inline-size; container-name: main-content;';
+    host.style.cssText = 'display: block; height: 100%;';
+    document.body.appendChild(container);
+    container.appendChild(host);
+    try {
+      const controls = host.querySelector<HTMLElement>('.inline-controls')!;
+      const row = host.querySelector<HTMLElement>('.transport-buttons')!;
+      const core = row.querySelector<HTMLElement>('.transport-core')!;
+      const mode = row.querySelector<HTMLElement>('.playback-mode-button')!;
+      const previous = row.querySelector<HTMLElement>('[aria-label="Previous Track"]')!;
+      const volumeButton = row.querySelector<HTMLButtonElement>('[aria-label="Adjust volume"]')!;
+      const reveal = row.querySelector<HTMLElement>('.volume-reveal')!;
+      const slider = row.querySelector<HTMLInputElement>('.volume-slider')!;
+      const tooltip = row.querySelector<HTMLElement>('.volume-tooltip')!;
+      reveal.style.transition = 'none';
+      for (const width of [1000, 520, 280]) {
+        container.style.width = `${width}px`;
+        for (const open of [false, true]) {
+          if (volumeButton.getAttribute('aria-expanded') !== String(open)) {
+            volumeButton.click();
+            fixture.detectChanges();
+          }
+          const rowRect = row.getBoundingClientRect();
+          const coreRect = core.getBoundingClientRect();
+          expect(Math.abs((coreRect.left + coreRect.right) / 2 - (rowRect.left + rowRect.right) / 2)).toBeLessThan(1);
+          expect(mode.getBoundingClientRect().right).toBeLessThanOrEqual(previous.getBoundingClientRect().left);
+          expect(rowRect.right).toBeLessThanOrEqual(controls.getBoundingClientRect().right);
+          expect(controls.scrollWidth).toBeLessThanOrEqual(controls.clientWidth);
+          expect(slider.disabled).toBe(!open);
+          if (open) {
+            expect(getComputedStyle(slider).writingMode).toBe(width === 280 ? 'vertical-lr' : 'horizontal-tb');
+            const sliderRect = slider.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            if (width === 280) {
+              expect(tooltipRect.right).toBeLessThanOrEqual(sliderRect.left);
+            } else {
+              expect(tooltipRect.left).toBeGreaterThanOrEqual(sliderRect.right);
+              expect(tooltipRect.right).toBeLessThanOrEqual(controls.getBoundingClientRect().right);
+            }
+          }
+        }
+      }
+    } finally {
+      container.remove();
+    }
+  });
+
+  it('opens and closes the volume slider without changing volume, including outside clicks and Escape', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const button = host.querySelector<HTMLButtonElement>('[aria-label="Adjust volume"]')!;
+    const slider = host.querySelector<HTMLInputElement>('.volume-slider')!;
+    const tooltip = host.querySelector<HTMLElement>('.volume-tooltip')!;
+    expect(tooltip.textContent?.trim()).toBe(`${Math.round(player.volume() * 100)}%`);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(slider.disabled).toBeTrue();
+    expect(slider.tabIndex).toBe(-1);
+    const initialVolume = player.volume();
+
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(slider.disabled).toBeFalse();
+    expect(slider.tabIndex).toBe(0);
+    expect(getComputedStyle(tooltip).visibility).toBe('hidden');
+    expect(player.volume()).toBe(initialVolume);
+
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    button.click();
+    fixture.detectChanges();
+
+    slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    fixture.detectChanges();
+    expect(getComputedStyle(tooltip).visibility).toBe('visible');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    fixture.detectChanges();
+    expect(getComputedStyle(tooltip).visibility).toBe('hidden');
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(slider.disabled).toBeTrue();
+    expect(getComputedStyle(tooltip).visibility).toBe('hidden');
+
+    button.click();
+    fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('shares volume with the player and shows a crossed speaker at zero or while muted', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const button = host.querySelector<HTMLButtonElement>('[aria-label="Adjust volume"]')!;
+    const slider = host.querySelector<HTMLInputElement>('.volume-slider')!;
+    const tooltip = host.querySelector<HTMLElement>('.volume-tooltip')!;
+    button.click();
+    fixture.detectChanges();
+
+    slider.value = '0';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(player.volume()).toBe(0);
+    expect(tooltip.textContent?.trim()).toBe('0%');
+    expect(host.querySelector<HTMLElement>('.volume-reveal')!.style.getPropertyValue('--volume-position')).toBe('0%');
+    expect(button.querySelector('line[x1="23"][x2="17"]')).not.toBeNull();
+
+    player.setVolume(0.64);
+    fixture.detectChanges();
+    expect(slider.value).toBe('64');
+    expect(tooltip.textContent?.trim()).toBe('64%');
+    expect(host.querySelector<HTMLElement>('.volume-reveal')!.style.getPropertyValue('--volume-position')).toBe('64%');
+    expect(button.querySelector('line[x1="23"][x2="17"]')).toBeNull();
+
+    player.setVolume(1);
+    fixture.detectChanges();
+    expect(slider.value).toBe('100');
+    expect(tooltip.textContent?.trim()).toBe('100%');
+    expect(host.querySelector<HTMLElement>('.volume-reveal')!.style.getPropertyValue('--volume-position')).toBe('100%');
+
+    player.toggleMute();
+    fixture.detectChanges();
+    expect(tooltip.textContent?.trim()).toBe('100%');
+    expect(button.querySelector('line[x1="23"][x2="17"]')).not.toBeNull();
+  });
+
+  it('fills the complete track at 100% and none of it at 0% in both orientations', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const container = document.createElement('div');
+    container.style.cssText = 'width: 520px; height: 800px; container-type: inline-size; container-name: main-content;';
+    host.style.cssText = 'display: block; height: 100%;';
+    document.body.appendChild(container);
+    container.appendChild(host);
+    try {
+      host.querySelector<HTMLButtonElement>('[aria-label="Adjust volume"]')!.click();
+      fixture.detectChanges();
+      const track = host.querySelector<HTMLElement>('.volume-track')!;
+      const fill = host.querySelector<HTMLElement>('.volume-track-fill')!;
+      for (const width of [520, 280]) {
+        container.style.width = `${width}px`;
+        player.setVolume(0);
+        fixture.detectChanges();
+        expect(width === 520 ? fill.getBoundingClientRect().width : fill.getBoundingClientRect().height).toBe(0);
+        player.setVolume(1);
+        fixture.detectChanges();
+        expect(width === 520 ? fill.getBoundingClientRect().width : fill.getBoundingClientRect().height)
+          .toBeCloseTo(width === 520 ? track.getBoundingClientRect().width : track.getBoundingClientRect().height, 1);
+      }
+    } finally {
+      container.remove();
+    }
   });
 
   it('removes the cover shadow in Panel and restores it when switching to Classic', async () => {

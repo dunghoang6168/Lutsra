@@ -11,12 +11,14 @@ export interface LibrarySnapshot {
 
 export interface LibraryGateway {
   getLibrary(): Promise<LibrarySnapshot>;
+  getTrackById(trackId: string): Promise<Track | null>;
   getFolderTree(folderId: string): Promise<FolderNode | null>;
   getTrackDetails(trackId: string): Promise<TrackDetails>;
   selectAndAddMusicFolders(): Promise<MusicFolder[]>;
   removeMusicFolder(folderId: string): Promise<void>;
   requestScan(folderIds?: string[]): Promise<void>;
   scanProgress$: Observable<ScanProgress>;
+  libraryChanged$: Observable<void>;
 }
 
 export const LIBRARY_GATEWAY = new InjectionToken<LibraryGateway>('LIBRARY_GATEWAY');

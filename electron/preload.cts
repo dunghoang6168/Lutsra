@@ -10,6 +10,7 @@ const api: DesktopApi = {
   },
   library: {
     getSnapshot: () => ipcRenderer.invoke('library:get-snapshot'),
+    getTrackById: (trackId) => ipcRenderer.invoke('library:get-track-by-id', trackId),
     getFolderTree: (folderId) => ipcRenderer.invoke('library:get-folder-tree', folderId),
     getTrackDetails: (trackId) => ipcRenderer.invoke('library:get-track-details', trackId),
     getLyrics: (trackId) => ipcRenderer.invoke('library:get-lyrics', trackId),

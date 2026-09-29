@@ -1,4 +1,4 @@
-import { isAccentColor, isLayoutMode, isSongColumn, isSongColumnOrder, isThemePreset } from '../../src/app/core/models/index.js';
+import { isAccentColor, isAudioVisualizationMode, isLayoutMode, isSongColumn, isSongColumnOrder, isThemePreset } from '../../src/app/core/models/index.js';
 
 export function validSettings(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid settings');
@@ -10,6 +10,7 @@ export function validSettings(value: unknown): Record<string, unknown> {
   if ('themePreset' in input) { if (!isThemePreset(input['themePreset'])) throw new Error('Invalid theme preset'); result['themePreset'] = input['themePreset']; }
   if ('accentColor' in input) { if (!isAccentColor(input['accentColor'])) throw new Error('Invalid accent color'); result['accentColor'] = input['accentColor']; }
   if ('layoutMode' in input) { if (!isLayoutMode(input['layoutMode'])) throw new Error('Invalid layout mode'); result['layoutMode'] = input['layoutMode']; }
+  if ('audioVisualizationMode' in input) { if (!isAudioVisualizationMode(input['audioVisualizationMode'])) throw new Error('Invalid audio visualization mode'); result['audioVisualizationMode'] = input['audioVisualizationMode']; }
   if ('hiddenSongColumns' in input) {
     const columns = input['hiddenSongColumns'];
     if (!Array.isArray(columns) || !columns.every(isSongColumn)) throw new Error('Invalid Songs columns');

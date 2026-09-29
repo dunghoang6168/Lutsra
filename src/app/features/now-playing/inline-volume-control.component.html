@@ -1,0 +1,33 @@
+<div class="volume-control" [class.open]="expanded()" [class.adjusting]="adjusting()">
+  <button
+    type="button"
+    class="volume-button"
+    (click)="toggle()"
+    [attr.aria-expanded]="expanded()"
+    aria-controls="now-playing-volume-slider"
+    aria-label="Adjust volume"
+    title="Adjust volume">
+    <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
+  </button>
+  <div class="volume-reveal" [class.open]="expanded()" [style.--volume-position]="volumeLabel()">
+    <div class="volume-range">
+      <span class="volume-track" aria-hidden="true"><span class="volume-track-fill"></span></span>
+      <input
+        id="now-playing-volume-slider"
+        class="volume-slider"
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        [value]="volumePercent()"
+        [disabled]="!expanded()"
+        [tabIndex]="expanded() ? 0 : -1"
+        [attr.aria-valuetext]="volumePercent() + '%'"
+        aria-label="Volume"
+        (pointerdown)="adjusting.set(true)"
+        (blur)="adjusting.set(false)"
+        (input)="onVolumeInput($event)" />
+    </div>
+    <span class="volume-tooltip" aria-hidden="true">{{ volumeLabel() }}</span>
+  </div>
+</div>

@@ -1,5 +1,5 @@
 import { LibrarySnapshot } from '../contracts/library.gateway';
-import { ArtistMatchCandidate, ArtistMetadataUpdate, ArtistOnlineMetadata, FolderNode, MusicFolder, Playlist, ScanProgress, Settings, TrackDetails } from '../models';
+import { ArtistMatchCandidate, ArtistMetadataUpdate, ArtistOnlineMetadata, FolderNode, MusicFolder, Playlist, ScanProgress, Settings, Track, TrackDetails } from '../models';
 
 export interface DesktopApi {
   readonly runtime: 'electron';
@@ -9,6 +9,7 @@ export interface DesktopApi {
   };
   library: {
     getSnapshot(): Promise<LibrarySnapshot>;
+    getTrackById(trackId: string): Promise<Track | null>;
     getFolderTree(folderId: string): Promise<FolderNode | null>;
     getTrackDetails(trackId: string): Promise<TrackDetails>;
     getLyrics(trackId: string): Promise<string | null>;

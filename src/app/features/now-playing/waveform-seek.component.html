@@ -1,0 +1,46 @@
+<div class="waveform-area" [class.fallback]="state() === 'fallback'"
+  [class.partial]="state() === 'partial'" [class.preview-complete]="state() === 'ready' && hasPreview()">
+  @if (state() === 'fallback') {
+    <span class="fallback-time">{{ player.currentTime() | duration }}</span>
+  }
+  <div class="seek-surface"
+    role="slider"
+    [attr.tabindex]="player.duration() > 0 ? 0 : -1"
+    [attr.aria-disabled]="player.duration() <= 0"
+    [attr.aria-valuenow]="state() === 'fallback' ? player.currentTime() : displayTime()"
+    [attr.aria-valuemin]="0"
+    [attr.aria-valuemax]="player.duration()"
+    aria-label="Waveform timeline"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerCancel($event)"
+    (keydown)="onKeyDown($event)">
+    <canvas #futureCanvas class="waveform-canvas" aria-hidden="true"></canvas>
+    <div #playedLayer class="played-layer" aria-hidden="true">
+      <canvas #playedCanvas class="waveform-canvas"></canvas>
+    </div>
+    <div class="preview-overlay" aria-hidden="true">
+      <canvas #previewFutureCanvas class="waveform-canvas"></canvas>
+      <div #previewPlayedLayer class="played-layer">
+        <canvas #previewPlayedCanvas class="waveform-canvas"></canvas>
+      </div>
+    </div>
+    <span #cursor class="waveform-cursor" aria-hidden="true"></span>
+    @if (state() === 'loading') {
+      <span class="waveform-message">Preparing waveform…</span>
+    } @else if (state() === 'fallback') {
+      <span class="fallback-track"><span [style.width.%]="player.progressPercent()"></span></span>
+    } @else if (state() === 'partial') {
+      <span class="waveform-analysis">Analyzing {{ analysisPercent() }}%</span>
+    }
+  </div>
+  @if (state() === 'fallback') {
+    <span class="fallback-time">{{ player.duration() | duration }}</span>
+  } @else {
+    <div class="waveform-times" aria-hidden="true">
+      <span>{{ displayTime() | duration }}</span>
+      <span>{{ player.duration() | duration }}</span>
+    </div>
+  }
+</div>

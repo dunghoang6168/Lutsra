@@ -51,6 +51,15 @@
         </a>
       </section>
 
+      @if (isDesktop && foldersCount() === 0) {
+        <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
+          <h2 id="emptyLibraryTitle">Add music to your library</h2>
+          <p>Choose a folder to find your songs, albums, and artists.</p>
+          <button type="button" (click)="onAddFolder()">Add Music Folder</button>
+          @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
+        </section>
+      }
+
       <!-- Featured Albums Section -->
       <section class="home-section">
         <div class="section-header">

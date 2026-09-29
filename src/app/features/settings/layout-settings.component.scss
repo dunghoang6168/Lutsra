@@ -24,6 +24,15 @@
 .layout-option-description { color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.45; }
 .layout-save-status { min-height: 1.2em; margin-top: var(--space-2); color: var(--text-muted); font-size: var(--font-size-xs); }
 .layout-save-error { margin-top: var(--space-2); color: var(--status-error); font-size: var(--font-size-sm); }
+.visualization-setting { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
+.visualization-setting h3 { font-size: var(--font-size-sm); font-weight: 700; }
+.visualization-setting p { color: var(--text-secondary); font-size: var(--font-size-sm); }
+.visualization-options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.visualization-options button { padding: var(--space-2) var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary); cursor: pointer; }
+.visualization-options button.active { border-color: var(--accent-primary); background: var(--accent-muted); }
+.visualization-options button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.visualization-save-status { min-height: 1.2em; margin-top: var(--space-2); color: var(--text-muted); font-size: var(--font-size-xs); }
 @container main-content (max-width: 520px) {
   .layout-options { grid-template-columns: 1fr; }
+  .visualization-setting { align-items: flex-start; flex-direction: column; }
 }

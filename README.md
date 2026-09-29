@@ -4,7 +4,7 @@ Lutsra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. D�
 
 V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
 
-**Phiên bản hiện tại: 0.2.1 (desktop Windows).** Bản này tiếp tục hoàn thiện giao diện, bố cục và trải nghiệm duyệt thư viện sau checkpoint 0.2.0. Android được phát triển sau bản desktop này, với mục tiêu phiên bản 0.3.0; ứng dụng Android chưa nằm trong bản 0.2.1.
+**Phiên bản hiện tại: 0.2.2 (desktop; Windows là nền tảng đã kiểm thử).** Bản này tiếp tục hoàn thiện trải nghiệm thư viện và Now Playing sau 0.2.1. macOS mới ở giai đoạn chuẩn bị thử bằng `npm run electron`; chưa có bản `.app` hoặc xác nhận chạy thực tế trên Mac. Android được phát triển sau bản desktop này, với mục tiêu phiên bản 0.3.0.
 
 ## Trạng thái hiện tại
 
@@ -20,12 +20,13 @@ Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn 
 - Phase 3 bổ sung semantic design tokens; giao diện hiện có 2 theme Dark/Light, 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
 - Phase 3.2 bổ sung real-time spectrum visualizer trên Now Playing, lấy dữ liệu FFT từ chính `HTMLAudioElement` qua Web Audio API.
 - Phase 3.3–3.5 bổ sung Track Properties, app header tích hợp, global search, Media Session cho phím media, metadata nghệ sĩ online và cấu trúc component TS/HTML/SCSS tách biệt.
-- Bản 0.2.1 bổ sung hai kiểu bố cục Panel/Classic có lưu vào settings, điều khiển sidebar, sắp xếp và ẩn/hiện các cột Songs, điều hướng Folders theo URL, hiển thị lyrics đồng bộ từ file `.lrc` cùng tên với bài hát và hiệu ứng nền theo artwork ở Now Playing.
-- Trên mã nguồn hiện tại, 218 Angular tests, 34 backend tests, typecheck Electron, production build và Electron smoke test đều thành công. Bản Windows unpacked đã được kiểm tra ở checkpoint 0.2.0; chưa xác nhận đóng gói Windows cho 0.2.1.
+- Bản 0.2.2 giữ hai kiểu bố cục Panel/Classic, lyrics `.lrc` và các tùy chỉnh thư viện; bổ sung hướng dẫn thêm thư mục nhạc khi thư viện trống, đồng bộ thư viện sau khi thêm/gỡ/quét, giữ entry playlist của bài đã gỡ với nhãn Unavailable, và lọc playback queue theo thư viện hiện còn.
+- Now Playing có lựa chọn Spectrum/Waveform trong Settings, waveform có thể seek và có bộ nhớ đệm; bản Panel có điều khiển âm lượng và chế độ phát ngay trong trang. Các phần này đang được hoàn thiện trong workspace hiện tại.
+- Trên workspace 0.2.2 hiện tại, 258 Angular tests và 36 backend tests thành công; production build Angular/Electron thành công trên Windows. Bản Windows unpacked đã được kiểm tra ở checkpoint 0.2.0; bản đóng gói 0.2.2 và macOS chưa được kiểm thử thực tế.
 
 Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Dự án đã có cấu hình tạo NSIS installer và bản portable Windows nhưng chưa có app icon chính thức, code signing hoặc bản phát hành công khai. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
-Giao diện hiện tại là nền tảng để sử dụng và tiếp tục tinh chỉnh. Tài liệu Phase 3.1 ghi lại brief thiết kế ở thời điểm trước; các bổ sung 0.2.1 về lyrics và settings đã mở rộng IPC và dữ liệu lưu trữ.
+Giao diện hiện tại là nền tảng để sử dụng và tiếp tục tinh chỉnh. Tài liệu Phase 3.1 ghi lại brief thiết kế ở thời điểm trước; các bổ sung từ 0.2.1 đến 0.2.2 đã mở rộng IPC và dữ liệu lưu trữ.
 
 ## Chức năng V1
 
@@ -38,7 +39,7 @@ Giao diện hiện tại là nền tảng để sử dụng và tiếp tục tin
 | Queue | Queue độc lập thứ tự library, hỗ trợ chuyển bài, xóa và clear |
 | Playlists | Tạo, đổi tên, xóa, thêm/xóa/sắp xếp entry; cho phép cùng track xuất hiện nhiều lần |
 | Persistence | SQLite lưu folder, track, directory snapshot, playlist, settings và scan run |
-| Desktop UX | Bố cục Panel/Classic, sidebar có thể thu gọn hoặc ẩn, bottom player, Now Playing, lyrics `.lrc` đồng bộ, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
+| Desktop UX | Bố cục Panel/Classic, sidebar có thể thu gọn hoặc ẩn, bottom player, Now Playing với Spectrum/Waveform, lyrics `.lrc` đồng bộ, hướng dẫn thêm nhạc, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
 
 Định dạng scanner ưu tiên: **MP3, FLAC, WAV, M4A/AAC, OGG và Opus**. Việc đọc được metadata không đảm bảo Chromium phát được mọi codec/container. File không được Chromium hỗ trợ sẽ tạo playback error; V1 không transcoding.
 
@@ -125,11 +126,24 @@ scripts/             # Electron launcher và bundle compatibility fix
 
 ## Cài đặt và chạy
 
-Cài đúng dependency theo lockfile:
+### Cần cài trước
+
+- **Git** để clone mã nguồn.
+- **Node.js 22.12+ (nhánh 22) hoặc Node.js 24.x**, kèm **npm**. Dự án đã được chạy với Node.js 22.20.0 và npm 10.9.3. Angular 21 yêu cầu Node.js 22.12+ hoặc 24.x; backend dùng `node:sqlite` nên không chọn nhánh Node 20.
+
+Không cần cài Angular CLI, Electron, TypeScript hay SQLite riêng trên máy. `npm ci` sẽ cài các package theo `package-lock.json` và tải Electron; bước này cần kết nối mạng. Người dùng chạy bản installer/portable đã đóng gói không cần cài Node.js.
+
+Clone repo rồi cài dependency từ thư mục gốc:
 
 ```bash
+git clone https://github.com/dunghoang6168/Lutsra.git
+cd Lutsra
+node --version
+npm --version
 npm ci
 ```
+
+Sau khi clone, dùng các lệnh dưới đây tùy mục đích. Không cần chạy `npm install` thêm sau `npm ci`.
 
 Nếu PowerShell chặn `npm.ps1`, dùng `npm.cmd` trong các lệnh dưới đây.
 
@@ -158,9 +172,13 @@ npm run electron
 
 Angular output nằm tại `dist/lutsra/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
 
+### Thử chạy trên macOS
+
+Trên máy Mac, cài Git và phiên bản Node.js nêu ở phần **Cần cài trước**, rồi clone đúng commit/nhánh muốn kiểm tra. Chạy `npm ci` và `npm run electron` trong thư mục repo. Đây là bước thử ứng dụng từ mã nguồn; chưa có cấu hình đóng gói `.app` và chưa xác nhận giao diện hoặc playback trên macOS. Khi thử, kiểm tra vùng nút cửa sổ góc trái, thao tác kéo header, chọn thư mục nhạc và phát một bài.
+
 ### Đóng gói bản demo Windows
 
-Yêu cầu Node.js 22 trở lên, npm và Windows x64. Cài dependencies theo lockfile rồi tạo đồng thời installer và bản portable:
+Trên Windows x64, dùng phiên bản Node.js và npm nêu ở phần **Cần cài trước**, rồi tạo đồng thời installer và bản portable:
 
 ```powershell
 npm ci
@@ -169,8 +187,8 @@ npm run package:win
 
 Artifact được tạo trong `release/`:
 
-- `Lutsra-Setup-0.2.1-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
-- `Lutsra-Portable-0.2.1-x64.exe`: chạy trực tiếp, không cần cài đặt.
+- `Lutsra-Setup-0.2.2-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
+- `Lutsra-Portable-0.2.2-x64.exe`: chạy trực tiếp, không cần cài đặt.
 
 Để tạo bản unpacked phục vụ kiểm tra nhanh mà không sinh installer:
 

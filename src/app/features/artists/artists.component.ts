@@ -77,6 +77,7 @@ export class ArtistsComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadArtists();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadArtists());
     this.artistMetadata.updates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((update) => {
       this.artists.update((artists) => artists.map((artist) => artist.id === update.artistId ? { ...artist, onlineMetadata: update.metadata, customAvatar: update.customAvatar === undefined ? artist.customAvatar : update.customAvatar } : artist));
     });

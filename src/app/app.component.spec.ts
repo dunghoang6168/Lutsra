@@ -43,6 +43,71 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
+  it('shows the empty desktop onboarding once in a window and restores focus on Escape', async () => {
+    const previousDesktop = window.desktop;
+    Object.defineProperty(window, 'desktop', { configurable: true, value: {
+      runtime: 'electron', windowControls: { setTitleBarAppearance: async () => undefined },
+    } });
+    const gateway = TestBed.inject(LIBRARY_GATEWAY);
+    spyOn(gateway, 'getLibrary').and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] });
+    const focusTarget = document.createElement('button');
+    document.body.appendChild(focusTarget);
+    const fixture = TestBed.createComponent(AppComponent);
+    document.body.appendChild(fixture.nativeElement);
+    focusTarget.focus();
+    expect(document.activeElement).toBe(focusTarget);
+    try {
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(fixture.nativeElement.querySelector('.onboarding-dialog')).not.toBeNull();
+      expect(document.activeElement?.textContent).toContain('Add Music Folder');
+      fixture.componentInstance.onOnboardingKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(fixture.nativeElement.querySelector('.onboarding-dialog')).toBeNull();
+      expect(document.activeElement).toBe(focusTarget);
+      const nextWindow = TestBed.createComponent(AppComponent);
+      try {
+        nextWindow.detectChanges();
+        await nextWindow.whenStable();
+        nextWindow.detectChanges();
+        expect(nextWindow.nativeElement.querySelector('.onboarding-dialog')).not.toBeNull();
+      } finally {
+        nextWindow.destroy();
+      }
+    } finally {
+      fixture.destroy();
+      fixture.nativeElement.remove();
+      focusTarget.remove();
+      Object.defineProperty(window, 'desktop', { configurable: true, value: previousDesktop });
+    }
+  });
+
+  it('keeps onboarding open after picker cancellation and displays picker errors', async () => {
+    const previousDesktop = window.desktop;
+    Object.defineProperty(window, 'desktop', { configurable: true, value: {
+      runtime: 'electron', windowControls: { setTitleBarAppearance: async () => undefined },
+    } });
+    const gateway = TestBed.inject(LIBRARY_GATEWAY);
+    spyOn(gateway, 'getLibrary').and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] });
+    const picker = spyOn(gateway, 'selectAndAddMusicFolders').and.resolveTo([]);
+    const fixture = TestBed.createComponent(AppComponent);
+    try {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.componentInstance.onAddMusicFolder();
+      expect(fixture.componentInstance.showOnboarding()).toBeTrue();
+      picker.and.rejectWith(new Error('Picker failed'));
+      await fixture.componentInstance.onAddMusicFolder();
+      expect(fixture.componentInstance.onboardingError()).toBe('Picker failed');
+    } finally {
+      fixture.destroy();
+      Object.defineProperty(window, 'desktop', { configurable: true, value: previousDesktop });
+    }
+  });
+
   it('uses the integrated app header instead of the old demo banner', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();

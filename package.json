@@ -1,7 +1,7 @@
 {
   "name": "lutsra",
-  "version": "0.2.1",
-  "description": "Lutsra 0.2.1 is a local-first Windows music library and player.",
+  "version": "0.2.2",
+  "description": "Lutsra 0.2.2 is a local-first desktop music library and player.",
   "productName": "Lutsra",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -31,6 +31,7 @@
     "@angular/platform-browser": "^21.2.0",
     "@angular/platform-browser-dynamic": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@wasm-audio-decoders/flac": "^0.2.11",
     "music-metadata": "^11.15.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

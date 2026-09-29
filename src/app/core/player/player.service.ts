@@ -14,6 +14,7 @@ export class PlayerService implements OnDestroy {
 
   // Internal Request Counter for handling overlapping load requests
   private loadSequence = 0;
+  private libraryRefreshVersion = 0;
   private readonly playRequested = signal(false);
 
   // Primary Signals
@@ -58,6 +59,42 @@ export class PlayerService implements OnDestroy {
       wasScanning = progress.isScanning;
       if (justFinished) void this.refreshArtwork();
     }));
+    if (this.libraryGateway?.libraryChanged$) {
+      this.subscriptions.add(this.libraryGateway.libraryChanged$.subscribe(() => void this.reconcileLibrary()));
+    }
+  }
+
+  private async reconcileLibrary(): Promise<void> {
+    if (!this.libraryGateway) return;
+    const version = ++this.libraryRefreshVersion;
+    try {
+      const tracks = new Map((await this.libraryGateway.getLibrary()).tracks.map((track) => [track.id, track]));
+      if (version !== this.libraryRefreshVersion) return;
+      const currentEntry = this.currentQueueEntry();
+      const keep = (entry: QueueEntry): QueueEntry | null => {
+        const track = tracks.get(entry.track.id);
+        return track ? { ...entry, track } : null;
+      };
+      const nextQueue = this.queue().flatMap((entry) => keep(entry) ?? []);
+      this.originalQueue = this.originalQueue.flatMap((entry) => keep(entry) ?? []);
+      this.queue.set(nextQueue);
+      const currentIndex = currentEntry ? nextQueue.findIndex((entry) => entry.id === currentEntry.id) : -1;
+      if (currentEntry && currentIndex < 0) {
+        this.loadSequence++;
+        this.playRequested.set(false);
+        this.engine.dispose();
+        this.currentTrack.set(null);
+        this.currentTime.set(0);
+        this.duration.set(0);
+        this.error.set(null);
+        this.playbackState.set('idle');
+      } else if (currentIndex >= 0) {
+        this.currentTrack.set(nextQueue[currentIndex].track);
+      }
+      this.currentIndex.set(currentIndex);
+    } catch (error) {
+      console.error('[playback:library] Failed to reconcile queue', error);
+    }
   }
 
   private async refreshArtwork(): Promise<void> {

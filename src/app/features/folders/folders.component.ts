@@ -95,6 +95,9 @@ export class FoldersComponent implements OnInit, OnDestroy {
         }
       })
     );
+    if (this.libraryGateway.libraryChanged$) {
+      this.sub.add(this.libraryGateway.libraryChanged$.subscribe(() => void this.loadRoots()));
+    }
 
     await this.loadRoots();
   }

@@ -123,6 +123,7 @@ class SettingsGatewayStub implements SettingsGateway {
     themePreset: 'dark',
     accentColor: 'violet',
     layoutMode: 'inset',
+    audioVisualizationMode: 'spectrum',
     hiddenSongColumns: [],
     songColumnOrder: ['artist', 'album', 'duration', 'codec', 'sampleRate', 'lyrics'],
   };

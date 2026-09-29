@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +18,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 export class PlaylistsComponent implements OnInit {
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
+  private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
 
   readonly playlists = signal<Playlist[]>([]);
@@ -34,6 +36,7 @@ export class PlaylistsComponent implements OnInit {
   readonly playlistToDelete = signal<Playlist | null>(null);
 
   async ngOnInit(): Promise<void> {
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadData());
     await this.loadData();
   }
 

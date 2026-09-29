@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile, mkdtemp, rm, unlink } from 'node:fs/promises';
+import { mkdir, writeFile, mkdtemp, rm, stat, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -86,6 +86,7 @@ test('renamed app migrates the newest legacy library and artwork without changin
     assert.deepEqual(migrated.getSettings().hiddenSongColumns, []);
     assert.deepEqual(migrated.getSettings().songColumnOrder, ['artist', 'album', 'duration', 'codec', 'sampleRate', 'lyrics']);
     assert.equal(migrated.getSettings().layoutMode, 'inset');
+    assert.equal(migrated.getSettings().audioVisualizationMode, 'spectrum');
     assert.equal(migrated.resolveArtwork('a'.repeat(64))?.path, path.join(targetRoot, 'artwork-cache', 'cover.jpg'));
     migrated.close();
     assert.equal(await migrateLegacyProfile(targetRoot, appData), null);
@@ -121,6 +122,8 @@ test('settings IPC accepts allowlisted themes and rejects invalid values', () =>
   assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
   assert.deepEqual(validSettings({ layoutMode: 'classic' }), { layoutMode: 'classic' });
   assert.throws(() => validSettings({ layoutMode: 'floating' }), /Invalid layout mode/);
+  assert.deepEqual(validSettings({ audioVisualizationMode: 'waveform' }), { audioVisualizationMode: 'waveform' });
+  assert.throws(() => validSettings({ audioVisualizationMode: 'bars' }), /Invalid audio visualization mode/);
   assert.deepEqual(validSettings({ hiddenSongColumns: ['artist', 'codec', 'artist'] }), { hiddenSongColumns: ['artist', 'codec'] });
   assert.deepEqual(validSettings({ hiddenSongColumns: ['lyrics'] }), { hiddenSongColumns: ['lyrics'] });
   const songColumnOrder = ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate'];
@@ -401,7 +404,7 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     const withDuplicates = database.addPlaylistTracks(playlist.id, [firstTrackId, firstTrackId]);
     assert.equal(withDuplicates.entries.length, 2);
     assert.notEqual(withDuplicates.entries[0]?.id, withDuplicates.entries[1]?.id);
-    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'dark', accentColor: 'cyan', layoutMode: 'classic', hiddenSongColumns: ['artist', 'codec'], songColumnOrder: ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate'] });
+    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'dark', accentColor: 'cyan', layoutMode: 'classic', audioVisualizationMode: 'waveform', hiddenSongColumns: ['artist', 'codec'], songColumnOrder: ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate'] });
 
     database.close();
     database = new DatabaseService(databasePath);
@@ -411,17 +414,101 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     assert.equal(database.getSettings().themePreset, 'dark');
     assert.equal(database.getSettings().accentColor, 'cyan');
     assert.equal(database.getSettings().layoutMode, 'classic');
+    assert.equal(database.getSettings().audioVisualizationMode, 'waveform');
     assert.deepEqual(database.getSettings().hiddenSongColumns, ['artist', 'codec']);
     assert.deepEqual(database.getSettings().songColumnOrder, ['lyrics', 'artist', 'album', 'duration', 'codec', 'sampleRate']);
 
     await unlink(audioPath);
     const reopenedScanner = new ScannerService(database, new ArtworkService(artworkPath, database), () => undefined);
     await reopenedScanner.scan([folder.id]);
-    assert.equal(database.getLibrary().tracks[0]?.isAvailable, false);
+    assert.equal(database.getLibrary().tracks.length, 0);
+    assert.equal(database.getTrackById(firstTrackId)?.isAvailable, false);
     assert.equal(database.listPlaylists()[0]?.entries.length, 2);
   } finally {
     database?.close();
     await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('folder removal hides orphan tracks while preserving playlists and local audio files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lutsra-folder-removal-'));
+  const firstPath = path.join(root, 'first');
+  const secondPath = path.join(root, 'second');
+  const audioPath = path.join(firstPath, 'song.wav');
+  const databasePath = path.join(root, 'library.sqlite');
+  await mkdir(firstPath);
+  await mkdir(secondPath);
+  await writeFile(audioPath, createWaveFile());
+  let database = new DatabaseService(databasePath);
+  try {
+    const first = database.addFolder(firstPath, 'First');
+    const second = database.addFolder(secondPath, 'Second');
+    const shared = createStoredTrack('shared-track', 'Shared', 1, 1, firstPath);
+    const orphan = createStoredTrack('orphan-track', 'Orphan', 1, 2, firstPath);
+    database.upsertTracks(first.id, 'first-scan', [shared, orphan]);
+    database.upsertTracks(second.id, 'second-scan', [shared]);
+    const playlist = database.addPlaylistTracks(database.createPlaylist('Saved').id, [orphan.id, shared.id, orphan.id]);
+
+    database.removeFolder(first.id);
+    assert.deepEqual(database.getLibrary().tracks.map((track) => track.id), [shared.id]);
+    assert.equal(database.getLibrary().albums.length, 1);
+    assert.equal(database.getLibrary().artists.length, 1);
+    assert.equal(database.getTrackById(orphan.id)?.isAvailable, false);
+    assert.deepEqual(database.listPlaylists()[0]?.entries.map((entry) => entry.id), playlist.entries.map((entry) => entry.id));
+
+    database.removeFolder(second.id);
+    const empty = database.getLibrary();
+    assert.deepEqual([empty.folders.length, empty.tracks.length, empty.albums.length, empty.artists.length], [0, 0, 0, 0]);
+    const scanner = new ScannerService(database, new ArtworkService(path.join(root, 'artwork'), database), () => undefined);
+    await scanner.scan();
+    assert.equal(database.getLibrary().tracks.length, 0);
+    database.close();
+    database = new DatabaseService(databasePath);
+    assert.equal(database.getLibrary().tracks.length, 0);
+    assert.equal(database.getTrackById(orphan.id)?.isAvailable, false);
+    assert.ok((await stat(audioPath)).isFile());
+
+    const restored = database.addFolder(firstPath, 'First');
+    database.upsertTracks(restored.id, 'restored-scan', [orphan]);
+    assert.equal(database.getTrackById(orphan.id)?.isAvailable, true);
+    assert.deepEqual(database.listPlaylists()[0]?.entries.map((entry) => entry.trackId), [orphan.id, shared.id, orphan.id]);
+  } finally {
+    database.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('readding and rescanning a removed root restores the same playlist track', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lutsra-folder-restore-'));
+  const musicPath = path.join(root, 'Music');
+  const audioPath = path.join(musicPath, 'Song.wav');
+  const databasePath = path.join(root, 'library.sqlite');
+  await mkdir(musicPath);
+  await writeFile(audioPath, createWaveFile());
+  let database = new DatabaseService(databasePath);
+  try {
+    const folder = database.addFolder(musicPath, 'Music');
+    let scanner = new ScannerService(database, new ArtworkService(path.join(root, 'artwork'), database), () => undefined);
+    await scanner.scan([folder.id]);
+    const trackId = database.getLibrary().tracks[0]!.id;
+    const playlist = database.addPlaylistTracks(database.createPlaylist('Saved').id, [trackId]);
+    database.removeFolder(folder.id);
+    assert.deepEqual([database.getLibrary().tracks.length, database.getLibrary().albums.length, database.getLibrary().artists.length], [0, 0, 0]);
+    assert.equal(database.getTrackById(trackId)?.isAvailable, false);
+    database.close();
+    database = new DatabaseService(databasePath);
+    scanner = new ScannerService(database, new ArtworkService(path.join(root, 'artwork'), database), () => undefined);
+    await scanner.scan();
+    assert.equal(database.getLibrary().tracks.length, 0);
+    const restored = database.addFolder(musicPath, 'Music');
+    await scanner.scan([restored.id]);
+    assert.equal(database.getLibrary().tracks[0]?.id, trackId);
+    assert.equal(database.getTrackById(trackId)?.isAvailable, true);
+    assert.deepEqual(database.listPlaylists()[0]?.entries.map((entry) => entry.id), playlist.entries.map((entry) => entry.id));
+    assert.ok((await stat(audioPath)).isFile());
+  } finally {
+    database.close();
+    await rm(root, { recursive: true, force: true });
   }
 });
 

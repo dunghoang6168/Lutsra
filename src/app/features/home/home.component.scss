@@ -8,6 +8,17 @@
       gap: var(--space-8);
     }
 
+    .home-empty-library {
+      padding: var(--space-6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface);
+    }
+    .home-empty-library h2 { margin: 0 0 var(--space-2); }
+    .home-empty-library p { color: var(--text-secondary); }
+    .home-empty-library button { margin-top: var(--space-1); padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-md); background: var(--accent-primary); color: #fff; cursor: pointer; }
+    .home-empty-library button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+
     .welcome-hero {
       background: linear-gradient(135deg, var(--color-accent-muted), var(--color-surface-elevated));
       border: 1px solid var(--color-border-subtle);

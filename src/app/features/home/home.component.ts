@@ -7,6 +7,7 @@ import { Album, Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { compareAlbumsByTitle } from '../library-browse';
+import { getDesktopApi } from '../../core/desktop/desktop-api';
 
 export function featuredAlbumColumns(width: number, minCardWidth = 160, gap = 16): number {
   return Math.max(1, Math.floor((width + gap) / (minCardWidth + gap)));
@@ -24,6 +25,8 @@ export class HomeComponent implements OnInit, AfterViewInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   readonly player = inject(PlayerService);
+  readonly isDesktop = Boolean(getDesktopApi());
+  readonly errorMessage = signal<string | null>(null);
 
   readonly tracksCount = signal<number>(0);
   readonly albumsCount = signal<number>(0);
@@ -59,7 +62,17 @@ export class HomeComponent implements OnInit, AfterViewInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadHome();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadHome());
     await this.loadHome();
+  }
+
+  async onAddFolder(): Promise<void> {
+    this.errorMessage.set(null);
+    try {
+      await this.libraryGateway.selectAndAddMusicFolders();
+    } catch (error) {
+      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to add music folder');
+    }
   }
 
   private async loadHome(): Promise<void> {

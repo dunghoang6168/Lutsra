@@ -92,6 +92,7 @@ export class ArtistDetailComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.refreshLibraryArtwork(artistId);
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.refreshLibraryArtwork(artistId));
 
     this.artistMetadata.updates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((update) => {
       if (update.artistId !== artistId) return;
@@ -127,8 +128,13 @@ export class ArtistDetailComponent implements OnInit {
   private async refreshLibraryArtwork(artistId: string): Promise<void> {
     const library = await this.libraryGateway.getLibrary();
     const artist = library.artists.find((item) => item.id === artistId);
-    if (!artist) return;
     this.allTracks.set(library.tracks);
+    this.artist.set(artist ?? null);
+    if (!artist) {
+      this.artistAlbums.set([]);
+      this.artistTracks.set([]);
+      return;
+    }
     const albums = library.albums.filter((album) => artist.albumIds.includes(album.id));
     this.artistAlbums.set(albums);
     this.artistTracks.set(orderArtistTracks(artist, albums, library.tracks));

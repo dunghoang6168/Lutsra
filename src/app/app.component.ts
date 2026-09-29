@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -13,6 +13,8 @@ import { PlayerService } from './core/player/player.service';
 import { LayoutPreferenceService } from './core/layout/layout-preference.service';
 import { ArtworkGlowPositionService } from './core/layout/artwork-glow-position.service';
 import { ArtworkEdgeGlowService, EDGE_GLOW_SPREAD } from './core/layout/artwork-edge-glow.service';
+import { LIBRARY_GATEWAY } from './core/contracts';
+import { getDesktopApi } from './core/desktop/desktop-api';
 
 const SIDEBAR_COLLAPSED_KEY = 'lutsra.sidebar.collapsed';
 const SIDEBAR_HIDDEN_KEY = 'lutsra.sidebar.hidden';
@@ -32,7 +34,7 @@ const SIDEBAR_HIDDEN_KEY = 'lutsra.sidebar.hidden';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent {
+export class AppComponent implements AfterViewChecked {
   readonly isSidebarCollapsed = signal(readSavedFlag(SIDEBAR_COLLAPSED_KEY));
   readonly isSidebarHidden = signal(readSavedFlag(SIDEBAR_HIDDEN_KEY));
   readonly rightPanels = inject(RightPanelService);
@@ -40,6 +42,15 @@ export class AppComponent {
   readonly layoutPreference = inject(LayoutPreferenceService);
   readonly artworkGlowPosition = inject(ArtworkGlowPositionService);
   private readonly artworkEdgeGlow = inject(ArtworkEdgeGlowService);
+  private readonly libraryGateway = inject(LIBRARY_GATEWAY);
+  @ViewChild('onboardingDialog') private onboardingDialog?: ElementRef<HTMLElement>;
+  readonly showOnboarding = signal(false);
+  readonly onboardingBusy = signal(false);
+  readonly onboardingError = signal<string | null>(null);
+  private onboardingChecked = false;
+  private needsOnboardingFocus = false;
+  private needsFocusRestore = false;
+  private focusBeforeOnboarding: HTMLElement | null = null;
   readonly edgeGlowSpread = EDGE_GLOW_SPREAD;
   readonly panelGlow = signal<{ source: string; url: string | null } | null>(null);
   private readonly router = inject(Router);
@@ -58,6 +69,7 @@ export class AppComponent {
     (this.hasPlaybackOrQueue() && this.currentUrl().split(/[?#]/, 1)[0] !== '/now-playing'));
 
   constructor() {
+    void this.checkOnboarding();
     effect(() => {
       if (this.layoutPreference.mode() === 'inset' && !this.hasPlaybackOrQueue()) this.rightPanels.closeQueue();
     });
@@ -74,6 +86,67 @@ export class AppComponent {
         }
       });
     });
+  }
+
+  private async checkOnboarding(): Promise<void> {
+    if (!getDesktopApi() || this.onboardingChecked) return;
+    this.onboardingChecked = true;
+    try {
+      if ((await this.libraryGateway.getLibrary()).folders.length === 0) {
+        this.focusBeforeOnboarding = document.activeElement as HTMLElement | null;
+        this.showOnboarding.set(true);
+        this.needsOnboardingFocus = true;
+      }
+    } catch (error) {
+      console.error('[library:onboarding] Failed to inspect folders', error);
+    }
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.needsFocusRestore && !this.showOnboarding()) {
+      this.needsFocusRestore = false;
+      if (this.focusBeforeOnboarding?.isConnected) this.focusBeforeOnboarding.focus();
+    }
+    if (!this.needsOnboardingFocus || !this.onboardingDialog) return;
+    this.needsOnboardingFocus = false;
+    this.onboardingDialog.nativeElement.querySelector<HTMLButtonElement>('button')?.focus();
+  }
+
+  closeOnboarding(): void {
+    this.showOnboarding.set(false);
+    this.onboardingError.set(null);
+    this.needsFocusRestore = true;
+  }
+
+  async onAddMusicFolder(): Promise<void> {
+    if (this.onboardingBusy()) return;
+    this.onboardingBusy.set(true);
+    this.onboardingError.set(null);
+    try {
+      const added = await this.libraryGateway.selectAndAddMusicFolders();
+      if (added.length) this.closeOnboarding();
+      else this.needsOnboardingFocus = true;
+    } catch (error) {
+      this.onboardingError.set(error instanceof Error ? error.message : 'Failed to add music folders');
+      this.needsOnboardingFocus = true;
+    } finally {
+      this.onboardingBusy.set(false);
+    }
+  }
+
+  onOnboardingKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeOnboarding();
+    } else if (event.key === 'Tab') {
+      const buttons = [...(this.onboardingDialog?.nativeElement.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? [])];
+      if (!buttons.length) return;
+      const first = buttons[0];
+      const last = buttons.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
   }
 
   onToggleSidebar(): void {
@@ -97,6 +170,10 @@ export class AppComponent {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    if (this.showOnboarding()) {
+      if (event.key === 'Escape') { event.preventDefault(); this.closeOnboarding(); }
+      return;
+    }
     if (event.key === 'Escape') {
       this.rightPanels.closeActive();
       return;

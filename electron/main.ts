@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, session, type BrowserWindow as BrowserWindowType } from 'electron';
 import path from 'node:path';
+import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { ArtworkService } from './services/artwork.service.js';
 import { DatabaseService } from './services/database.service.js';
@@ -25,7 +26,7 @@ if (smokeTest) {
   app.setPath('userData', smokeUserData);
 }
 
-function createWindow(smokeArtworkUrl?: string): void {
+function createWindow(smokeArtworkUrl?: string, smokeTrackId?: string, smokeWorkerFile?: string, smokeDuration?: number): void {
   mainWindow = new BrowserWindow({
     name: 'lutsra-main',
     windowStatePersistence: true,
@@ -62,17 +63,17 @@ function createWindow(smokeArtworkUrl?: string): void {
       const timeout = setTimeout(() => {
         console.error('[smoke] Timed out waiting for renderer IPC');
         app.exit(1);
-      }, 5000);
+      }, smokeTrackId ? 30000 : 5000);
       mainWindow?.webContents.on('page-title-updated', (_event, title) => {
         if (!title.startsWith('smoke:')) return;
         clearTimeout(timeout);
-        const [pong, trackCount, artworkResult] = title.slice(6).split(':');
-        if (pong !== 'pong' || artworkResult !== 'ok') {
-          console.error('[smoke] IPC or artwork Canvas check failed', { pong, artworkResult });
+        const [pong, trackCount, artworkResult, waveformResult, cacheResult] = title.slice(6).split(':');
+        if (pong !== 'pong' || artworkResult !== 'ok' || waveformResult !== 'ok' || cacheResult !== 'ok') {
+          console.error('[smoke] Renderer check failed', { pong, artworkResult, waveformResult, cacheResult });
           app.exit(1);
           return;
         }
-        console.info('[smoke]', { pong, trackCount: Number(trackCount), artworkResult });
+        console.info('[smoke]', { pong, trackCount: Number(trackCount), artworkResult, waveformResult, cacheResult });
         app.quit();
       });
       void mainWindow?.webContents.executeJavaScript(`Promise.all([
@@ -95,8 +96,40 @@ function createWindow(smokeArtworkUrl?: string): void {
           image.onerror = () => resolve('failed');
           image.src = '${smokeArtworkUrl}';
         }),
-      ]).then(([pong, snapshot, artworkResult]) => {
-        document.title = 'smoke:' + pong + ':' + snapshot.tracks.length + ':' + artworkResult;
+        ${smokeTrackId ? `Promise.all([
+          fetch('music://track/${smokeTrackId}').then(async (response) => response.ok && (await response.arrayBuffer()).byteLength > 0),
+          new Promise((resolve) => {
+            const worker = new Worker('${development ? `/` : `app://lutsra/`}${smokeWorkerFile}', { type: 'module' });
+            worker.onmessage = (event) => {
+              if (event.data.type === 'progress') return;
+              const peaks = event.data.type === 'done' ? new Float32Array(event.data.peaks) : null;
+              resolve(peaks?.length === 1024 && peaks.some((value) => value > 0));
+              worker.terminate();
+            };
+            worker.onerror = () => { resolve(false); worker.terminate(); };
+            worker.postMessage({ trackId: '${smokeTrackId}', duration: ${smokeDuration ?? 0} });
+          }),
+        ]).then((checks) => checks.every(Boolean) ? 'ok' : 'failed').catch(() => 'failed')` : `Promise.resolve('ok')`},
+        new Promise((resolve) => {
+          try {
+            const request = indexedDB.open('lutsra-smoke-idb', 1);
+            request.onupgradeneeded = () => request.result.createObjectStore('probe');
+            request.onerror = () => resolve('failed');
+            request.onsuccess = () => {
+              const database = request.result;
+              const write = database.transaction('probe', 'readwrite');
+              write.objectStore('probe').put('ok', 'value');
+              write.onerror = () => { database.close(); resolve('failed'); };
+              write.oncomplete = () => {
+                const read = database.transaction('probe', 'readonly').objectStore('probe').get('value');
+                read.onerror = () => { database.close(); resolve('failed'); };
+                read.onsuccess = () => { database.close(); resolve(read.result === 'ok' ? 'ok' : 'failed'); };
+              };
+            };
+          } catch { resolve('failed'); }
+        }),
+      ]).then(([pong, snapshot, artworkResult, waveformResult, cacheResult]) => {
+        document.title = 'smoke:' + pong + ':' + snapshot.tracks.length + ':' + artworkResult + ':' + waveformResult + ':' + cacheResult;
       })`);
     });
   }
@@ -126,7 +159,26 @@ app.whenReady().then(async () => {
   const smokeArtworkHash = smokeTest
     ? await artwork.saveBuffer(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6dssAAAAASUVORK5CYII=', 'base64'), 'image/png')
     : null;
-  createWindow(smokeArtworkHash ? `music://artwork/${smokeArtworkHash}` : undefined);
+  let smokeTrackId: string | undefined;
+  let smokeWorkerFile: string | undefined;
+  let smokeDuration: number | undefined;
+  const smokeFlacPath = process.env['LUTSRA_SMOKE_FLAC_PATH'];
+  if (smokeTest && smokeFlacPath) {
+    const musicRoot = path.join(userData, 'smoke-music');
+    await mkdir(musicRoot);
+    await copyFile(smokeFlacPath, path.join(musicRoot, 'waveform.flac'));
+    const folder = database.addFolder(musicRoot, 'Smoke music');
+    await scanner.scan([folder.id]);
+    const smokeTrack = database.getLibrary().tracks[0];
+    smokeTrackId = smokeTrack?.id;
+    smokeDuration = smokeTrack?.duration;
+    smokeWorkerFile = process.env['LUTSRA_SMOKE_WORKER_FILE']
+      ?? (await readdir(rendererRoot)).find((name) => /^worker-.*\.js$/.test(name));
+    if (!smokeTrackId || !smokeWorkerFile || !/^worker-[\w-]+\.js$/.test(smokeWorkerFile)) {
+      throw new Error('Waveform smoke fixture or worker bundle missing');
+    }
+  }
+  createWindow(smokeArtworkHash ? `music://artwork/${smokeArtworkHash}` : undefined, smokeTrackId, smokeWorkerFile, smokeDuration);
 
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 }).catch((error) => {

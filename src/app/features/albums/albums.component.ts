@@ -98,6 +98,7 @@ export class AlbumsComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadAlbums();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadAlbums());
     await this.loadAlbums();
   }
 

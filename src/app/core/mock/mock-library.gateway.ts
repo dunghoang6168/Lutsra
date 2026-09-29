@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { LibraryGateway, LibrarySnapshot } from '../contracts/library.gateway';
-import { FolderNode, MusicFolder, ScanProgress, TrackDetails } from '../models';
+import { FolderNode, MusicFolder, ScanProgress, Track, TrackDetails } from '../models';
 import { MOCK_ALBUMS, MOCK_ARTISTS, MOCK_FOLDERS, MOCK_FOLDER_TREES, MOCK_TRACKS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -19,6 +19,8 @@ export class MockLibraryGateway implements LibraryGateway {
   });
 
   readonly scanProgress$: Observable<ScanProgress> = this.scanProgressSubject.asObservable();
+  private readonly changed = new Subject<void>();
+  readonly libraryChanged$ = this.changed.asObservable();
 
   async getLibrary(): Promise<LibrarySnapshot> {
     await new Promise((resolve) => setTimeout(resolve, 40));
@@ -28,6 +30,10 @@ export class MockLibraryGateway implements LibraryGateway {
       artists: [...this.artists],
       folders: [...this.folders],
     };
+  }
+
+  async getTrackById(trackId: string): Promise<Track | null> {
+    return this.tracks.find((track) => track.id === trackId) ?? null;
   }
 
   async getFolderTree(folderId: string): Promise<FolderNode | null> {
@@ -91,12 +97,17 @@ export class MockLibraryGateway implements LibraryGateway {
       MOCK_FOLDER_TREES[folder.id] = { id: `node-root-${folder.id}`, name, path, isFolder: true, children: [] };
       added.push(folder);
     }
+    if (added.length) {
+      this.changed.next();
+      void this.requestScan(added.map((folder) => folder.id));
+    }
     return added;
   }
 
   async removeMusicFolder(folderId: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 80));
     this.folders = this.folders.filter((f) => f.id !== folderId);
+    this.changed.next();
   }
 
   async requestScan(folderIds?: string[]): Promise<void> {
@@ -140,5 +151,6 @@ export class MockLibraryGateway implements LibraryGateway {
       currentPath: null,
       error: null,
     });
+    this.changed.next();
   }
 }

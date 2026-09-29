@@ -19,6 +19,14 @@ export const LAYOUT_MODES = ['inset', 'classic'] as const;
 export type LayoutMode = (typeof LAYOUT_MODES)[number];
 export const DEFAULT_LAYOUT_MODE: LayoutMode = 'inset';
 
+export const AUDIO_VISUALIZATION_MODES = ['spectrum', 'waveform'] as const;
+export type AudioVisualizationMode = (typeof AUDIO_VISUALIZATION_MODES)[number];
+export const DEFAULT_AUDIO_VISUALIZATION_MODE: AudioVisualizationMode = 'spectrum';
+
+export function isAudioVisualizationMode(value: unknown): value is AudioVisualizationMode {
+  return typeof value === 'string' && (AUDIO_VISUALIZATION_MODES as readonly string[]).includes(value);
+}
+
 export function isLayoutMode(value: unknown): value is LayoutMode {
   return typeof value === 'string' && (LAYOUT_MODES as readonly string[]).includes(value);
 }
@@ -75,6 +83,7 @@ export interface Settings {
   themePreset: ThemePreset;
   accentColor: AccentColor;
   layoutMode: LayoutMode;
+  audioVisualizationMode: AudioVisualizationMode;
   hiddenSongColumns: SongColumn[];
   songColumnOrder: ReorderableSongColumn[];
 }

@@ -59,6 +59,7 @@ export class GlobalSearchComponent {
       wasScanning = progress.isScanning;
       if (justFinished) this.refreshIfOpen();
     });
+    this.gateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshIfOpen());
   }
 
   focus(): void {

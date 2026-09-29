@@ -62,6 +62,7 @@ export class AlbumDetailComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadAlbum();
     });
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadAlbum());
     await this.loadAlbum();
   }
 
@@ -76,6 +77,7 @@ export class AlbumDetailComponent implements OnInit {
       const lib = await this.libraryGateway.getLibrary();
       const foundAlbum = lib.albums.find((a) => a.id === albumId) || null;
       this.album.set(foundAlbum);
+      if (!foundAlbum) this.albumTracks.set([]);
 
       if (foundAlbum) {
         const trackMap = new Map<string, Track>();

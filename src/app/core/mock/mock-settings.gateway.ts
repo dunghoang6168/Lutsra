@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SettingsGateway } from '../contracts/settings.gateway';
-import { DEFAULT_LAYOUT_MODE, DEFAULT_SONG_COLUMN_ORDER, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
+import { DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_SONG_COLUMN_ORDER, isAudioVisualizationMode, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
 import { MOCK_FOLDERS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -13,6 +13,7 @@ export class MockSettingsGateway implements SettingsGateway {
     themePreset: 'dark',
     accentColor: 'violet',
     layoutMode: readLayoutMode(),
+    audioVisualizationMode: readAudioVisualizationMode(),
     hiddenSongColumns: [],
     songColumnOrder: [...DEFAULT_SONG_COLUMN_ORDER],
   };
@@ -28,13 +29,26 @@ export class MockSettingsGateway implements SettingsGateway {
       ...this.settings,
       ...settings,
       layoutMode: isLayoutMode(settings.layoutMode) ? settings.layoutMode : this.settings.layoutMode,
+      audioVisualizationMode: isAudioVisualizationMode(settings.audioVisualizationMode) ? settings.audioVisualizationMode : this.settings.audioVisualizationMode,
       hiddenSongColumns: settings.hiddenSongColumns === undefined ? this.settings.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns),
       songColumnOrder: settings.songColumnOrder === undefined ? this.settings.songColumnOrder : normalizeSongColumnOrder(settings.songColumnOrder),
     };
     if (settings.layoutMode !== undefined) {
       try { localStorage.setItem('lutsra.layout.mode', this.settings.layoutMode); } catch { /* Browser storage is optional. */ }
     }
+    if (settings.audioVisualizationMode !== undefined) {
+      try { localStorage.setItem('lutsra.audio.visualization', this.settings.audioVisualizationMode); } catch { /* Browser storage is optional. */ }
+    }
     return JSON.parse(JSON.stringify(this.settings));
+  }
+}
+
+function readAudioVisualizationMode(): Settings['audioVisualizationMode'] {
+  try {
+    const mode = localStorage.getItem('lutsra.audio.visualization');
+    return isAudioVisualizationMode(mode) ? mode : DEFAULT_AUDIO_VISUALIZATION_MODE;
+  } catch {
+    return DEFAULT_AUDIO_VISUALIZATION_MODE;
   }
 }
 

@@ -7,13 +7,17 @@ import { LayoutSettingsComponent } from './layout-settings.component';
 describe('LayoutSettingsComponent', () => {
   beforeEach(async () => {
     localStorage.removeItem('lutsra.layout.mode');
+    localStorage.removeItem('lutsra.audio.visualization');
     await TestBed.configureTestingModule({
       imports: [LayoutSettingsComponent],
       providers: [{ provide: SETTINGS_GATEWAY, useClass: MockSettingsGateway }],
     }).compileComponents();
   });
 
-  afterEach(() => localStorage.removeItem('lutsra.layout.mode'));
+  afterEach(() => {
+    localStorage.removeItem('lutsra.layout.mode');
+    localStorage.removeItem('lutsra.audio.visualization');
+  });
 
   it('switches between Panel and Classic and marks the selected option', async () => {
     const fixture = TestBed.createComponent(LayoutSettingsComponent);
@@ -28,5 +32,18 @@ describe('LayoutSettingsComponent', () => {
     await fixture.whenStable();
     expect(localStorage.getItem('lutsra.layout.mode')).toBe('classic');
     expect((await new MockSettingsGateway().getSettings()).layoutMode).toBe('classic');
+  });
+
+  it('saves the visualization mode independently of the layout', async () => {
+    const fixture = TestBed.createComponent(LayoutSettingsComponent);
+    fixture.detectChanges();
+    const options = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.visualization-options button');
+    expect(options[0].getAttribute('aria-pressed')).toBe('true');
+    options[1].click();
+    fixture.detectChanges();
+    expect(options[1].getAttribute('aria-pressed')).toBe('true');
+    await fixture.whenStable();
+    expect(localStorage.getItem('lutsra.audio.visualization')).toBe('waveform');
+    expect(localStorage.getItem('lutsra.layout.mode')).toBeNull();
   });
 });
