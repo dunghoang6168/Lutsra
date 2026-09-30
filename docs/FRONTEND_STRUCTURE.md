@@ -6,8 +6,7 @@ Angular components keep implementation, markup, and presentation in separate fil
 component-name/
 ├── component-name.component.ts
 ├── component-name.component.html
-├── component-name.component.scss
-└── component-name.component.spec.ts   # when the component has focused tests
+└── component-name.component.scss
 ```
 
 New components must use external HTML and SCSS. Inline `template` or `styles` metadata is reserved for an exceptional, documented reason. The Angular schematics configuration enforces external files and SCSS by default.

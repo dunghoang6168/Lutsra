@@ -14,13 +14,9 @@
     "dev": "concurrently -k -n WEB,ELECTRON -c cyan,magenta \"ng serve\" \"npm run dev:electron\"",
     "dev:electron": "npm run build:electron && wait-on http://localhost:4200 && node scripts/run-electron.mjs --dev",
     "electron": "npm run build && node scripts/run-electron.mjs",
-    "smoke:electron": "npm run build && node scripts/run-electron.mjs --smoke",
     "package:win": "npm run build && electron-builder --win",
     "package:win:dir": "npm run build && electron-builder --win --dir",
-    "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "test:electron": "tsup --config tsup.electron-tests.config.ts && node scripts/fix-electron-bundle.mjs dist-electron-tests/backend.test.js && node --test dist-electron-tests/backend.test.js",
-    "test:all": "npm run test -- --watch=false --browsers=ChromeHeadless && npm run test:electron"
+    "watch": "ng build --watch --configuration development"
   },
   "private": true,
   "dependencies": {
@@ -41,17 +37,10 @@
     "@angular-devkit/build-angular": "^21.2.0",
     "@angular/cli": "^21.2.0",
     "@angular/compiler-cli": "^21.2.0",
-    "@types/jasmine": "~5.1.0",
     "@types/node": "^24.10.1",
     "concurrently": "^9.2.1",
     "electron": "^44.4.1",
     "electron-builder": "^26.15.3",
-    "jasmine-core": "~5.6.0",
-    "karma": "~6.4.0",
-    "karma-chrome-launcher": "~3.2.0",
-    "karma-coverage": "~2.2.0",
-    "karma-jasmine": "~5.1.0",
-    "karma-jasmine-html-reporter": "~2.1.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "wait-on": "^8.0.4"

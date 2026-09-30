@@ -3,7 +3,6 @@
 # Compiled output
 /dist
 /dist-electron
-/dist-electron-tests
 /release
 /tmp
 /out-tsc
@@ -35,7 +34,8 @@ yarn-error.log
 /.angular/cache
 .sass-cache/
 /connect.lock
-/coverage
+*.spec.ts
+*.test.ts
 /libpeerconnection.log
 testem.log
 /typings

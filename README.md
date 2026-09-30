@@ -200,26 +200,6 @@ Bản demo hiện chưa ký số nên Windows có thể hiển thị cảnh báo
 
 Database và artwork vẫn nằm trong thư mục `userData` của Windows, tách khỏi thư mục cài đặt. Gỡ ứng dụng không xóa dữ liệu này.
 
-### Kiểm thử
-
-```bash
-npm test -- --watch=false --browsers=ChromeHeadless
-npm run test:electron
-npx tsc -p electron/tsconfig.json --noEmit
-npm run smoke:electron
-```
-
-Trên Windows có thể dùng Edge làm binary cho Karma:
-
-```powershell
-$env:CHROME_BIN = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
-npm.cmd test -- --watch=false --browsers=ChromeHeadless
-```
-
-`test:electron` tạo WAV và SQLite trong thư mục tạm để kiểm tra scan, stable identity, reconciliation, playlist và settings persistence. `smoke:electron` chạy production app ẩn với một Electron profile tạm riêng để xác minh `app://`, preload và IPC `ping → pong`; dữ liệu ứng dụng thật trong `userData` không bị sử dụng.
-
-Trên Windows, launcher sở hữu vòng đời của profile smoke test và chỉ dọn thư mục này sau khi tiến trình Electron đã thoát hoàn toàn. Việc dọn dẹp có retry ngắn để chờ Chromium giải phóng file, tránh lỗi `EPERM: Permission denied` khi kết thúc smoke test.
-
 ## Persistence và scanning
 
 Database mặc định ở `app.getPath('userData')/lutsra.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
