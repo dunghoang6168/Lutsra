@@ -48,6 +48,7 @@ export class PlayerService implements OnDestroy {
   private readonly subscriptions = new Subscription();
   private restoringSettings = false;
   private volumeSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private outputInterrupted = false;
 
   // Internal Request Counter for handling overlapping load requests
   private loadSequence = 0;
@@ -112,6 +113,7 @@ export class PlayerService implements OnDestroy {
     const interrupted = this.engine.outputInterrupted$;
     if (interrupted) {
       this.subscriptions.add(interrupted.subscribe((reason) => {
+        this.outputInterrupted = true;
         this.playbackNotice.set(reason === 'device-busy'
           ? 'The selected audio output is in use. Playback has been paused.'
           : 'The audio output was interrupted. Lutsra is reconnecting.');
@@ -264,6 +266,10 @@ export class PlayerService implements OnDestroy {
           else void this.handlePlaybackFailure(evt.error);
         } else if (evt.state === 'playing') {
           this.error.set(null);
+          if (this.outputInterrupted) {
+            this.outputInterrupted = false;
+            this.playbackNotice.set(null);
+          }
           this.refreshPreparedCandidate();
         }
 
@@ -1107,6 +1113,9 @@ export class PlayerService implements OnDestroy {
         : 'The preferred audio output was disconnected. Playback has been paused.');
     } else if (!wasConnected) {
       this.playbackNotice.set('The preferred audio output was reconnected. Playback remains paused.');
+    } else if (this.outputInterrupted && status?.isConnected) {
+      this.outputInterrupted = false;
+      this.playbackNotice.set('The audio output is ready. Playback remains paused.');
     }
   }
 

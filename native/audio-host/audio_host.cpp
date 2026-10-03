@@ -231,7 +231,7 @@ WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
   }
   bundle->name = friendlyName(bundle->device.Get());
   LPWSTR endpointId = nullptr;
-  if (SUCCEEDED(bundle->device->GetId(&endpointId))) {
+  if (SUCCEEDED(bundle->device->GetId(&endpointId)) && endpointId) {
     bundle->endpointId = endpointId;
     CoTaskMemFree(endpointId);
   }
@@ -730,18 +730,38 @@ void WasapiHost::onDevicesChanged() {
     std::string error;
     if (initializeEndpoint(preferredId_, error))
       connected_ = true;
+  } else if (mixFormat_ && !activeEndpointId_.empty()) {
+    ComPtr<IMMDevice> activeDevice;
+    ComPtr<IAudioClient> probe;
+    WAVEFORMATEX *latest = nullptr;
+    if (SUCCEEDED(enumerator_->GetDevice(activeEndpointId_.c_str(),
+                                         &activeDevice)) &&
+        SUCCEEDED(activeDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL,
+                                         nullptr, &probe)) &&
+        SUCCEEDED(probe->GetMixFormat(&latest))) {
+      const bool changed = latest->nSamplesPerSec != mixFormat_->nSamplesPerSec ||
+                           latest->nChannels != mixFormat_->nChannels ||
+                           latest->wBitsPerSample != mixFormat_->wBitsPerSample;
+      CoTaskMemFree(latest);
+      if (changed) {
+        pauseForChange();
+        std::string error;
+        if (!initializeEndpoint(activeId_, error))
+          connected_ = false;
+      }
+    }
   }
   sendEvent("{\"kind\":\"devices-changed\"}");
 }
 void WasapiHost::shutdownAudio() {
-  if (client_)
-    client_->Stop();
   if (renderThread_.joinable()) {
     renderStopping_ = true;
     if (audioEvent_)
       SetEvent(audioEvent_);
     renderThread_.join();
   }
+  if (client_)
+    client_->Stop();
   renderClient_.Reset();
   client_.Reset();
   device_.Reset();
