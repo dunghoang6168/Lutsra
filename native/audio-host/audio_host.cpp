@@ -297,6 +297,10 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   endpointGeneration_.fetch_add(1, std::memory_order_release);
   if (previousRate && (previousRate != mixFormat_->nSamplesPerSec ||
                        previousChannels != mixFormat_->nChannels)) {
+    if (fadeFramesRemaining_ > 0) {
+      desiredIncomingToken_ = incomingToken_;
+      expectedPromotionToken_ = 0;
+    }
     fadeFramesRemaining_ = 0;
     fadeFramesTotal_ = 0;
     const auto reopen = [&](DecoderPipeline *&slot, AudioFormatInfo &source,
@@ -320,6 +324,9 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
       delete incoming_;
       active_ = incoming_ = nullptr;
       activeToken_ = incomingToken_ = 0;
+      desiredActiveToken_ = desiredIncomingToken_ = expectedPromotionToken_ = 0;
+      activeSource_ = incomingSource_ = {};
+      activeDuration_ = incomingDuration_ = 0;
       error = error.empty() ? "MEDIA_DECODE" : error;
     }
     publishActive();
@@ -358,6 +365,9 @@ bool WasapiHost::enqueue(RenderCommand command) {
 bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
                       std::string &error) {
   std::lock_guard lock(controlMutex_);
+  playing_ = false;
+  if (client_)
+    client_->Stop();
   if (!mixFormat_) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
     return false;
@@ -366,9 +376,6 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
   if (!decoder->open(path, mixFormat_->nSamplesPerSec,
                      mixFormat_->nChannels, error))
     return false;
-  playing_ = false;
-  if (client_)
-    client_->Stop();
   const uint64_t token = nextToken_++;
   trackIds_[token] = trackId;
   desiredActiveToken_ = token;
@@ -1016,7 +1023,8 @@ void WasapiHost::renderLoopSafe() {
     std::fill_n(outgoing.data(), samples, 0.0f);
     std::fill_n(incoming.data(), samples, 0.0f);
     const size_t read = active_ ? active_->read(outgoing.data(), samples) : 0;
-    if (active_ && read < samples && !active_->ended()) {
+    if (active_ && read < samples && !active_->ended() &&
+        !active_->seekPending()) {
       ++underruns_;
       pushRenderEvent({RenderEventKind::Underrun, activeToken_, 1});
     }
