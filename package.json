@@ -1,7 +1,7 @@
 {
   "name": "lutsra",
-  "version": "0.2.2",
-  "description": "Lutsra 0.2.2 is a local-first desktop music library and player.",
+  "version": "0.2.3",
+  "description": "Lutsra 0.2.3 is a local-first desktop music library and player.",
   "productName": "Lutsra",
   "type": "module",
   "main": "dist-electron/main.js",

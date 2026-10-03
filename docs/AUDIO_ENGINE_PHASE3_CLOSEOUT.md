@@ -77,7 +77,7 @@ Build bằng `npm run electron`. Đánh dấu `[x]` khi đạt; ghi ngày và gh
 
 Khi checklist mục 3 đạt và đã dùng Native hằng ngày khoảng 1–2 tuần không có lỗi mới:
 
-1. Tăng phiên bản lên `0.3.0` trong `package.json` và dòng "Phiên bản hiện tại" trong `README.md`.
-2. Đánh dấu Giai đoạn 3 là "Xong" trong [AUDIO_ENGINE_PLAN.md](AUDIO_ENGINE_PLAN.md).
-3. Commit `chore(release): v0.3.0` và gắn tag `v0.3.0`.
-4. Bắt đầu Giai đoạn 5 (WASAPI Exclusive).
+1. Đánh dấu Giai đoạn 3 là "Xong" trong [AUDIO_ENGINE_PLAN.md](AUDIO_ENGINE_PLAN.md).
+2. Bắt đầu Giai đoạn 5 (WASAPI Exclusive).
+
+Native Shared đã phát hành làm mặc định trong bản **0.2.3**; checklist trên là nghiệm thu sau phát hành.

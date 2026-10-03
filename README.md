@@ -4,7 +4,7 @@ Lutsra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. D�
 
 V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
 
-**Phiên bản hiện tại: 0.2.2 (desktop; Windows là nền tảng đã kiểm thử).** Bản này tiếp tục hoàn thiện trải nghiệm thư viện và Now Playing sau 0.2.1. macOS mới ở giai đoạn chuẩn bị thử bằng `npm run electron`; chưa có bản `.app` hoặc xác nhận chạy thực tế trên Mac. Android được phát triển sau bản desktop này, với mục tiêu phiên bản 0.3.0.
+**Phiên bản hiện tại: 0.2.3 (desktop; Windows là nền tảng đã kiểm thử).** Bản này đưa Native Audio Host (WASAPI Shared, gapless thật, khôi phục thiết bị an toàn) thành playback backend mặc định trên Windows; Chromium chuyển sang vai trò dự phòng. Xem [nghiệm thu Audio Engine Giai đoạn 3](docs/AUDIO_ENGINE_PHASE3_CLOSEOUT.md). macOS mới ở giai đoạn chuẩn bị thử bằng `npm run electron`; chưa có bản `.app` hoặc xác nhận chạy thực tế trên Mac. Android được phát triển sau bản desktop này, với mục tiêu phiên bản 0.3.0.
 
 ## Trạng thái hiện tại
 
