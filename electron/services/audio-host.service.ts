@@ -195,6 +195,8 @@ export class AudioHostService {
       const timeout = setTimeout(() => {
         this.pending.delete(id);
         reject(hostError('AUDIO_HOST_PROTOCOL_ERROR', 'Native Audio Host did not respond.'));
+        // A host that stops answering is hung; killing it triggers the normal restart path.
+        this.protocolFailure();
       }, REQUEST_TIMEOUT_MS);
       this.pending.set(id, { resolve: (value) => resolve(value as T), reject, timeout });
       this.writeFrame({ protocolVersion: PROTOCOL_VERSION, id, type, payload });

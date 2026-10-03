@@ -96,6 +96,17 @@ try {
     await request('play');
     await sleep(randomDelay());
   }
+  // Unawaited bursts mirror Electron issuing commands while earlier ones are still running.
+  const burst = [];
+  for (let i = 0; i < 40; i++) {
+    burst.push(request('load', track(100 + i)), request('cancel-prepared'),
+               request('prepare', track(101 + i)), request('seek', { positionSeconds: 1 }),
+               request('play'));
+  }
+  const hung = (await Promise.allSettled(burst))
+    .filter((result) => result.status === 'rejected' && /No response|Host exited/.test(result.reason?.message));
+  if (hung.length) throw new Error(`Host stopped answering during burst: ${hung[0].reason.message}`);
+
   for (let i = 0; i < 200; i++)
     await request('seek', { positionSeconds: Math.random() * 3 });
 

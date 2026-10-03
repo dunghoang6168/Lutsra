@@ -74,6 +74,7 @@ bool DecoderPipeline::open(const std::wstring &path, int outputRate,
                   ? static_cast<double>(format->duration) / AV_TIME_BASE
                   : 0;
   avformat_close_input(&format);
+  running_ = true;
   worker_ = std::thread(&DecoderPipeline::decodeLoop, this);
   return true;
 }
@@ -84,6 +85,9 @@ void DecoderPipeline::stop() {
     worker_.join();
 }
 void DecoderPipeline::seek(double seconds) {
+  // A finished worker can never settle a seek; keep its ended/failed state.
+  if (!running_.load())
+    return;
   seekGeneration_.fetch_add(1, std::memory_order_release);
   pendingSeek_ = std::max(0.0, seconds);
   ended_ = false;
@@ -156,26 +160,31 @@ void DecoderPipeline::decodeLoop() {
     };
     bool draining = false;
     double trimSeekSeconds = -1;
+    bool atStart = true;
     while (!stopping_) {
       const double requested = pendingSeek_.exchange(-1);
       if (requested >= 0) {
         const uint64_t generation = seekGeneration_.load(std::memory_order_acquire);
+        // Opening at 0 needs no demuxer seek; some demuxers (raw ADTS, damaged
+        // headers) cannot seek but still play from the start.
         trimSeekSeconds = requested;
-        const int64_t timestamp = av_rescale_q(
-            static_cast<int64_t>(requested * AV_TIME_BASE), AV_TIME_BASE_Q,
-            format->streams[streamIndex]->time_base);
-        if (av_seek_frame(format, streamIndex, timestamp,
-                          AVSEEK_FLAG_BACKWARD) < 0) {
-          failed_ = true;
-          ended_ = true;
-          continue;
-        }
-        avcodec_flush_buffers(codec);
-        swr_close(swr);
-        if (swr_init(swr) < 0) {
-          failed_ = true;
-          ended_ = true;
-          continue;
+        if (!(atStart && requested <= 0.0)) {
+          const int64_t timestamp = av_rescale_q(
+              static_cast<int64_t>(requested * AV_TIME_BASE), AV_TIME_BASE_Q,
+              format->streams[streamIndex]->time_base);
+          if (av_seek_frame(format, streamIndex, timestamp,
+                            AVSEEK_FLAG_BACKWARD) < 0) {
+            failed_ = true;
+            ended_ = true;
+            continue;
+          }
+          avcodec_flush_buffers(codec);
+          swr_close(swr);
+          if (swr_init(swr) < 0) {
+            failed_ = true;
+            ended_ = true;
+            continue;
+          }
         }
         seekBaseFrames_.store(static_cast<uint64_t>(std::llround(
                                   requested * outputRate_)),
@@ -201,6 +210,7 @@ void DecoderPipeline::decodeLoop() {
         continue;
       }
       const int readResult = av_read_frame(format, packet);
+      atStart = false;
       if (readResult < 0) {
         if (readResult != AVERROR_EOF) {
           failed_ = true;
@@ -281,4 +291,5 @@ cleanup:
     avcodec_free_context(&codec);
   if (format)
     avformat_close_input(&format);
+  running_ = false;
 }

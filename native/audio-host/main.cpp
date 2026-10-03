@@ -294,8 +294,10 @@ int wmain(int argc, wchar_t **argv) {
                              wide(stringField(j, "path")), error);
       error.empty() ? response(id, ok ? "true" : "false") : failure(id, error);
     } else if (type == "play") {
-      host.play();
-      response(id);
+      if (host.play(error))
+        response(id);
+      else
+        failure(id, error);
     } else if (type == "pause") {
       host.pause();
       response(id);

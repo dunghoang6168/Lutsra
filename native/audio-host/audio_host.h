@@ -51,6 +51,7 @@ private:
   SpscFloatRingBuffer ring_{4 * 1024 * 1024};
   std::thread worker_; std::atomic<bool> stopping_{false}, ended_{false}, failed_{false};
   std::atomic<double> pendingSeek_{-1};
+  std::atomic<bool> running_{false};
   std::atomic<uint64_t> seekEpoch_{0}, consumerEpoch_{0};
   std::atomic<uint64_t> seekGeneration_{0}, settledSeekGeneration_{0};
   std::atomic<uint64_t> seekBaseFrames_{0}, framesConsumed_{0};
@@ -70,7 +71,7 @@ public:
   bool selectDevice(const std::wstring& id, std::string& error);
   bool load(const std::string& trackId, const std::wstring& path, std::string& error);
   bool prepare(const std::string& trackId, const std::wstring& path, std::string& error);
-  void play(); void pause(); void seek(double seconds); void setVolume(float volume); void setMute(bool muted);
+  bool play(std::string& error); void pause(); void seek(double seconds); void setVolume(float volume); void setMute(bool muted);
   void cancelPrepared(); bool transition(double seconds);
   void setFallback(bool enabled);
   void setSpectrum(bool enabled);
@@ -90,7 +91,7 @@ private:
   std::unique_ptr<EndpointBundle> createEndpoint(const std::wstring& id, std::string& error);
   bool swapEndpoint(std::unique_ptr<EndpointBundle> bundle, const std::wstring& id, std::string& error);
   bool initializeEndpoint(const std::wstring& id, std::string& error);
-  enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, Stop, SeekActive };
+  enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, SeekActive };
   struct RenderCommand {
     CommandKind kind{};
     DecoderPipeline* decoder{};
@@ -104,6 +105,7 @@ private:
   struct RenderEvent { RenderEventKind kind{}; uint64_t token{}; uint64_t value{}; };
   bool enqueue(RenderCommand command);
   void processMailbox() noexcept;
+  void drainMailboxWhileStopped();
   void retire(DecoderPipeline* decoder) noexcept;
   void flushRetired() noexcept;
   void reap();
@@ -112,6 +114,13 @@ private:
   void publishActive() noexcept;
   void promoteIncoming() noexcept;
   std::string trackIdFor(uint64_t token);
+  void rememberTrack(uint64_t token, const std::string& trackId, bool resetAll);
+  void forgetTrack(uint64_t token);
+  void sendState(const char* state);
+  void sendError(const std::string& trackId, const std::string& code, const std::string& message);
+  bool startPlayback(std::unique_lock<std::mutex>& lock, std::string& error);
+  bool enterFallback();
+  std::wstring defaultEndpointId();
   void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
   void deviceMonitorLoop();
   void recoverInvalidated();
@@ -120,8 +129,11 @@ private:
   void onDevicesChanged();
   EventSink sink_; std::wstring preferredId_{L"system-default"}, activeId_{L"system-default"}, activeEndpointId_, deviceName_{L"System Default"};
   std::atomic<bool> connected_{true};
+  // trackIds_ has its own lock so telemetry never waits on controlMutex_.
   std::unordered_map<uint64_t, std::string> trackIds_;
-  uint64_t nextToken_{1}, desiredActiveToken_{}, desiredIncomingToken_{}, expectedPromotionToken_{};
+  std::mutex trackIdsMutex_;
+  uint64_t nextToken_{1}, desiredIncomingToken_{};
+  std::atomic<uint64_t> desiredActiveToken_{0}, expectedPromotionToken_{0};
   Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_; Microsoft::WRL::ComPtr<IMMDevice> device_;
   Microsoft::WRL::ComPtr<IMMNotificationClient> notification_;
   Microsoft::WRL::ComPtr<IAudioClient3> client_; Microsoft::WRL::ComPtr<IAudioRenderClient> renderClient_;

@@ -279,11 +279,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   playing_ = false;
   shutdownAudio();
   // No render thread runs now. Apply queued ownership transfers before reopening.
-  while (mailboxCount_) {
-    processMailbox();
-    if (mailboxCount_)
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
+  drainMailboxWhileStopped();
   device_ = std::move(bundle->device);
   client_ = std::move(bundle->client);
   renderClient_ = std::move(bundle->renderClient);
@@ -341,18 +337,39 @@ bool WasapiHost::initializeEndpoint(const std::wstring &id,
                                     std::string &error) {
   auto bundle = createEndpoint(id, error);
   return bundle && swapEndpoint(std::move(bundle), id, error);
-}bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
-  std::lock_guard lock(controlMutex_);
-  if (!initializeEndpoint(id, error))
-    return false;
+}
+
+bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
+  std::unique_lock lock(controlMutex_);
+  const bool wasPlaying = playing_.load();
+  const std::string trackId = trackIdFor(desiredActiveToken_);
+  auto bundle = createEndpoint(id, error);
+  if (!bundle)
+    return false; // The previous endpoint is untouched and keeps playing.
+  const bool reopened = swapEndpoint(std::move(bundle), id, error);
   preferredId_ = id;
+  if (!reopened) {
+    // The endpoint switched, but the track could not be reopened for its mix format.
+    sendError(trackId, error, "The audio stream could not be decoded.");
+    error.clear();
+    return true;
+  }
+  // A user-initiated switch continues playback on the new endpoint.
+  std::string playError;
+  if (wasPlaying && !startPlayback(lock, playError))
+    sendState("paused");
   return true;
 }
+
 bool WasapiHost::enqueue(RenderCommand command) {
+  // Callers hold controlMutex_, so renderThread_ cannot change underneath.
+  if (!renderThread_.joinable())
+    return false;
   std::unique_lock lock(mailboxMutex_);
-  mailboxAvailable_.wait(lock, [this] {
-    return mailboxCount_ < mailbox_.size() || stopping_ || renderStopping_;
-  });
+  if (!mailboxAvailable_.wait_for(lock, std::chrono::seconds(2), [this] {
+        return mailboxCount_ < mailbox_.size() || stopping_ || renderStopping_;
+      }))
+    return false;
   if (stopping_ || renderStopping_)
     return false;
   mailbox_[(mailboxHead_ + mailboxCount_) % mailbox_.size()] = command;
@@ -377,10 +394,12 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
                      mixFormat_->nChannels, error))
     return false;
   const uint64_t token = nextToken_++;
-  trackIds_[token] = trackId;
+  rememberTrack(token, trackId, true);
+  // Clear the expected promotion before publishing the new active token;
+  // drainRenderEvents relies on this order.
+  expectedPromotionToken_ = 0;
   desiredActiveToken_ = token;
   desiredIncomingToken_ = 0;
-  expectedPromotionToken_ = 0;
   currentExhausted_ = false;
   const AudioFormatInfo source = decoder->sourceFormat();
   const double duration = decoder->duration();
@@ -391,8 +410,7 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
     return false;
   }
   decoder.release();
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-            jsonEscape(trackId) + "\"}}");
+  sendState("paused");
   return true;
 }
 
@@ -408,7 +426,9 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
                      mixFormat_->nChannels, error))
     return false;
   const uint64_t token = nextToken_++;
-  trackIds_[token] = trackId;
+  if (desiredIncomingToken_)
+    forgetTrack(desiredIncomingToken_);
+  rememberTrack(token, trackId, false);
   desiredIncomingToken_ = token;
   expectedPromotionToken_ = 0;
   const AudioFormatInfo source = decoder->sourceFormat();
@@ -437,13 +457,30 @@ bool WasapiHost::startClientWithSilence() {
   return SUCCEEDED(client_->Start());
 }
 
-void WasapiHost::play() {
+bool WasapiHost::play(std::string &error) {
   std::unique_lock lock(controlMutex_);
+  if (!desiredActiveToken_ || playing_)
+    return true;
+  if (deviceInvalidated_) {
+    // Recovery gave up (for example another app held the device); retry on demand.
+    const std::wstring target = activeId_.empty() ? preferredId_ : activeId_;
+    if (!initializeEndpoint(target, error))
+      return false;
+    connected_ = target == preferredId_;
+  }
+  return startPlayback(lock, error);
+}
+
+bool WasapiHost::startPlayback(std::unique_lock<std::mutex> &lock,
+                               std::string &error) {
+  // Requires controlMutex_; releases it while the active decoder prebuffers.
   const uint64_t token = desiredActiveToken_;
-  if (!token || !client_ || deviceInvalidated_)
-    return;
-  if (playing_)
-    return;
+  if (!token || playing_)
+    return true;
+  if (!client_ || !mixFormat_ || activeId_.empty() || deviceInvalidated_) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
   const uint64_t generation = endpointGeneration_.load();
   const size_t minimumSamples =
       static_cast<size_t>(mixFormat_->nSamplesPerSec) * mixFormat_->nChannels / 4;
@@ -458,14 +495,17 @@ void WasapiHost::play() {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
   lock.lock();
-  if (desiredActiveToken_ != token || activeTokenSnapshot_.load() != token ||
-      !client_ || deviceInvalidated_ || endpointGeneration_.load() != generation)
-    return;
-  if (!startClientWithSilence())
-    return;
+  // A newer load or an endpoint swap superseded this request; that path reports state.
+  if (desiredActiveToken_ != token || endpointGeneration_.load() != generation)
+    return true;
+  if (activeTokenSnapshot_.load() != token || !client_ || deviceInvalidated_ ||
+      !startClientWithSilence()) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
   playing_ = true;
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
-            jsonEscape(trackIds_[desiredActiveToken_]) + "\"}}");
+  sendState("playing");
+  return true;
 }
 
 void WasapiHost::pause() {
@@ -474,8 +514,7 @@ void WasapiHost::pause() {
   if (client_)
     client_->Stop();
   // TODO: ramp the last 5-10 ms before Stop to avoid a possible pause click.
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-            jsonEscape(trackIds_[desiredActiveToken_]) + "\"}}");
+  sendState("paused");
 }
 
 void WasapiHost::seek(double seconds) {
@@ -483,9 +522,8 @@ void WasapiHost::seek(double seconds) {
   if (!desiredActiveToken_)
     return;
   currentExhausted_ = false;
-  const double target = std::max(0.0, seconds);
-  position_ = target;
-  enqueue({CommandKind::SeekActive, nullptr, 0, 0, target});
+  // The render thread publishes the new position when it applies the seek.
+  enqueue({CommandKind::SeekActive, nullptr, 0, 0, std::max(0.0, seconds)});
 }
 
 void WasapiHost::setVolume(float volume) {
@@ -516,6 +554,8 @@ void WasapiHost::setSpectrum(bool enabled) {
 
 void WasapiHost::cancelPrepared() {
   std::lock_guard lock(controlMutex_);
+  if (desiredIncomingToken_)
+    forgetTrack(desiredIncomingToken_);
   desiredIncomingToken_ = 0;
   expectedPromotionToken_ = 0;
   enqueue({CommandKind::ClearIncoming});
@@ -626,17 +666,21 @@ void WasapiHost::deviceMonitorLoop() {
 void WasapiHost::recoverInvalidated() {
   const bool resume = wasPlayingBeforeInvalidation_.exchange(false);
   std::wstring selectedId, endpointId;
+  uint64_t generation = 0;
   {
     std::lock_guard lock(controlMutex_);
     selectedId = activeId_;
     endpointId = activeEndpointId_;
+    generation = endpointGeneration_.load();
     playing_ = false;
-    const auto found = trackIds_.find(desiredActiveToken_);
-    const std::string trackId = found == trackIds_.end() ? "" : found->second;
-    sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-              jsonEscape(trackId) + "\"}}");
+    sendState("paused");
     sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-invalidated\"}}");
   }
+  // Any endpoint swap since the failure (device selection, play retry) wins.
+  const auto superseded = [&] {
+    return endpointGeneration_.load() != generation || activeId_ != selectedId ||
+           activeEndpointId_ != endpointId;
+  };
   std::string failure = "OUTPUT_DEVICE_UNAVAILABLE";
   for (const int delay : {100, 500, 1500}) {
     if (stopping_)
@@ -645,7 +689,7 @@ void WasapiHost::recoverInvalidated() {
     if (stopping_)
       return;
     std::lock_guard lock(controlMutex_);
-    if (activeId_ != selectedId || activeEndpointId_ != endpointId)
+    if (superseded())
       return;
     std::string error;
     auto bundle = createEndpoint(selectedId, error);
@@ -653,25 +697,16 @@ void WasapiHost::recoverInvalidated() {
       const bool sameEndpoint = bundle->endpointId == endpointId;
       if (swapEndpoint(std::move(bundle), selectedId, error)) {
         deviceInvalidated_ = false;
-        connected_ = true;
-        if (sameEndpoint && resume && desiredActiveToken_ && client_) {
-          if (startClientWithSilence()) {
-            playing_ = true;
-            const auto found = trackIds_.find(desiredActiveToken_);
-            const std::string trackId = found == trackIds_.end() ? "" : found->second;
-            sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
-                      jsonEscape(trackId) + "\"}}");
-          }
+        connected_ = selectedId == preferredId_;
+        if (sameEndpoint && resume && desiredActiveToken_ && client_ &&
+            startClientWithSilence()) {
+          playing_ = true;
+          sendState("playing");
         }
         sendEvent("{\"kind\":\"devices-changed\"}");
-        if (!sameEndpoint) {
-          const auto found = trackIds_.find(desiredActiveToken_);
-          const std::string trackId = found == trackIds_.end() ? "" : found->second;
-          sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
-                    jsonEscape(trackId) +
-                    "\",\"error\":{\"code\":\"OUTPUT_DEVICE_UNAVAILABLE\",\"message\":\"The audio endpoint changed. Press Play to continue.\",\"trackId\":\"" +
-                    jsonEscape(trackId) + "\"}}}");
-        }
+        if (!sameEndpoint)
+          sendError(trackIdFor(desiredActiveToken_), "OUTPUT_DEVICE_UNAVAILABLE",
+                    "The audio endpoint changed. Press Play to continue.");
         return;
       }
     }
@@ -680,7 +715,7 @@ void WasapiHost::recoverInvalidated() {
       sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-busy\"}}");
   }
   std::lock_guard lock(controlMutex_);
-  if (activeId_ != selectedId || activeEndpointId_ != endpointId)
+  if (superseded())
     return;
   ComPtr<IMMDevice> availableDevice;
   DWORD state = 0;
@@ -691,13 +726,36 @@ void WasapiHost::recoverInvalidated() {
   connected_ = SUCCEEDED(lookup) && availableDevice &&
                SUCCEEDED(availableDevice->GetState(&state)) &&
                (state & DEVICE_STATE_ACTIVE);
-  const auto found = trackIds_.find(desiredActiveToken_);
-  const std::string trackId = found == trackIds_.end() ? "" : found->second;
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
-            jsonEscape(trackId) + "\",\"error\":{\"code\":\"" + failure +
-            "\",\"message\":\"The selected audio output is unavailable.\",\"trackId\":\"" +
-            jsonEscape(trackId) + "\"}}}");
+  // deviceInvalidated_ stays set; play() retries the endpoint on demand.
+  sendError(trackIdFor(desiredActiveToken_), failure,
+            failure == "OUTPUT_DEVICE_BUSY"
+                ? "The selected audio output is in use by another app."
+                : "The selected audio output is unavailable.");
 }
+
+std::wstring WasapiHost::defaultEndpointId() {
+  std::wstring result;
+  ComPtr<IMMDevice> device;
+  LPWSTR id = nullptr;
+  if (enumerator_ &&
+      SUCCEEDED(enumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device)) &&
+      SUCCEEDED(device->GetId(&id)) && id) {
+    result = id;
+    CoTaskMemFree(id);
+  }
+  return result;
+}
+
+bool WasapiHost::enterFallback() {
+  // The preferred endpoint stays preferred; connected_ reports it as missing.
+  std::string error;
+  const bool ok = initializeEndpoint(L"system-default", error);
+  if (!ok)
+    activeId_.clear();
+  connected_ = false;
+  return ok;
+}
+
 void WasapiHost::onDevicesChanged() {
   // Called only by the monitor while it owns controlMutex_.
   if (!enumerator_)
@@ -706,73 +764,83 @@ void WasapiHost::onDevicesChanged() {
     playing_ = false;
     if (client_)
       client_->Stop();
-    const auto found = trackIds_.find(desiredActiveToken_);
-    const std::string trackId = found == trackIds_.end() ? "" : found->second;
-    sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-              jsonEscape(trackId) + "\"}}");
+    sendState("paused");
   };
-  bool available = true;
-  if (preferredId_ != L"system-default") {
-    ComPtr<IMMDevice> preferred;
-    DWORD state = 0;
-    available = SUCCEEDED(enumerator_->GetDevice(preferredId_.c_str(), &preferred)) &&
-                SUCCEEDED(preferred->GetState(&state)) &&
-                (state & DEVICE_STATE_ACTIVE);
-  } else {
-    ComPtr<IMMDevice> nextDefault;
-    LPWSTR id = nullptr;
-    if (SUCCEEDED(enumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia,
-                                                       &nextDefault)) &&
-        SUCCEEDED(nextDefault->GetId(&id))) {
-      if (activeEndpointId_ != id) {
-        pauseForChange();
-        std::string error;
-        if (!initializeEndpoint(L"system-default", error))
-          connected_ = false;
-      }
-      CoTaskMemFree(id);
-    } else {
-      available = false;
-    }
-  }
-  if (!available) {
-    pauseForChange();
-    connected_ = false;
-    activeId_.clear();
-    if (fallback_) {
-      const auto savedId = preferredId_;
-      const auto savedName = deviceName_;
-      std::string error;
-      if (initializeEndpoint(L"system-default", error))
-        activeId_ = L"system-default";
-      preferredId_ = savedId;
-      deviceName_ = savedName;
-      connected_ = false;
-    }
-  } else if (!connected_) {
-    std::string error;
-    if (initializeEndpoint(preferredId_, error))
-      connected_ = true;
-  } else if (mixFormat_ && !activeEndpointId_.empty()) {
+  const auto reinitIfFormatChanged = [&] {
+    if (!mixFormat_ || activeEndpointId_.empty())
+      return;
     ComPtr<IMMDevice> activeDevice;
     ComPtr<IAudioClient> probe;
     WAVEFORMATEX *latest = nullptr;
-    if (SUCCEEDED(enumerator_->GetDevice(activeEndpointId_.c_str(),
-                                         &activeDevice)) &&
-        SUCCEEDED(activeDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL,
-                                         nullptr, &probe)) &&
-        SUCCEEDED(probe->GetMixFormat(&latest))) {
-      const bool changed = latest->nSamplesPerSec != mixFormat_->nSamplesPerSec ||
-                           latest->nChannels != mixFormat_->nChannels ||
-                           latest->wBitsPerSample != mixFormat_->wBitsPerSample;
-      CoTaskMemFree(latest);
-      if (changed) {
+    if (FAILED(enumerator_->GetDevice(activeEndpointId_.c_str(), &activeDevice)) ||
+        FAILED(activeDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL,
+                                      nullptr, &probe)) ||
+        FAILED(probe->GetMixFormat(&latest)))
+      return;
+    const bool changed = latest->nSamplesPerSec != mixFormat_->nSamplesPerSec ||
+                         latest->nChannels != mixFormat_->nChannels ||
+                         latest->wBitsPerSample != mixFormat_->wBitsPerSample;
+    CoTaskMemFree(latest);
+    if (!changed)
+      return;
+    pauseForChange();
+    std::string error;
+    if (!initializeEndpoint(activeId_, error))
+      connected_ = false;
+  };
+
+  if (preferredId_ == L"system-default") {
+    const std::wstring nextDefault = defaultEndpointId();
+    if (nextDefault.empty()) {
+      if (connected_) {
         pauseForChange();
-        std::string error;
-        if (!initializeEndpoint(activeId_, error))
-          connected_ = false;
+        connected_ = false;
+        activeId_.clear();
       }
+    } else if (nextDefault != activeEndpointId_ || !connected_) {
+      pauseForChange();
+      std::string error;
+      connected_ = initializeEndpoint(L"system-default", error);
+    } else {
+      reinitIfFormatChanged();
     }
+    sendEvent("{\"kind\":\"devices-changed\"}");
+    return;
+  }
+
+  ComPtr<IMMDevice> preferred;
+  DWORD state = 0;
+  const bool available =
+      SUCCEEDED(enumerator_->GetDevice(preferredId_.c_str(), &preferred)) &&
+      SUCCEEDED(preferred->GetState(&state)) && (state & DEVICE_STATE_ACTIVE);
+  // With a specific preferred endpoint, an active system-default means fallback.
+  const bool onFallback = activeId_ == L"system-default";
+  if (!available) {
+    if (onFallback) {
+      // Unrelated device events must not interrupt fallback playback.
+      if (defaultEndpointId() != activeEndpointId_) {
+        pauseForChange();
+        enterFallback();
+      }
+    } else if (activeId_.empty()) {
+      // Already disconnected and paused; a previously failed fallback may retry.
+      if (fallback_)
+        enterFallback();
+    } else {
+      pauseForChange();
+      connected_ = false;
+      activeId_.clear();
+      if (fallback_)
+        enterFallback();
+    }
+  } else if (!connected_) {
+    // Returning to the preferred endpoint never auto-plays.
+    if (playing_)
+      pauseForChange();
+    std::string error;
+    connected_ = initializeEndpoint(preferredId_, error);
+  } else {
+    reinitIfFormatChanged();
   }
   sendEvent("{\"kind\":\"devices-changed\"}");
 }
@@ -796,6 +864,23 @@ void WasapiHost::shutdownAudio() {
     CloseHandle(audioEvent_);
     audioEvent_ = nullptr;
   }
+}
+
+void WasapiHost::drainMailboxWhileStopped() {
+  // Render is stopped, so control owns the render slots and may delete retired
+  // decoders directly instead of waiting for the reaper to make room.
+  for (;;) {
+    for (size_t i = 0; i < deferredCount_; ++i)
+      delete deferredRetired_[i];
+    deferredCount_ = 0;
+    {
+      std::lock_guard lock(mailboxMutex_);
+      if (!mailboxCount_)
+        break;
+    }
+    processMailbox();
+  }
+  mailboxAvailable_.notify_all();
 }
 
 void WasapiHost::flushRetired() noexcept {
@@ -844,9 +929,39 @@ void WasapiHost::pushRenderEvent(RenderEvent event) noexcept {
 }
 
 std::string WasapiHost::trackIdFor(uint64_t token) {
-  std::lock_guard lock(controlMutex_);
+  std::lock_guard lock(trackIdsMutex_);
   const auto found = trackIds_.find(token);
   return found == trackIds_.end() ? std::string{} : found->second;
+}
+
+void WasapiHost::rememberTrack(uint64_t token, const std::string &trackId,
+                               bool resetAll) {
+  std::lock_guard lock(trackIdsMutex_);
+  if (resetAll)
+    trackIds_.clear();
+  trackIds_[token] = trackId;
+}
+
+void WasapiHost::forgetTrack(uint64_t token) {
+  if (token == desiredActiveToken_.load() ||
+      token == expectedPromotionToken_.load())
+    return;
+  std::lock_guard lock(trackIdsMutex_);
+  trackIds_.erase(token);
+}
+
+void WasapiHost::sendState(const char *state) {
+  sendEvent(std::string("{\"kind\":\"state\",\"value\":{\"state\":\"") + state +
+            "\",\"trackId\":\"" + jsonEscape(trackIdFor(desiredActiveToken_)) +
+            "\"}}");
+}
+
+void WasapiHost::sendError(const std::string &trackId, const std::string &code,
+                           const std::string &message) {
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
+            jsonEscape(trackId) + "\",\"error\":{\"code\":\"" + jsonEscape(code) +
+            "\",\"message\":\"" + jsonEscape(message) + "\",\"trackId\":\"" +
+            jsonEscape(trackId) + "\"}}}");
 }
 
 void WasapiHost::drainRenderEvents() {
@@ -861,20 +976,17 @@ void WasapiHost::drainRenderEvents() {
       continue;
     const std::string trackId = trackIdFor(event.token);
     if (event.kind == RenderEventKind::Promoted) {
-      {
-        std::lock_guard lock(controlMutex_);
-        if (expectedPromotionToken_ == event.token) {
-          desiredActiveToken_ = event.token;
-          expectedPromotionToken_ = 0;
-        }
-      }
+      // Lock-free so telemetry never waits on controlMutex_. Read the active
+      // token first: load() clears the expectation before publishing a new
+      // active token, so a concurrent load always wins.
+      uint64_t previousActive = desiredActiveToken_.load();
+      uint64_t expected = event.token;
+      if (expectedPromotionToken_.compare_exchange_strong(expected, 0))
+        desiredActiveToken_.compare_exchange_strong(previousActive, event.token);
       sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
                 jsonEscape(trackId) + "\"}}");
     } else if (event.kind == RenderEventKind::DecodeFailed) {
-      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
-                jsonEscape(trackId) +
-                "\",\"error\":{\"code\":\"MEDIA_DECODE\",\"message\":\"The audio stream could not be decoded.\",\"trackId\":\"" +
-                jsonEscape(trackId) + "\"}}}");
+      sendError(trackId, "MEDIA_DECODE", "The audio stream could not be decoded.");
     } else {
       sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"ended\",\"trackId\":\"" +
                 jsonEscape(trackId) + "\"}}");
@@ -921,11 +1033,6 @@ void WasapiHost::processMailbox() noexcept {
     return;
   }
   const RenderCommand command = mailbox_[mailboxHead_];
-  if (command.kind == CommandKind::Stop &&
-      deferredCount_ > deferredRetired_.size() - 2) {
-    mailboxMutex_.unlock();
-    return;
-  }
   mailboxHead_ = (mailboxHead_ + 1) % mailbox_.size();
   --mailboxCount_;
   mailboxMutex_.unlock();
@@ -968,16 +1075,11 @@ void WasapiHost::processMailbox() noexcept {
   case CommandKind::Promote:
     promoteIncoming();
     break;
-  case CommandKind::Stop:
-    retire(active_);
-    retire(incoming_);
-    active_ = incoming_ = nullptr;
-    activeToken_ = incomingToken_ = 0;
-    publishActive();
-    break;
   case CommandKind::SeekActive:
     if (active_) {
       active_->seek(command.seconds);
+      if (active_->seekPending())
+        position_ = command.seconds;
     }
     break;
   }
@@ -1125,8 +1227,9 @@ void WasapiHost::telemetryLoopSafe() {
   int timeDivider = 0;
   while (!stopping_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(34));
-    drainRenderEvents();
+    // Reap first: freeing graveyard slots must never depend on another lock.
     reap();
+    drainRenderEvents();
     if (playing_ && ++timeDivider >= 3) {
       timeDivider = 0;
       sendEvent("{\"kind\":\"time\",\"value\":{\"currentTime\":" +
