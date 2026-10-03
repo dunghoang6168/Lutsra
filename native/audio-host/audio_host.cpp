@@ -98,6 +98,32 @@ static AudioFormatInfo formatInfo(const WAVEFORMATEX *format) {
   return {(int)format->nSamplesPerSec, (int)format->wBitsPerSample,
           (int)format->nChannels};
 }
+// The format Windows sends to the hardware, as set in Sound settings. In
+// Shared Mode this differs from the float32 engine mix format.
+static bool readDeviceFormat(IMMDevice *device, AudioFormatInfo &out) {
+  ComPtr<IPropertyStore> store;
+  PROPVARIANT value;
+  PropVariantInit(&value);
+  bool ok = false;
+  if (device && SUCCEEDED(device->OpenPropertyStore(STGM_READ, &store)) &&
+      SUCCEEDED(store->GetValue(PKEY_AudioEngine_DeviceFormat, &value)) &&
+      value.vt == VT_BLOB && value.blob.cbSize >= sizeof(WAVEFORMATEX)) {
+    const auto *format = reinterpret_cast<const WAVEFORMATEX *>(value.blob.pBlobData);
+    int bits = format->wBitsPerSample;
+    if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
+        value.blob.cbSize >= sizeof(WAVEFORMATEXTENSIBLE)) {
+      // 24-bit audio usually travels in a 32-bit container; report the valid bits.
+      const WORD valid =
+          reinterpret_cast<const WAVEFORMATEXTENSIBLE *>(format)->Samples.wValidBitsPerSample;
+      if (valid)
+        bits = valid;
+    }
+    out = {(int)format->nSamplesPerSec, bits, (int)format->nChannels};
+    ok = true;
+  }
+  PropVariantClear(&value);
+  return ok;
+}
 static bool isFloatMixFormat(const WAVEFORMATEX *format) {
   if (format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
     return true;
@@ -604,6 +630,15 @@ std::string WasapiHost::statusJson() {
        channels = source.channels && source.channels != output.channels;
   auto active =
       activeId_.empty() ? "null" : "\"" + jsonEscape(narrow(activeId_)) + "\"";
+  // Read live: a bit-depth-only change in Sound settings does not reinitialize the client.
+  AudioFormatInfo device{};
+  const std::string deviceFormat =
+      readDeviceFormat(device_.Get(), device)
+          ? "{\"sampleRate\":" + std::to_string(device.sampleRate) +
+                ",\"bitDepth\":" + std::to_string(device.bitDepth) +
+                ",\"channels\":" + std::to_string(device.channels) + "}"
+          : "null";
+  const char *sampleType = mixFormat_ && isFloatMixFormat(mixFormat_) ? "float" : "integer";
   return "{\"preferredDeviceId\":\"" + jsonEscape(narrow(preferredId_)) +
          "\",\"activeDeviceId\":" + active + ",\"deviceName\":\"" +
          jsonEscape(narrow(deviceName_)) +
@@ -615,7 +650,8 @@ std::string WasapiHost::statusJson() {
          std::to_string(output.sampleRate) +
          ",\"bitDepth\":" + std::to_string(output.bitDepth) +
          ",\"channels\":" + std::to_string(output.channels) +
-         "},\"isConnected\":" + (connected_ ? "true" : "false") +
+         "},\"outputSampleType\":\"" + sampleType +
+         "\",\"deviceFormat\":" + deviceFormat + ",\"isConnected\":" + (connected_ ? "true" : "false") +
          ",\"capabilitiesAvailable\":true,\"reason\":\"WASAPI Shared engine "
          "mix "
          "format\",\"backend\":\"native-shared\",\"hostState\":\"ready\","

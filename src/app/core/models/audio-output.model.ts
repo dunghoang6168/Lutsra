@@ -26,7 +26,12 @@ export interface AudioPathStatus {
   deviceName: string;
   mode: OutputMode;
   sourceFormat: AudioFormat | null;
+  /** Format Lutsra hands to the output; in WASAPI Shared this is the engine mix format. */
   outputFormat: AudioFormat | null;
+  /** Sample type of outputFormat. WASAPI Shared mixes in 32-bit float. */
+  outputSampleType?: 'float' | 'integer';
+  /** Format Windows sends to the hardware (Sound settings → Format), when known. */
+  deviceFormat?: AudioFormat | null;
   isConnected: boolean;
   capabilitiesAvailable: boolean;
   reason: string | null;

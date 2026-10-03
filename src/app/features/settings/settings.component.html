@@ -412,7 +412,10 @@
               <div><span>Host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
               <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
               <div><span>Source</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
-              <div><span>Output format</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Unavailable until Native Audio Host }</strong></div>
+              <div><span>{{ path.backend === 'native-shared' ? 'Engine mix' : 'Output format' }}</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit{{ path.outputSampleType === 'float' ? ' float' : '' }} / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Unavailable until Native Audio Host }</strong></div>
+              @if (path.deviceFormat) {
+                <div><span>Device format</span><strong>{{ path.deviceFormat.sampleRate || 'Unknown' }} Hz / {{ path.deviceFormat.bitDepth || 'Unknown' }}-bit / {{ path.deviceFormat.channels || 'Unknown' }} ch</strong></div>
+              }
               <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Shared Mode (Processed)' }}</strong></div>
               <div><span>Conversion</span><strong>{{ path.resamplingActive ? 'Resampling' : 'No resampling' }} / {{ path.channelConversionActive ? 'Channel conversion' : 'No channel conversion' }}</strong></div>
             </div>
