@@ -1,5 +1,7 @@
 
-    <div class="now-playing-page" [class.layout-classic]="layoutPreference.mode() === 'classic'">
+    <div class="now-playing-page"
+      [class.layout-classic]="layoutPreference.mode() === 'classic'"
+      [class.layout-liquid-glass]="layoutPreference.mode() === 'liquid-glass'">
       @if (player.currentTrack(); as track) {
         <div class="now-playing-content" [class.has-lyrics]="lyricsStatus() !== 'missing'">
           <!-- Cover -->
@@ -21,7 +23,7 @@
             <div class="track-heading-card">
               <div class="track-heading-text">
                 <h1 class="track-title" [title]="track.title">{{ track.title }}</h1>
-                <div class="artist-album-row">
+                <div class="artist-album-row" [attr.title]="trackMetadataLabel()">
                   <span class="track-artist">{{ track.artist || 'Unknown Artist' }}</span>
                   @if (track.album) {
                     <span class="dot-separator">•</span>
@@ -52,6 +54,14 @@
                     <span class="queue-badge">{{ player.queue().length }}</span>
                   }
                 </button>
+              } @else if (layoutPreference.mode() === 'liquid-glass') {
+                <button #detailsTrigger type="button" class="heading-details-btn"
+                  [class.active]="rightPanels.isTrackDetailsOpen()"
+                  (click)="openTrackDetails($event)" aria-controls="track-details-panel"
+                  [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()" title="Track details">
+                  <span>Track Details</span>
+                  <app-icon name="chevron-right" [size]="15" />
+                </button>
               }
             </div>
 
@@ -62,6 +72,7 @@
                 <app-spectrum-visualizer />
               }
 
+            @if (layoutPreference.mode() !== 'liquid-glass') {
             <!-- Embedded Timeline & Controls -->
             <div class="inline-controls">
               @if (audioVisualization.mode() === 'spectrum') {
@@ -163,10 +174,12 @@
                 }
               </div>
             </div>
+            }
             </div>
           </div>
 
             <!-- Technical Audio Specification Box (Source Quality) -->
+            @if (layoutPreference.mode() !== 'liquid-glass') {
             <button
               #detailsTrigger
               type="button"
@@ -221,6 +234,7 @@
                 <span class="path-value truncate" [title]="track.path">{{ track.path }}</span>
               </span>
             </button>
+            }
 
           @if (lyricsStatus() !== 'missing') {
             <section class="lyrics-card" aria-labelledby="lyrics-heading">
@@ -234,7 +248,10 @@
               } @else {
                 <div class="lyrics-lines" aria-label="Timed lyrics">
                   @for (line of lyricLines(); track $index) {
-                    <button type="button" class="lyrics-line" [class.active]="activeLineIndex() === $index"
+                    <button type="button" class="lyrics-line"
+                      [class.past]="activeLineIndex() > $index"
+                      [class.active]="activeLineIndex() === $index"
+                      [class.upcoming]="activeLineIndex() < $index"
                       [attr.data-lyric-index]="$index"
                       [attr.aria-current]="activeLineIndex() === $index ? 'true' : null"
                       (click)="seekToLyric(line)">{{ line.text }}</button>

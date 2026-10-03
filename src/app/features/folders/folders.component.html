@@ -4,10 +4,37 @@
       <header class="folders-header">
         <div class="title-group">
           <h1>Folders</h1>
-          <p class="subtitle">Browse audio files directly by filesystem structure</p>
         </div>
 
+        <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
+          @if (selectedRootId()) {
+            <button type="button" class="crumb-btn" (click)="onNavigateOverview()">Music roots</button>
+            @for (crumb of nodeStack(); track crumb.id; let idx = $index; let last = $last) {
+              <span class="crumb-sep" aria-hidden="true">/</span>
+              @if (!last) {
+                <button type="button" class="crumb-btn" (click)="onNavigateBreadcrumb(idx)">{{ crumb.name }}</button>
+              } @else {
+                <span class="crumb-current" aria-current="page">{{ crumb.name }}</span>
+              }
+            }
+          } @else {
+            <span class="crumb-current" aria-current="page">Music roots</span>
+          }
+        </nav>
+
         <div class="toolbar">
+          @if (nodeStack().length > 1) {
+            <button
+              type="button"
+              class="btn-action secondary"
+              (click)="onScanCurrentFolder()"
+              [disabled]="scanProgress().isScanning"
+              title="Scan this folder and its subfolders only"
+              aria-label="Scan this folder and its subfolders only">
+              <app-icon name="refresh-cw" [size]="16" class="scan-icon" [class.spinning]="scanProgress().isScanning" />
+              Scan This Folder
+            </button>
+          }
           <button
             type="button"
             class="btn-action primary"
@@ -68,46 +95,31 @@
         </div>
       }
 
-      <!-- Music Root Tabs -->
-      <div class="roots-bar">
-        <span class="roots-label">MUSIC ROOTS:</span>
-        <div class="roots-tabs">
-          @for (root of roots(); track root.id) {
-            <button
-              type="button"
-              class="root-tab"
-              [class.active]="selectedRootId() === root.id"
-              (click)="onSelectRoot(root)">
-              <app-icon name="folder" [size]="14" />
-              <span class="root-name truncate">{{ root.name }}</span>
-            </button>
-          }
-        </div>
-
-        @if (selectedRoot(); as root) {
-          <button
-            type="button"
-            class="btn-remove-root"
-            (click)="showRemoveDialog.set(true)"
-            title="Remove folder from library">
-            Remove Root
-          </button>
+      @if (!isLoading() && !errorMessage()) {
+        @if (currentNode(); as node) {
+          @let summary = folderSummary(node);
+          <section class="folder-hero">
+            @if (artworkFor(node); as artwork) {
+              <img class="folder-hero-artwork" [src]="artwork" alt="" (error)="onArtworkError(artwork)" />
+            }
+            <div class="folder-hero-content">
+              <span class="folder-hero-eyebrow">Folder</span>
+              <h2 [title]="node.name">{{ node.name }}</h2>
+              <p>{{ summary.trackCount }} tracks <span aria-hidden="true">·</span> {{ summary.duration | duration }}</p>
+            </div>
+            <button type="button" class="btn-remove-root" (click)="showRemoveDialog.set(true)"
+              title="Remove folder from library">Remove Root</button>
+          </section>
+        } @else {
+          <section class="folder-hero overview-hero">
+            <div class="folder-hero-content">
+              <span class="folder-hero-eyebrow">Library</span>
+              <h2>Music roots</h2>
+              <p>{{ roots().length }} folders</p>
+            </div>
+          </section>
         }
-      </div>
-
-      <!-- Breadcrumbs Navigation -->
-      <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
-        @for (crumb of nodeStack(); track crumb.id; let idx = $index; let last = $last) {
-          @if (!last) {
-            <button type="button" class="crumb-btn" (click)="onNavigateBreadcrumb(idx)">
-              {{ crumb.name }}
-            </button>
-            <span class="crumb-sep">/</span>
-          } @else {
-            <span class="crumb-current">{{ crumb.name }}</span>
-          }
-        }
-      </nav>
+      }
 
       <!-- Current Folder Content Browser -->
       <div class="folder-content-view">
@@ -124,21 +136,61 @@
             <p>Loading folder contents...</p>
           </div>
         } @else if (!currentNode()) {
-          <div class="state-empty">
-            <app-icon name="folder" [size]="48" class="empty-icon" />
-            <p>Select a music root above to browse folders.</p>
-          </div>
+          @if (roots().length > 0) {
+            <div class="folder-list" aria-label="Music roots">
+              @for (root of sortedRoots(); track root.id) {
+                @let tree = folderTrees().get(root.id);
+                @let summary = folderSummary(tree);
+                <button type="button" class="folder-row" (click)="onSelectRoot(root)" [attr.aria-label]="'Open ' + root.name">
+                  <span class="folder-cover">
+                    @if (artworkFor(tree); as artwork) {
+                      <img [src]="artwork" alt="" loading="lazy" (error)="onArtworkError(artwork)" />
+                    } @else {
+                      <app-icon name="folder" [size]="32" aria-hidden="true" />
+                    }
+                  </span>
+                  <span class="folder-row-info">
+                    <strong class="folder-row-name" [title]="root.name">{{ root.name }}</strong>
+                    <span class="folder-row-parent" [title]="root.path">{{ rootParentName(root) }}</span>
+                    <span class="folder-row-stats">
+                      @if (unavailableRootIds().has(root.id)) {
+                        Folder unavailable
+                      } @else {
+                        {{ summary.trackCount }} tracks <span aria-hidden="true">·</span> {{ summary.duration | duration }}
+                      }
+                    </span>
+                  </span>
+                  <app-icon name="folder" [size]="20" class="folder-row-end" aria-hidden="true" />
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="state-empty">
+              <app-icon name="folder" [size]="48" class="empty-icon" />
+              <p>Add a music folder to browse your library.</p>
+            </div>
+          }
         } @else {
           <!-- Subfolders List -->
           @if (subfolders().length > 0) {
-            <div class="subfolders-grid">
+            <div class="folder-list" aria-label="Subfolders">
               @for (folder of subfolders(); track folder.id) {
-                <div class="folder-card" (click)="onEnterFolder(folder)" tabindex="0" role="button">
-                  <div class="folder-icon-box">
-                    <app-icon name="folder" [size]="28" />
-                  </div>
-                  <span class="folder-name truncate" [title]="folder.name">{{ folder.name }}</span>
-                </div>
+                @let summary = folderSummary(folder);
+                <button type="button" class="folder-row" (click)="onEnterFolder(folder)" [attr.aria-label]="'Open ' + folder.name">
+                  <span class="folder-cover">
+                    @if (artworkFor(folder); as artwork) {
+                      <img [src]="artwork" alt="" loading="lazy" (error)="onArtworkError(artwork)" />
+                    } @else {
+                      <app-icon name="folder" [size]="32" aria-hidden="true" />
+                    }
+                  </span>
+                  <span class="folder-row-info">
+                    <strong class="folder-row-name" [title]="folder.name">{{ folder.name }}</strong>
+                    <span class="folder-row-parent">{{ currentNode()?.name }}</span>
+                    <span class="folder-row-stats">{{ summary.trackCount }} tracks <span aria-hidden="true">·</span> {{ summary.duration | duration }}</span>
+                  </span>
+                  <app-icon name="folder" [size]="20" class="folder-row-end" aria-hidden="true" />
+                </button>
               }
             </div>
           }
@@ -148,10 +200,17 @@
             <div class="files-card">
               <div class="files-header">
                 <h3>Files ({{ filesInCurrentFolder().length }})</h3>
-                <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play All Files">
-                  <app-icon name="play" [size]="14" />
-                  Play All Files
-                </button>
+                <div class="folder-play-actions">
+                  <button type="button" class="btn-queue-folder" (click)="onAddFolderFilesToQueue()"
+                    [disabled]="!hasAvailableFolderTracks()" aria-label="Add all files to queue">
+                    <app-icon name="plus" [size]="14" />
+                    Add to Queue
+                  </button>
+                  <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play All Files">
+                    <app-icon name="play" [size]="14" />
+                    Play All Files
+                  </button>
+                </div>
               </div>
 
               <table class="files-table">
@@ -162,6 +221,7 @@
                     <th class="col-codec">Codec</th>
                     <th class="col-lyrics">Lyrics</th>
                     <th class="col-duration">Duration</th>
+                    <th class="col-actions"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,6 +249,12 @@
                       </td>
                       <td class="col-duration">
                         {{ (track?.duration ?? 0) | duration }}
+                      </td>
+                      <td class="col-actions" (click)="$event.stopPropagation()">
+                        <button type="button" class="queue-row-btn" (click)="onAddFileToQueue(file)"
+                          [disabled]="!track?.isAvailable" [attr.aria-label]="'Add ' + (track?.title || file.name) + ' to queue'" title="Add to Queue">
+                          <app-icon name="plus" [size]="14" />
+                        </button>
                       </td>
                     </tr>
                   }

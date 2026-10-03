@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ARTIST_METADATA_GATEWAY, LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, Artist, ArtistMatchCandidate, orderAlbumTracks, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
+import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -24,6 +25,7 @@ export class ArtistDetailComponent implements OnInit {
   private readonly artistMetadata = inject(ARTIST_METADATA_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly artist = signal<Artist | null>(null);
   readonly artistAlbums = signal<Album[]>([]);
@@ -255,15 +257,33 @@ export class ArtistDetailComponent implements OnInit {
 
   onPlayAlbum(event: MouseEvent, album: Album): void {
     event.stopPropagation();
-    const trackMap = new Map(this.allTracks().map((track) => [track.id, track]));
-    const albumTracks = album.trackIds
-      .map((trackId) => trackMap.get(trackId))
-      .filter((track): track is Track => Boolean(track));
+    const albumTracks = this.tracksForAlbum(album);
 
     if (albumTracks.length === 0) return;
 
     this.player.setShuffle(false);
-    this.player.playCollection(orderAlbumTracks(albumTracks), 0);
+    this.player.playCollection(albumTracks, 0);
+  }
+
+  onAddAllToQueue(): void {
+    const artist = this.artist();
+    if (artist) this.queueActions.add(orderArtistTracks(artist, this.artistAlbums(), this.allTracks()));
+  }
+
+  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
+    event.stopPropagation();
+    this.queueActions.add(this.tracksForAlbum(album));
+  }
+
+  onAddTrackToQueue(track: Track): void {
+    this.queueActions.add([track]);
+  }
+
+  private tracksForAlbum(album: Album): Track[] {
+    const trackMap = new Map(this.allTracks().map((track) => [track.id, track]));
+    return orderAlbumTracks(album.trackIds
+      .map((trackId) => trackMap.get(trackId))
+      .filter((track): track is Track => Boolean(track)));
   }
 }
 

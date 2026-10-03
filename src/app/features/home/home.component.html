@@ -87,6 +87,14 @@
                   aria-label="Play Album">
                   <app-icon name="play" [size]="18" />
                 </button>
+                <button
+                  type="button"
+                  class="quick-queue-btn"
+                  (click)="onAddAlbumToQueue($event, album)"
+                  title="Add Album to Queue"
+                  aria-label="Add Album to Queue">
+                  <app-icon name="plus" [size]="17" />
+                </button>
               </div>
               <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
               <p class="album-artist truncate">{{ album.artist || 'Unknown Artist' }}</p>

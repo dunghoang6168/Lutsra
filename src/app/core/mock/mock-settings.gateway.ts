@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SettingsGateway } from '../contracts/settings.gateway';
-import { DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_SONG_COLUMN_ORDER, isAudioVisualizationMode, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
+import { DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_LIQUID_GLASS_ACCENT_COLOR, DEFAULT_SONG_COLUMN_ORDER, isAccentColor, isAudioVisualizationMode, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
 import { MOCK_FOLDERS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -10,8 +10,18 @@ export class MockSettingsGateway implements SettingsGateway {
     defaultVolume: 0.8,
     repeatMode: 'off',
     shuffle: false,
+    crossfadeEnabled: true,
+    crossfadeSeconds: 5,
+    audioEngineBackend: 'chromium',
+    preferredAudioOutputId: 'system-default',
+    preferredAudioOutputName: 'System Default',
+    preferredNativeAudioOutputId: 'system-default',
+    preferredNativeAudioOutputName: 'System Default',
+    outputMode: 'shared',
+    audioOutputFallbackEnabled: false,
     themePreset: 'dark',
     accentColor: 'violet',
+    liquidGlassAccentColor: DEFAULT_LIQUID_GLASS_ACCENT_COLOR,
     layoutMode: readLayoutMode(),
     audioVisualizationMode: readAudioVisualizationMode(),
     hiddenSongColumns: [],
@@ -28,6 +38,10 @@ export class MockSettingsGateway implements SettingsGateway {
     this.settings = {
       ...this.settings,
       ...settings,
+      crossfadeEnabled: typeof settings.crossfadeEnabled === 'boolean' ? settings.crossfadeEnabled : this.settings.crossfadeEnabled,
+      crossfadeSeconds: Number.isInteger(settings.crossfadeSeconds) && settings.crossfadeSeconds! >= 1 && settings.crossfadeSeconds! <= 12 ? settings.crossfadeSeconds! : this.settings.crossfadeSeconds,
+      accentColor: isAccentColor(settings.accentColor) ? settings.accentColor : this.settings.accentColor,
+      liquidGlassAccentColor: isAccentColor(settings.liquidGlassAccentColor) ? settings.liquidGlassAccentColor : this.settings.liquidGlassAccentColor,
       layoutMode: isLayoutMode(settings.layoutMode) ? settings.layoutMode : this.settings.layoutMode,
       audioVisualizationMode: isAudioVisualizationMode(settings.audioVisualizationMode) ? settings.audioVisualizationMode : this.settings.audioVisualizationMode,
       hiddenSongColumns: settings.hiddenSongColumns === undefined ? this.settings.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns),

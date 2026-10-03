@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
-import { Album, Playlist, Track } from '../../core/models';
+import { Album, orderAlbumTracks, Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { compareAlbumsByTitle } from '../library-browse';
 import { getDesktopApi } from '../../core/desktop/desktop-api';
@@ -25,6 +26,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
   readonly isDesktop = Boolean(getDesktopApi());
   readonly errorMessage = signal<string | null>(null);
 
@@ -92,6 +94,18 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
   onPlayAlbum(event: MouseEvent, album: Album): void {
     event.stopPropagation();
+    const tracks = this.tracksForAlbum(album);
+    if (tracks.length > 0) {
+      this.player.playCollection(tracks, 0);
+    }
+  }
+
+  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
+    event.stopPropagation();
+    this.queueActions.add(this.tracksForAlbum(album));
+  }
+
+  private tracksForAlbum(album: Album): Track[] {
     const trackMap = new Map<string, Track>();
     this.allTracks.forEach((t) => trackMap.set(t.id, t));
 
@@ -101,8 +115,6 @@ export class HomeComponent implements OnInit, AfterViewInit {
       if (t) tracks.push(t);
     });
 
-    if (tracks.length > 0) {
-      this.player.playCollection(tracks, 0);
-    }
+    return orderAlbumTracks(tracks);
   }
 }

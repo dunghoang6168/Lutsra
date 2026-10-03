@@ -44,30 +44,36 @@
                 <section class="result-group" [attr.aria-label]="group.label">
                   <h3>{{ group.label }}</h3>
                   @for (result of group.results; track result.key) {
-                    <button
-                      type="button"
-                      role="option"
-                      class="result-item"
-                      [id]="optionId(result.key)"
-                      [class.active]="activeKey() === result.key"
-                      [class.unavailable]="result.disabled"
-                      [attr.aria-selected]="activeKey() === result.key"
-                      [attr.aria-disabled]="result.disabled"
-                      (mouseenter)="setActive(result)"
-                      (click)="activate(result)">
-                      @if (result.artwork) {
-                        <img [src]="result.artwork" alt="" />
-                      } @else {
-                        <span class="result-icon" aria-hidden="true">
-                          <app-icon [name]="result.kind === 'artist' ? 'user' : result.kind === 'album' ? 'disc' : 'music'" [size]="17" />
+                    <div class="result-row" [class.active]="activeKey() === result.key" (mouseenter)="setActive(result)">
+                      <button
+                        type="button"
+                        role="option"
+                        class="result-item"
+                        [id]="optionId(result.key)"
+                        [class.unavailable]="result.disabled"
+                        [attr.aria-selected]="activeKey() === result.key"
+                        [attr.aria-disabled]="result.disabled"
+                        (click)="activate(result)">
+                        @if (result.artwork) {
+                          <img [src]="result.artwork" alt="" />
+                        } @else {
+                          <span class="result-icon" aria-hidden="true">
+                            <app-icon [name]="result.kind === 'artist' ? 'user' : result.kind === 'album' ? 'disc' : 'music'" [size]="17" />
+                          </span>
+                        }
+                        <span class="result-copy">
+                          <strong>{{ result.title }}</strong>
+                          <small>{{ result.subtitle }}</small>
                         </span>
+                        <span class="result-type">{{ result.disabled ? 'Unavailable' : result.kind }}</span>
+                      </button>
+                      @if (result.kind === 'song') {
+                        <button type="button" class="result-queue-btn" [disabled]="result.disabled"
+                          (click)="addSongToQueue($event, result)" [attr.aria-label]="'Add ' + result.title + ' to queue'" title="Add to Queue">
+                          <app-icon name="plus" [size]="15" />
+                        </button>
                       }
-                      <span class="result-copy">
-                        <strong>{{ result.title }}</strong>
-                        <small>{{ result.subtitle }}</small>
-                      </span>
-                      <span class="result-type">{{ result.disabled ? 'Unavailable' : result.kind }}</span>
-                    </button>
+                    </div>
                   }
                 </section>
               }

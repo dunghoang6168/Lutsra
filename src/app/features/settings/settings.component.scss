@@ -118,6 +118,29 @@
       color: var(--text-muted);
     }
 
+    .output-device-control { width: min(100%, 320px); }
+    .output-device-control app-searchable-filter-select { width: 100%; }
+    .audio-path-status {
+      margin-top: var(--space-4);
+      padding: var(--space-4);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3) var(--space-5);
+    }
+    .audio-path-status.disconnected { border-color: var(--status-warning); }
+    .audio-path-status div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .audio-path-status span { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .audio-path-status strong { color: var(--text-primary); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+    .audio-output-notice { margin-top: var(--space-3); color: var(--status-warning); font-size: var(--font-size-sm); }
+
+    @media (max-width: 650px) {
+      .audio-path-status { grid-template-columns: 1fr; }
+      .output-device-control { width: 100%; }
+    }
+
     .folders-list {
       display: flex;
       flex-direction: column;
@@ -218,6 +241,24 @@
       font-weight: 600;
     }
 
+    .pref-title-line {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .beta-tag {
+      padding: 1px 6px;
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius-full);
+      background: var(--color-accent-muted);
+      color: var(--color-text-accent);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: 0.06em;
+    }
+
     .pref-desc {
       font-size: var(--font-size-xs);
       color: var(--text-muted);
@@ -229,7 +270,7 @@
       gap: var(--space-3);
     }
 
-    .volume-slider {
+    .settings-range-slider {
       width: 140px;
     }
 
@@ -240,9 +281,21 @@
       min-width: 36px;
     }
 
-    .select-box {
-      background: var(--bg-elevated);
+    .repeat-mode-select {
+      width: 280px;
+      max-width: 100%;
       font-size: var(--font-size-sm);
+    }
+
+    .settings-select {
+      width: 280px;
+      max-width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font: inherit;
     }
 
     .btn-toggle {
@@ -332,6 +385,16 @@
       gap: var(--space-3);
     }
 
+    .liquid-theme-note {
+      padding: var(--space-3);
+      border: 1px solid var(--glass-border, var(--border-default));
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      background: var(--glass-regular, var(--bg-elevated));
+      font-size: var(--font-size-xs);
+      line-height: 1.45;
+    }
+
     .theme-group-header {
       display: flex;
       align-items: center;
@@ -390,6 +453,13 @@
     .preset-card.active {
       border-color: var(--color-accent);
       box-shadow: 0 0 0 1px var(--color-accent), 0 4px 14px var(--color-accent-glow);
+    }
+
+    .preset-card.disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+      transform: none;
+      box-shadow: none;
     }
 
     /* Swatch Preview UI */
@@ -521,6 +591,11 @@
       border-top: 1px solid var(--color-border-subtle);
     }
 
+    .acrylic-accent-card .accent-picker-section {
+      padding-top: 0;
+      border-top: 0;
+    }
+
     .accent-palette-row {
       display: flex;
       flex-wrap: wrap;
@@ -555,6 +630,14 @@
       border-color: var(--color-accent);
       color: var(--color-text-accent);
       box-shadow: 0 0 12px var(--color-accent-glow);
+    }
+
+    .accent-option-btn:disabled,
+    .accent-option-btn.disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+      transform: none;
+      box-shadow: none;
     }
 
     .accent-circle {
@@ -633,4 +716,24 @@
       font-weight: 600;
       color: var(--text-primary);
       margin-top: 2px;
+    }
+
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .integration-notice-card {
+      background: color-mix(in srgb, var(--accent-primary) 10%, rgba(255, 255, 255, 0.84));
+      border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .integration-notice-card .notice-content h3 {
+      color: var(--text-accent);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .preset-card.disabled,
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn:disabled,
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn.disabled {
+      opacity: 1;
+      color: var(--text-secondary);
+      background: var(--glass-readable-surface);
+      border-color: var(--glass-border);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .preset-card.disabled.active,
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn.disabled.active {
+      border-color: var(--text-accent);
     }

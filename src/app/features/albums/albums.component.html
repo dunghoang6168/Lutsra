@@ -3,6 +3,7 @@
       <header class="page-header">
         <div class="title-group">
           <h1>Albums</h1>
+          <span class="title-separator" aria-hidden="true">-</span>
           <span class="count-badge">{{ filteredAlbums().length }} albums</span>
         </div>
 
@@ -20,15 +21,12 @@
           <app-browse-filter-popover [activeCount]="activeFilterCount()">
             <div class="browse-filter-fields">
               <div class="browse-filter-field">
-                <label for="album-sort">Sort by</label>
+                <span class="field-label">Sort by</span>
                 <div class="browse-filter-actions">
-                  <select id="album-sort" [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)">
-                    <option value="title">Title</option><option value="artist">Artist</option>
-                    <option value="year">Year</option><option value="tracks">Track count</option>
-                  </select>
-                  <select aria-label="Sort direction" [ngModel]="sortDirection()" (ngModelChange)="sortDirection.set($event)">
-                    <option value="asc">Ascending</option><option value="desc">Descending</option>
-                  </select>
+                  <app-searchable-filter-select label="Sort by" [options]="sortOptions" [allLabel]="null"
+                    [value]="sortBy()" (valueChange)="sortBy.set($event)" />
+                  <app-searchable-filter-select label="Sort direction" [options]="sortDirectionOptions" [allLabel]="null"
+                    [value]="sortDirection()" (valueChange)="sortDirection.set($event)" />
                 </div>
               </div>
               <div class="browse-filter-field">
@@ -38,12 +36,10 @@
                   unknownLabel="Unknown Artist" (valueChange)="artistFilter.set($event)" />
               </div>
               <div class="browse-filter-field">
-                <label for="album-year-filter">Year</label>
-                <select id="album-year-filter" [ngModel]="yearFilter()" (ngModelChange)="yearFilter.set($event)">
-                  <option value="">All years</option>
-                  @for (year of yearOptions(); track year) { <option [value]="year">{{ year }}</option> }
-                  @if (hasUnknownYear()) { <option value="unknown">Unknown Year</option> }
-                </select>
+                <span class="field-label">Year</span>
+                <app-searchable-filter-select label="Year" [options]="yearOptions()" [value]="yearFilter()"
+                  allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown Year"
+                  (valueChange)="yearFilter.set($event)" />
               </div>
               @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
             </div>
@@ -89,6 +85,14 @@
                   title="Play Album"
                   aria-label="Play Album">
                   <app-icon name="play" [size]="20" />
+                </button>
+                <button
+                  type="button"
+                  class="quick-queue-btn"
+                  (click)="onAddAlbumToQueue($event, album)"
+                  title="Add Album to Queue"
+                  aria-label="Add Album to Queue">
+                  <app-icon name="plus" [size]="18" />
                 </button>
               </div>
 

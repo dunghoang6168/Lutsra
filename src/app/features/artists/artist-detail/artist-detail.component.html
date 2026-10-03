@@ -53,6 +53,11 @@
                   <button type="button" class="btn btn-secondary" (click)="retryMetadata()">Retry info</button>
                 }
               }
+              <button type="button" class="btn btn-secondary" (click)="onAddAllToQueue()"
+                [disabled]="artistTracks().length === 0" aria-label="Add artist tracks to queue">
+                <app-icon name="plus" [size]="16" />
+                Add to Queue
+              </button>
             </div>
             @if (metadataNotice(); as notice) { <p class="metadata-notice" role="status">{{ notice }}</p> }
           </div>
@@ -80,6 +85,10 @@
                       [title]="'Play ' + album.title"
                       [attr.aria-label]="'Play ' + album.title">
                       <app-icon name="play" [size]="18" />
+                    </button>
+                    <button type="button" class="quick-queue-btn" (click)="onAddAlbumToQueue($event, album)"
+                      [title]="'Add ' + album.title + ' to queue'" [attr.aria-label]="'Add ' + album.title + ' to queue'">
+                      <app-icon name="plus" [size]="17" />
                     </button>
                   </div>
                   <h4 class="album-title truncate" [title]="album.title">{{ album.title }}</h4>
@@ -135,6 +144,7 @@
                   <th class="col-title">Title</th>
                   <th class="col-album">Album</th>
                   <th class="col-duration">Time</th>
+                  <th class="col-actions"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -166,6 +176,12 @@
                     </td>
                     <td class="col-duration">
                       {{ track.duration | duration }}
+                    </td>
+                    <td class="col-actions" (click)="$event.stopPropagation()">
+                      <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
+                        [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue">
+                        <app-icon name="plus" [size]="14" />
+                      </button>
                     </td>
                   </tr>
                 }

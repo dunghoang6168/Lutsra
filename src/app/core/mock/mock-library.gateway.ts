@@ -111,14 +111,19 @@ export class MockLibraryGateway implements LibraryGateway {
   }
 
   async requestScan(folderIds?: string[]): Promise<void> {
-    if (this.scanProgressSubject.value.isScanning) {
-      return;
-    }
-
     const paths = folderIds && folderIds.length > 0
       ? folderIds.map((id) => this.folders.find((folder) => folder.id === id)?.path).filter((path): path is string => Boolean(path))
       : this.folders.map((f) => f.path);
-    const basePath = paths[0] || 'D:\\Music';
+    await this.simulateScan(paths[0] || 'D:\\Music');
+  }
+
+  async requestFolderScan(folderId: string, directoryPath: string): Promise<void> {
+    if (!this.folders.some((folder) => folder.id === folderId)) throw new Error('Unknown music folder');
+    await this.simulateScan(directoryPath);
+  }
+
+  private async simulateScan(basePath: string): Promise<void> {
+    if (this.scanProgressSubject.value.isScanning) return;
 
     this.scanProgressSubject.next({
       isScanning: true,

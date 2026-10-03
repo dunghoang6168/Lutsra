@@ -28,8 +28,7 @@
 .volume-button[aria-expanded='true'] { color: var(--text-primary); }
 .volume-button:hover { transform: scale(1.1); }
 
-.volume-button:focus-visible,
-.volume-slider:focus-visible {
+.volume-button:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
 }
@@ -59,70 +58,8 @@
   height: 20px;
 }
 
-.volume-track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 4px;
-  transform: translateY(-50%);
-  border-radius: var(--radius-full);
-  background: var(--color-border);
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.volume-track-fill {
-  display: block;
-  width: var(--volume-position);
+.volume-range app-range-slider {
   height: 100%;
-  background: var(--accent-primary);
-}
-
-.volume-slider {
-  appearance: none;
-  -webkit-appearance: none;
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  touch-action: none;
-}
-
-.volume-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  background: transparent;
-}
-
-.volume-slider::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  border: 2px solid var(--bg-surface);
-  border-radius: var(--radius-full);
-  background: var(--accent-primary);
-}
-
-.volume-slider::-moz-range-track {
-  height: 4px;
-  background: transparent;
-}
-
-.volume-slider::-moz-range-progress { background: transparent; }
-
-.volume-slider::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--bg-surface);
-  border-radius: var(--radius-full);
-  background: var(--accent-primary);
 }
 
 .volume-tooltip {
@@ -146,7 +83,7 @@
 }
 
 .volume-reveal:hover .volume-tooltip,
-.volume-control:has(.volume-slider:focus-visible) .volume-tooltip,
+.volume-control:has(app-range-slider:focus-within) .volume-tooltip,
 .volume-control.adjusting .volume-tooltip {
   opacity: 1;
   visibility: visible;
@@ -180,36 +117,4 @@
     height: 104px;
   }
 
-  .volume-track {
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    right: auto;
-    width: 4px;
-    height: auto;
-    transform: translateX(-50%);
-  }
-
-  .volume-track-fill {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: var(--volume-position);
-  }
-
-  .volume-slider {
-    writing-mode: vertical-lr;
-    direction: rtl;
-  }
-
-  .volume-slider::-webkit-slider-runnable-track {
-    width: 4px;
-    height: 100%;
-  }
-
-  .volume-slider::-webkit-slider-thumb {
-    margin-top: 0;
-    margin-left: -5px;
-  }
 }

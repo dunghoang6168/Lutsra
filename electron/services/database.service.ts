@@ -1,6 +1,6 @@
 import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import path from 'node:path';
-import { Album, Artist, ArtistMetadataSource, ArtistOnlineMetadata, DEFAULT_ACCENT_COLOR, DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_SONG_COLUMN_ORDER, DEFAULT_THEME_PRESET, FolderNode, isAccentColor, isAudioVisualizationMode, isLayoutMode, isThemePreset, MusicFolder, normalizeHiddenSongColumns, normalizeSongColumnOrder, normalizeThemePreset, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
+import { Album, Artist, ArtistMetadataSource, ArtistOnlineMetadata, DEFAULT_ACCENT_COLOR, DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_LIQUID_GLASS_ACCENT_COLOR, DEFAULT_SONG_COLUMN_ORDER, DEFAULT_THEME_PRESET, FolderNode, isAccentColor, isAudioVisualizationMode, isLayoutMode, isThemePreset, MusicFolder, normalizeHiddenSongColumns, normalizeSongColumnOrder, normalizeThemePreset, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
 import { LibrarySnapshot } from '../../src/app/core/contracts/library.gateway.js';
 import { pathKey, stableId } from '../utils/path-utils.js';
 
@@ -186,6 +186,10 @@ export class DatabaseService {
     this.transaction(() => directories.forEach((directory) => statement.run(folderId, directory.path, pathKey(directory.path), directory.parentPath ? pathKey(directory.parentPath) : null, directory.name, scanId)));
   }
 
+  hasIndexedDirectory(folderId: string, directoryPath: string): boolean {
+    return Boolean(this.db.prepare('SELECT 1 FROM directories WHERE folder_id=? AND path_key=?').get(folderId, pathKey(directoryPath)));
+  }
+
   startScan(scanId: string, folderId: string): void { this.db.prepare('INSERT INTO scan_runs(id,folder_id,started_at,status) VALUES(?,?,?,?)').run(scanId, folderId, Date.now(), 'running'); }
   finishScan(scanId: string, folderId: string, warnings: number): void {
     this.transaction(() => {
@@ -193,6 +197,22 @@ export class DatabaseService {
       this.db.prepare('DELETE FROM directories WHERE folder_id=? AND last_seen_scan<>?').run(folderId, scanId);
       this.db.exec('UPDATE tracks SET is_available=0 WHERE id NOT IN (SELECT track_id FROM folder_tracks)');
       this.db.prepare('UPDATE scan_runs SET finished_at=?, status=?, warning_count=? WHERE id=?').run(Date.now(), warnings ? 'completed-with-errors' : 'completed', warnings, scanId);
+    });
+  }
+  finishScopedScan(scanId: string, folderId: string, directoryPath: string, warnings: number, prune: boolean): void {
+    const scopeKey = pathKey(directoryPath);
+    const prefix = scopeKey.endsWith(path.sep) ? scopeKey : `${scopeKey}${path.sep}`;
+    this.transaction(() => {
+      if (prune) {
+        this.db.prepare(`DELETE FROM folder_tracks WHERE folder_id=? AND last_seen_scan<>? AND track_id IN
+          (SELECT id FROM tracks WHERE substr(path_key, 1, ?) = ?)`).run(folderId, scanId, prefix.length, prefix);
+        this.db.prepare(`DELETE FROM directories WHERE folder_id=? AND last_seen_scan<>?
+          AND (path_key=? OR substr(path_key, 1, ?) = ?)`).run(folderId, scanId, scopeKey, prefix.length, prefix);
+        this.db.prepare(`UPDATE tracks SET is_available=0 WHERE substr(path_key, 1, ?) = ?
+          AND NOT EXISTS (SELECT 1 FROM folder_tracks WHERE track_id=tracks.id)`).run(prefix.length, prefix);
+      }
+      this.db.prepare('UPDATE scan_runs SET finished_at=?, status=?, warning_count=? WHERE id=?')
+        .run(Date.now(), warnings ? 'completed-with-errors' : 'completed', warnings, scanId);
     });
   }
   failScan(scanId: string, warnings: number): void { this.db.prepare('UPDATE scan_runs SET finished_at=?, status=?, warning_count=? WHERE id=?').run(Date.now(), 'failed', warnings, scanId); }
@@ -283,14 +303,14 @@ export class DatabaseService {
 
   getSettings(): Settings {
     const row = this.db.prepare("SELECT value FROM settings WHERE key='app'").get() as Row | undefined;
-    const defaults: Settings = { musicFolders: this.listFolders(), defaultVolume: 0.8, repeatMode: 'off', shuffle: false, themePreset: DEFAULT_THEME_PRESET, accentColor: DEFAULT_ACCENT_COLOR, layoutMode: DEFAULT_LAYOUT_MODE, audioVisualizationMode: DEFAULT_AUDIO_VISUALIZATION_MODE, hiddenSongColumns: [], songColumnOrder: [...DEFAULT_SONG_COLUMN_ORDER] };
+    const defaults: Settings = { musicFolders: this.listFolders(), defaultVolume: 0.8, repeatMode: 'off', shuffle: false, crossfadeEnabled: true, crossfadeSeconds: 5, audioEngineBackend: 'chromium', preferredAudioOutputId: 'system-default', preferredAudioOutputName: 'System Default', preferredNativeAudioOutputId: 'system-default', preferredNativeAudioOutputName: 'System Default', outputMode: 'shared', audioOutputFallbackEnabled: false, themePreset: DEFAULT_THEME_PRESET, accentColor: DEFAULT_ACCENT_COLOR, liquidGlassAccentColor: DEFAULT_LIQUID_GLASS_ACCENT_COLOR, layoutMode: DEFAULT_LAYOUT_MODE, audioVisualizationMode: DEFAULT_AUDIO_VISUALIZATION_MODE, hiddenSongColumns: [], songColumnOrder: [...DEFAULT_SONG_COLUMN_ORDER] };
     if (!row) return defaults;
     try {
       const stored = JSON.parse(String(row['value'])) as Partial<Settings>;
-      return { ...defaults, ...stored, musicFolders: this.listFolders(), themePreset: normalizeThemePreset(stored.themePreset), accentColor: isAccentColor(stored.accentColor) ? stored.accentColor : DEFAULT_ACCENT_COLOR, layoutMode: isLayoutMode(stored.layoutMode) ? stored.layoutMode : DEFAULT_LAYOUT_MODE, audioVisualizationMode: isAudioVisualizationMode(stored.audioVisualizationMode) ? stored.audioVisualizationMode : DEFAULT_AUDIO_VISUALIZATION_MODE, hiddenSongColumns: normalizeHiddenSongColumns(stored.hiddenSongColumns), songColumnOrder: normalizeSongColumnOrder(stored.songColumnOrder) };
+      return { ...defaults, ...stored, musicFolders: this.listFolders(), crossfadeEnabled: typeof stored.crossfadeEnabled === 'boolean' ? stored.crossfadeEnabled : true, crossfadeSeconds: Number.isInteger(stored.crossfadeSeconds) && stored.crossfadeSeconds! >= 1 && stored.crossfadeSeconds! <= 12 ? stored.crossfadeSeconds! : 5, audioEngineBackend: stored.audioEngineBackend === 'native-shared' ? 'native-shared' : 'chromium', preferredAudioOutputId: typeof stored.preferredAudioOutputId === 'string' && stored.preferredAudioOutputId ? stored.preferredAudioOutputId : 'system-default', preferredAudioOutputName: typeof stored.preferredAudioOutputName === 'string' ? stored.preferredAudioOutputName : 'System Default', preferredNativeAudioOutputId: typeof stored.preferredNativeAudioOutputId === 'string' && stored.preferredNativeAudioOutputId ? stored.preferredNativeAudioOutputId : 'system-default', preferredNativeAudioOutputName: typeof stored.preferredNativeAudioOutputName === 'string' ? stored.preferredNativeAudioOutputName : 'System Default', outputMode: 'shared', audioOutputFallbackEnabled: stored.audioOutputFallbackEnabled === true, themePreset: normalizeThemePreset(stored.themePreset), accentColor: isAccentColor(stored.accentColor) ? stored.accentColor : DEFAULT_ACCENT_COLOR, liquidGlassAccentColor: isAccentColor(stored.liquidGlassAccentColor) ? stored.liquidGlassAccentColor : DEFAULT_LIQUID_GLASS_ACCENT_COLOR, layoutMode: isLayoutMode(stored.layoutMode) ? stored.layoutMode : DEFAULT_LAYOUT_MODE, audioVisualizationMode: isAudioVisualizationMode(stored.audioVisualizationMode) ? stored.audioVisualizationMode : DEFAULT_AUDIO_VISUALIZATION_MODE, hiddenSongColumns: normalizeHiddenSongColumns(stored.hiddenSongColumns), songColumnOrder: normalizeSongColumnOrder(stored.songColumnOrder) };
     } catch { return defaults; }
   }
-  saveSettings(settings: Partial<Settings>): Settings { const current=this.getSettings(); const next: Settings={ ...current, ...settings, musicFolders:this.listFolders(), themePreset:isThemePreset(settings.themePreset) ? settings.themePreset : current.themePreset, accentColor:isAccentColor(settings.accentColor) ? settings.accentColor : current.accentColor, layoutMode:isLayoutMode(settings.layoutMode) ? settings.layoutMode : current.layoutMode, audioVisualizationMode:isAudioVisualizationMode(settings.audioVisualizationMode) ? settings.audioVisualizationMode : current.audioVisualizationMode, hiddenSongColumns: settings.hiddenSongColumns === undefined ? current.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns), songColumnOrder: settings.songColumnOrder === undefined ? current.songColumnOrder : normalizeSongColumnOrder(settings.songColumnOrder), defaultVolume:Math.max(0,Math.min(1,settings.defaultVolume ?? current.defaultVolume)) }; this.db.prepare("INSERT INTO settings(key,value) VALUES('app',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(next)); return next; }
+  saveSettings(settings: Partial<Settings>): Settings { const current=this.getSettings(); const next: Settings={ ...current, ...settings, musicFolders:this.listFolders(), crossfadeEnabled: typeof settings.crossfadeEnabled === 'boolean' ? settings.crossfadeEnabled : current.crossfadeEnabled, crossfadeSeconds: Number.isInteger(settings.crossfadeSeconds) && settings.crossfadeSeconds! >= 1 && settings.crossfadeSeconds! <= 12 ? settings.crossfadeSeconds! : current.crossfadeSeconds, themePreset:isThemePreset(settings.themePreset) ? settings.themePreset : current.themePreset, accentColor:isAccentColor(settings.accentColor) ? settings.accentColor : current.accentColor, liquidGlassAccentColor:isAccentColor(settings.liquidGlassAccentColor) ? settings.liquidGlassAccentColor : current.liquidGlassAccentColor, layoutMode:isLayoutMode(settings.layoutMode) ? settings.layoutMode : current.layoutMode, audioVisualizationMode:isAudioVisualizationMode(settings.audioVisualizationMode) ? settings.audioVisualizationMode : current.audioVisualizationMode, hiddenSongColumns: settings.hiddenSongColumns === undefined ? current.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns), songColumnOrder: settings.songColumnOrder === undefined ? current.songColumnOrder : normalizeSongColumnOrder(settings.songColumnOrder), defaultVolume:Math.max(0,Math.min(1,settings.defaultVolume ?? current.defaultVolume)) }; this.db.prepare("INSERT INTO settings(key,value) VALUES('app',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(next)); return next; }
 
   private requirePlaylist(id: string): Playlist { const playlist=this.listPlaylists().find((item)=>item.id===id); if(!playlist) throw new Error('Playlist not found'); return playlist; }
   private touchPlaylist(id: string): void { this.db.prepare('UPDATE playlists SET updated_at=? WHERE id=?').run(Date.now(),id); }

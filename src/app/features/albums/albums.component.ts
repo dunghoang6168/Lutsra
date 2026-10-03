@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { compareAlbumsByTitle, compareNames } from '../library-browse';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
@@ -24,9 +25,18 @@ const UNKNOWN_YEAR = 'unknown';
   styleUrl: './albums.component.scss'
 })
 export class AlbumsComponent implements OnInit {
+  readonly sortOptions = [
+    { value: 'title', label: 'Title' },
+    { value: 'artist', label: 'Artist' },
+    { value: 'year', label: 'Year' },
+    { value: 'tracks', label: 'Track count' },
+  ] as const;
+  readonly sortDirectionOptions = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }] as const;
+
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   private readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly albums = signal<Album[]>([]);
   readonly allTracks = signal<Track[]>([]);
@@ -118,6 +128,19 @@ export class AlbumsComponent implements OnInit {
 
   onPlayAlbum(event: MouseEvent, album: Album): void {
     event.stopPropagation();
+    const albumTracks = this.tracksForAlbum(album);
+    if (albumTracks.length > 0) {
+      this.player.setShuffle(false);
+      this.player.playCollection(albumTracks, 0);
+    }
+  }
+
+  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
+    event.stopPropagation();
+    this.queueActions.add(this.tracksForAlbum(album));
+  }
+
+  private tracksForAlbum(album: Album): Track[] {
     const trackMap = new Map<string, Track>();
     this.allTracks().forEach((t) => trackMap.set(t.id, t));
 
@@ -127,9 +150,6 @@ export class AlbumsComponent implements OnInit {
       if (t) albumTracks.push(t);
     });
 
-    if (albumTracks.length > 0) {
-      this.player.setShuffle(false);
-      this.player.playCollection(orderAlbumTracks(albumTracks), 0);
-    }
+    return orderAlbumTracks(albumTracks);
   }
 }

@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
 import { Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
@@ -20,6 +21,7 @@ export class PlaylistsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly playlists = signal<Playlist[]>([]);
   readonly allTracks = signal<Track[]>([]);
@@ -110,6 +112,18 @@ export class PlaylistsComponent implements OnInit {
 
   onPlayPlaylist(event: MouseEvent, playlist: Playlist): void {
     event.stopPropagation();
+    const tracks = this.tracksForPlaylist(playlist);
+    if (tracks.length > 0) {
+      this.player.playCollection(tracks, 0);
+    }
+  }
+
+  onAddPlaylistToQueue(event: MouseEvent, playlist: Playlist): void {
+    event.stopPropagation();
+    this.queueActions.add(this.tracksForPlaylist(playlist));
+  }
+
+  private tracksForPlaylist(playlist: Playlist): Track[] {
     const trackMap = new Map<string, Track>();
     this.allTracks().forEach((t) => trackMap.set(t.id, t));
 
@@ -119,8 +133,6 @@ export class PlaylistsComponent implements OnInit {
       if (t) tracks.push(t);
     });
 
-    if (tracks.length > 0) {
-      this.player.playCollection(tracks, 0);
-    }
+    return tracks;
   }
 }

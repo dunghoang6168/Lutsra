@@ -50,25 +50,45 @@
                 class="queue-item"
                 [class.current]="player.currentIndex() === i"
                 [class.unavailable]="!entry.track.isAvailable"
+                [class.dragging]="draggingEntryId() === entry.id"
+                [class.drop-before]="dropTarget()?.entryId === entry.id && dropTarget()?.placement === 'before'"
+                [class.drop-after]="dropTarget()?.entryId === entry.id && dropTarget()?.placement === 'after'"
                 (click)="player.jumpToQueueIndex(i)"
+                (dragover)="onDragOver($event, entry.id)"
+                (dragleave)="onDragLeave($event, entry.id)"
+                (drop)="onDrop($event, entry.id)"
                 role="listitem"
                 tabindex="0"
                 (keydown.enter)="player.jumpToQueueIndex(i)">
                 <!-- Index or Playing Indicator -->
                 <div class="queue-item-index">
-                  @if (player.currentIndex() === i) {
-                    <div class="playing-indicator" title="Current track">
-                      @if (player.isPlaying()) {
-                        <span class="bar bar-1"></span>
-                        <span class="bar bar-2"></span>
-                        <span class="bar bar-3"></span>
-                      } @else {
-                        <app-icon name="pause" [size]="10" class="pause-icon" />
-                      }
-                    </div>
-                  } @else {
-                    <span class="item-num">{{ i + 1 }}</span>
-                  }
+                  <span class="queue-index-display">
+                    @if (player.currentIndex() === i) {
+                      <span class="playing-indicator" title="Current track">
+                        @if (player.isPlaying()) {
+                          <span class="bar bar-1"></span>
+                          <span class="bar bar-2"></span>
+                          <span class="bar bar-3"></span>
+                        } @else {
+                          <app-icon name="pause" [size]="10" class="pause-icon" />
+                        }
+                      </span>
+                    } @else {
+                      <span class="item-num">{{ i + 1 }}</span>
+                    }
+                  </span>
+                  <button
+                    type="button"
+                    class="drag-handle"
+                    draggable="true"
+                    (dragstart)="onDragStart($event, entry.id)"
+                    (dragend)="onDragEnd()"
+                    (keydown)="onHandleKeydown($event, entry.id)"
+                    (click)="$event.stopPropagation()"
+                    [attr.aria-label]="'Reorder ' + entry.track.title + ', position ' + (i + 1) + '. Use up and down arrow keys.'"
+                    title="Drag to reorder">
+                    <app-icon name="grip-vertical" [size]="16" />
+                  </button>
                 </div>
 
                 <!-- Artwork Thumbnail -->
@@ -108,5 +128,6 @@
             }
           </div>
         }
+        <span class="sr-only" aria-live="polite">{{ reorderAnnouncement() }}</span>
       </div>
     </aside>

@@ -53,6 +53,12 @@
                 Shuffle
               </button>
 
+              <button type="button" class="btn-action" (click)="onAddAllToQueue()"
+                [disabled]="trackRows().length === 0" aria-label="Add Playlist to Queue">
+                <app-icon name="plus" [size]="16" />
+                Add to Queue
+              </button>
+
               <button
                 type="button"
                 class="btn-action"
@@ -161,14 +167,21 @@
 
                     <!-- Remove from Playlist Action -->
                     <td class="col-actions" (click)="$event.stopPropagation()">
-                      <button
-                        type="button"
-                        class="btn-remove-entry"
-                        (click)="onRemoveEntry(row.entry.id)"
-                        title="Remove from playlist"
-                        aria-label="Remove from playlist">
-                        <app-icon name="trash" [size]="14" />
-                      </button>
+                      <div class="entry-actions">
+                        <button type="button" class="btn-queue-entry" (click)="onAddTrackToQueue(row.track)"
+                          [disabled]="!row.track.isAvailable" title="Add to Queue"
+                          [attr.aria-label]="'Add ' + row.track.title + ' to queue'">
+                          <app-icon name="plus" [size]="14" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-remove-entry"
+                          (click)="onRemoveEntry(row.entry.id)"
+                          title="Remove from playlist"
+                          aria-label="Remove from playlist">
+                          <app-icon name="trash" [size]="14" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }

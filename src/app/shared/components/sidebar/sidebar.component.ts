@@ -1,7 +1,8 @@
-import { Component, OnDestroy, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
+import { PlayerService } from '../../../core/player/player.service';
 
 export type SidebarPhase = 'expanded' | 'collapsing' | 'collapsed' | 'expanding';
 
@@ -18,7 +19,9 @@ const TRANSITION_FALLBACK_PADDING_MS = 50;
   styleUrl: './sidebar.component.scss'
 })
 export class SidebarComponent implements OnDestroy {
+  readonly player = inject(PlayerService);
   readonly isCollapsed = input<boolean>(false);
+  readonly showNowPlayingDock = input(false);
   readonly toggleCollapse = output<void>();
   readonly phase = signal<SidebarPhase>('expanded');
   readonly widthCollapsed = signal(false);

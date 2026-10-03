@@ -18,6 +18,13 @@
       <span class="layout-option-title">Classic</span>
       <span class="layout-option-description">Navigation and player touch the edges. Player is always visible.</span>
     </button>
+    <button type="button" class="layout-option liquid-glass-option"
+      [class.active]="layoutPreference.mode() === 'liquid-glass'"
+      [attr.aria-pressed]="layoutPreference.mode() === 'liquid-glass'"
+      (click)="layoutPreference.setMode('liquid-glass')">
+      <span class="layout-option-title">Apple Acrylic</span>
+      <span class="layout-option-description">Light silver workspace with a customizable accent, an acrylic backdrop, and a player dock.</span>
+    </button>
   </div>
   <p class="layout-save-status" aria-live="polite">
     @if (layoutPreference.saveState() === 'saving') { Saving layout… }
@@ -27,17 +34,90 @@
     <p class="layout-save-error" role="alert">{{ layoutPreference.errorMessage() }}</p>
   }
   <div class="visualization-setting">
-    <div>
+    <div class="visualization-heading">
       <h3>Audio visualization</h3>
       <p>Choose the display shown above the playback controls.</p>
     </div>
     <div class="visualization-options" role="group" aria-label="Audio visualization">
-      <button type="button" [class.active]="audioVisualization.mode() === 'spectrum'"
+      <button type="button" class="visualization-option" [class.active]="audioVisualization.mode() === 'spectrum'"
         [attr.aria-pressed]="audioVisualization.mode() === 'spectrum'"
-        (click)="audioVisualization.setMode('spectrum')">Spectrum</button>
-      <button type="button" [class.active]="audioVisualization.mode() === 'waveform'"
+        (click)="audioVisualization.setMode('spectrum')">
+        <span class="visualization-preview spectrum-preview" aria-hidden="true">
+          <svg viewBox="0 0 180 72" focusable="false">
+            <rect x="8" y="48" width="7" height="16" rx="3.5" />
+            <rect x="20" y="43" width="7" height="21" rx="3.5" />
+            <rect x="32" y="36" width="7" height="28" rx="3.5" />
+            <rect x="44" y="25" width="7" height="39" rx="3.5" />
+            <rect x="56" y="15" width="7" height="49" rx="3.5" />
+            <rect x="68" y="10" width="7" height="54" rx="3.5" />
+            <rect x="80" y="18" width="7" height="46" rx="3.5" />
+            <rect x="92" y="34" width="7" height="30" rx="3.5" />
+            <rect x="104" y="22" width="7" height="42" rx="3.5" />
+            <rect x="116" y="29" width="7" height="35" rx="3.5" />
+            <rect x="128" y="17" width="7" height="47" rx="3.5" />
+            <rect x="140" y="38" width="7" height="26" rx="3.5" />
+            <rect x="152" y="44" width="7" height="20" rx="3.5" />
+            <rect x="164" y="50" width="7" height="14" rx="3.5" />
+          </svg>
+        </span>
+        <span class="visualization-option-title">Spectrum</span>
+        <span class="visualization-option-description">Live frequency bars</span>
+      </button>
+      <button type="button" class="visualization-option" [class.active]="audioVisualization.mode() === 'waveform'"
         [attr.aria-pressed]="audioVisualization.mode() === 'waveform'"
-        (click)="audioVisualization.setMode('waveform')">Waveform</button>
+        (click)="audioVisualization.setMode('waveform')">
+        <span class="visualization-preview waveform-preview" aria-hidden="true">
+          <svg viewBox="0 0 180 72" focusable="false">
+            <defs>
+              <clipPath id="waveform-preview-played-clip">
+                <rect x="0" y="0" width="89" height="72" />
+              </clipPath>
+            </defs>
+            <g class="waveform-bars">
+              <rect x="10" y="31" width="4" height="10" rx="2" />
+              <rect x="17" y="28" width="4" height="16" rx="2" />
+              <rect x="24" y="24" width="4" height="24" rx="2" />
+              <rect x="31" y="20" width="4" height="32" rx="2" />
+              <rect x="38" y="26" width="4" height="20" rx="2" />
+              <rect x="45" y="16" width="4" height="40" rx="2" />
+              <rect x="52" y="22" width="4" height="28" rx="2" />
+              <rect x="59" y="10" width="4" height="52" rx="2" />
+              <rect x="66" y="19" width="4" height="34" rx="2" />
+              <rect x="73" y="25" width="4" height="22" rx="2" />
+              <rect x="80" y="14" width="4" height="44" rx="2" />
+              <rect x="87" y="7" width="4" height="58" rx="2" />
+              <rect x="94" y="21" width="4" height="30" rx="2" />
+              <rect x="101" y="17" width="4" height="38" rx="2" />
+              <rect x="108" y="25" width="4" height="22" rx="2" />
+              <rect x="115" y="12" width="4" height="48" rx="2" />
+              <rect x="122" y="20" width="4" height="32" rx="2" />
+              <rect x="129" y="27" width="4" height="18" rx="2" />
+              <rect x="136" y="23" width="4" height="26" rx="2" />
+              <rect x="143" y="29" width="4" height="14" rx="2" />
+              <rect x="150" y="25" width="4" height="22" rx="2" />
+              <rect x="157" y="30" width="4" height="12" rx="2" />
+              <rect x="164" y="32" width="4" height="8" rx="2" />
+            </g>
+            <g class="waveform-played-bars" clip-path="url(#waveform-preview-played-clip)">
+              <rect x="10" y="31" width="4" height="10" rx="2" />
+              <rect x="17" y="28" width="4" height="16" rx="2" />
+              <rect x="24" y="24" width="4" height="24" rx="2" />
+              <rect x="31" y="20" width="4" height="32" rx="2" />
+              <rect x="38" y="26" width="4" height="20" rx="2" />
+              <rect x="45" y="16" width="4" height="40" rx="2" />
+              <rect x="52" y="22" width="4" height="28" rx="2" />
+              <rect x="59" y="10" width="4" height="52" rx="2" />
+              <rect x="66" y="19" width="4" height="34" rx="2" />
+              <rect x="73" y="25" width="4" height="22" rx="2" />
+              <rect x="80" y="14" width="4" height="44" rx="2" />
+              <rect x="87" y="7" width="4" height="58" rx="2" />
+            </g>
+            <line class="waveform-playhead" x1="89" y1="8" x2="89" y2="64" />
+          </svg>
+        </span>
+        <span class="visualization-option-title">Waveform</span>
+        <span class="visualization-option-description">Track shape with seek position</span>
+      </button>
     </div>
   </div>
   <p class="visualization-save-status" aria-live="polite">

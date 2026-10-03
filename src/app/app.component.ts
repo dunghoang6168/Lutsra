@@ -1,4 +1,4 @@
-import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { AfterViewChecked, Component, DestroyRef, ElementRef, HostListener, ViewChild, afterNextRender, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -8,11 +8,14 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
 import { PlayerBarComponent } from './shared/components/player-bar/player-bar.component';
 import { QueueDrawerComponent } from './shared/components/queue-drawer/queue-drawer.component';
 import { TrackDetailsPanelComponent } from './shared/components/track-details-panel/track-details-panel.component';
+import { IconComponent } from './shared/components/icon/icon.component';
 import { RightPanelService } from './core/layout/right-panel.service';
 import { PlayerService } from './core/player/player.service';
+import { QueueActionsService } from './core/player/queue-actions.service';
 import { LayoutPreferenceService } from './core/layout/layout-preference.service';
 import { ArtworkGlowPositionService } from './core/layout/artwork-glow-position.service';
 import { ArtworkEdgeGlowService, EDGE_GLOW_SPREAD } from './core/layout/artwork-edge-glow.service';
+import { AcrylicScrollbarService } from './core/layout/acrylic-scrollbar.service';
 import { LIBRARY_GATEWAY } from './core/contracts';
 import { getDesktopApi } from './core/desktop/desktop-api';
 
@@ -30,6 +33,7 @@ const SIDEBAR_HIDDEN_KEY = 'lutsra.sidebar.hidden';
     PlayerBarComponent,
     QueueDrawerComponent,
     TrackDetailsPanelComponent,
+    IconComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
@@ -37,11 +41,15 @@ const SIDEBAR_HIDDEN_KEY = 'lutsra.sidebar.hidden';
 export class AppComponent implements AfterViewChecked {
   readonly isSidebarCollapsed = signal(readSavedFlag(SIDEBAR_COLLAPSED_KEY));
   readonly isSidebarHidden = signal(readSavedFlag(SIDEBAR_HIDDEN_KEY));
+  readonly compactWindow = signal(typeof window !== 'undefined' && window.innerWidth <= 650);
   readonly rightPanels = inject(RightPanelService);
   readonly player = inject(PlayerService);
+  readonly queueActions = inject(QueueActionsService);
   readonly layoutPreference = inject(LayoutPreferenceService);
   readonly artworkGlowPosition = inject(ArtworkGlowPositionService);
   private readonly artworkEdgeGlow = inject(ArtworkEdgeGlowService);
+  private readonly acrylicScrollbars = inject(AcrylicScrollbarService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   @ViewChild('onboardingDialog') private onboardingDialog?: ElementRef<HTMLElement>;
   readonly showOnboarding = signal(false);
@@ -63,15 +71,27 @@ export class AppComponent implements AfterViewChecked {
   );
   readonly isQueueOpen = this.rightPanels.isQueueOpen;
   readonly hasPlaybackOrQueue = computed(() => this.player.isPlaybackActive() || this.player.queue().length > 0);
+  readonly hasTrackOrQueue = computed(() => this.player.currentTrack() !== null || this.player.queue().length > 0);
+  readonly hasInteractivePlayback = computed(() => this.layoutPreference.mode() === 'liquid-glass'
+    ? this.hasTrackOrQueue() : this.hasPlaybackOrQueue());
   readonly nowPlayingArtwork = computed(() =>
     this.currentUrl().split(/[?#]/, 1)[0] === '/now-playing' ? this.player.currentTrack()?.artwork ?? null : null);
   readonly showPlayerBar = computed(() => this.layoutPreference.mode() === 'classic' ||
-    (this.hasPlaybackOrQueue() && this.currentUrl().split(/[?#]/, 1)[0] !== '/now-playing'));
+    (this.layoutPreference.mode() === 'liquid-glass' && this.hasTrackOrQueue()) ||
+    (this.layoutPreference.mode() === 'inset' && this.hasPlaybackOrQueue() &&
+      this.currentUrl().split(/[?#]/, 1)[0] !== '/now-playing'));
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.compactWindow.set(window.innerWidth <= 650);
+  }
 
   constructor() {
+    afterNextRender(() => this.acrylicScrollbars.start());
+    this.destroyRef.onDestroy(() => this.acrylicScrollbars.stop());
     void this.checkOnboarding();
     effect(() => {
-      if (this.layoutPreference.mode() === 'inset' && !this.hasPlaybackOrQueue()) this.rightPanels.closeQueue();
+      if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) this.rightPanels.closeQueue();
     });
     effect(() => {
       const artwork = this.nowPlayingArtwork();
@@ -160,7 +180,7 @@ export class AppComponent implements AfterViewChecked {
   }
 
   onToggleQueue(): void {
-    if (this.layoutPreference.mode() === 'inset' && !this.hasPlaybackOrQueue()) return;
+    if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) return;
     this.rightPanels.toggleQueue();
   }
 
@@ -178,7 +198,7 @@ export class AppComponent implements AfterViewChecked {
       this.rightPanels.closeActive();
       return;
     }
-    if (event.code !== 'Space' || !this.hasPlaybackOrQueue()) return;
+    if (event.code !== 'Space' || !this.hasInteractivePlayback()) return;
 
     const activeEl = document.activeElement as HTMLElement | null;
     const activeTag = activeEl?.tagName.toLowerCase();

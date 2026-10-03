@@ -1,0 +1,11 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..');
+const vswhere = path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
+if (!existsSync(vswhere)) throw new Error('Visual Studio Build Tools were not found.');
+const install = execFileSync(vswhere, ['-latest','-products','*','-requires','Microsoft.Component.MSBuild','-property','installationPath'], { encoding:'utf8' }).trim();
+const msbuild = path.join(install,'MSBuild','Current','Bin','MSBuild.exe');
+const project = path.join(root,'native','audio-host','lutsra-audio-host-tests.vcxproj');
+execFileSync(msbuild,[project,'/m','/p:Configuration=Release','/p:Platform=x64'],{stdio:'inherit'});
+execFileSync(path.join(root,'native','audio-host','x64','Release','lutsra-audio-host-tests.exe'),[],{stdio:'inherit'});

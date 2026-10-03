@@ -36,7 +36,7 @@
 
     .now-playing-content {
       display: grid;
-      grid-template-columns: minmax(0, min(52vh, max(340px, 33%))) minmax(0, 1fr);
+      grid-template-columns: clamp(356px, 33%, 52vh) minmax(0, 1fr);
       column-gap: var(--space-8);
       row-gap: var(--space-4);
       margin: auto;
@@ -148,7 +148,9 @@
     }
 
     .track-heading-text {
+      flex: 1 1 auto;
       min-width: 0;
+      overflow: hidden;
     }
 
     .heading-queue-btn {
@@ -181,6 +183,24 @@
       outline-offset: 2px;
     }
 
+    .heading-details-btn {
+      flex: 0 0 auto;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 0 9px;
+      border-radius: var(--radius-full);
+      color: var(--accent-primary);
+      background: var(--accent-muted);
+      font-size: var(--font-size-xs);
+      font-weight: 650;
+    }
+    .heading-details-btn:hover {
+      background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+    }
+    .heading-details-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
     .heading-queue-btn .queue-badge {
       position: absolute;
       top: -4px;
@@ -200,17 +220,23 @@
       color: var(--text-primary);
       line-height: 1.2;
       margin-bottom: var(--space-2);
-      overflow-wrap: anywhere;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .artist-album-row {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--space-2);
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-size: var(--font-size-md);
       color: var(--text-secondary);
       margin-bottom: 0;
+    }
+
+    .artist-album-row > span + span {
+      margin-left: var(--space-2);
     }
 
     .track-artist {
@@ -520,26 +546,141 @@
       background: var(--accent-hover);
     }
 
-    @media (max-width: 960px) {
-      .now-playing-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        width: 100%;
+    .now-playing-page.layout-liquid-glass { padding: clamp(24px, 4vw, 52px); }
+    .layout-liquid-glass .now-playing-content {
+      grid-template-columns: clamp(300px, 34%, 430px) minmax(0, 1fr);
+      column-gap: clamp(28px, 4vw, 64px);
+      row-gap: 22px;
+      width: min(100%, 1120px);
+      align-items: start;
+    }
+    .layout-liquid-glass .large-artwork-card {
+      border-radius: 18px;
+      box-shadow: 0 18px 42px rgba(32, 32, 36, 0.16), 0 2px 8px rgba(32, 32, 36, 0.09);
+    }
+    .layout-liquid-glass .details-column {
+      align-self: stretch;
+      gap: 10px;
+    }
+    .layout-liquid-glass .track-heading-card {
+      padding: 4px 0 18px;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+    .layout-liquid-glass .track-title {
+      font-size: clamp(30px, 3.3vw, 48px);
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+    }
+    .layout-liquid-glass .artist-album-row { font-size: 15px; }
+    .layout-liquid-glass .visualization-controls {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      padding: 18px;
+      border: 1px solid rgba(29, 29, 31, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 6px 20px rgba(32, 32, 36, 0.06);
+      overflow: hidden;
+    }
+    .layout-liquid-glass .visualization-controls app-spectrum-visualizer {
+      flex: 1 1 auto;
+      min-height: 0;
+      margin-bottom: 0;
+    }
+    .layout-liquid-glass .visualization-controls app-waveform-seek {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .layout-liquid-glass .lyrics-card {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      height: clamp(240px, 30vh, 380px);
+      padding: 20px 22px;
+      border-color: rgba(29, 29, 31, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 20px rgba(32, 32, 36, 0.05);
+    }
+    .layout-liquid-glass .lyrics-card h2,
+    .layout-liquid-glass .lyrics-lines,
+    .layout-liquid-glass .lyrics-message {
+      width: 100%;
+      margin-inline: 0;
+    }
+    .layout-liquid-glass .lyrics-card h2 { font-size: 16px; }
+    .layout-liquid-glass .lyrics-line {
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    .layout-liquid-glass .lyrics-line.past {
+      color: var(--text-muted);
+      opacity: 0.48;
+    }
+    .layout-liquid-glass .lyrics-line.upcoming {
+      color: var(--text-secondary);
+      opacity: 0.68;
+    }
+    .layout-liquid-glass .lyrics-line.active {
+      color: var(--accent-primary);
+      font-size: 18px;
+      font-weight: 800;
+      opacity: 1;
+      text-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+    }
+    .layout-liquid-glass .lyrics-line:not(.active):is(:hover, :focus-visible) {
+      color: var(--text-primary);
+      opacity: 1;
+    }
+    .layout-liquid-glass .large-artwork-placeholder { background: #e2e2e7; }
+
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .track-heading-card {
+      padding: 15px 18px;
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      background: var(--glass-text-backplate);
+      box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-sm);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .visualization-controls,
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .lyrics-card {
+      background: var(--glass-readable-surface);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .heading-details-btn {
+      color: var(--text-accent);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .lyrics-lines {
+      mask-image: linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+    }
+
+    @media (forced-colors: active) {
+      .layout-liquid-glass .lyrics-line.past,
+      .layout-liquid-glass .lyrics-line.upcoming {
+        color: CanvasText;
+        opacity: 1;
       }
-      .artwork-column { width: 260px; max-width: 100%; order: 1; }
-      .details-column, .technical-specs-card, .lyrics-card { width: min(100%, 520px); max-width: 100%; }
-      .details-column { order: 2; }
-      .technical-specs-card { order: 3; }
-      .lyrics-card { order: 4; height: 240px; }
-      .lyrics-card h2, .lyrics-line { text-align: left; }
-      .artist-album-row {
-        justify-content: center;
+      .layout-liquid-glass .lyrics-line.active {
+        color: Highlight;
+        text-shadow: none;
       }
-      .specs-grid {
-        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .layout-liquid-glass .now-playing-content:not(.has-lyrics) {
+      align-items: center;
+      width: min(100%, 980px);
+    }
+
+    @container main-content (min-width: 761px) and (max-width: 1000px) {
+      .now-playing-page.layout-liquid-glass { padding: 24px; }
+      .layout-liquid-glass .now-playing-content {
+        grid-template-columns: clamp(260px, 34%, 340px) minmax(0, 1fr);
+        column-gap: 24px;
+        row-gap: 18px;
       }
+      .layout-liquid-glass .track-title { font-size: clamp(28px, 4vw, 38px); }
     }
 
     @container main-content (max-width: 760px) {
@@ -547,22 +688,44 @@
       .now-playing-content {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         gap: var(--space-5);
         margin: 0 auto;
         text-align: center;
-        width: 100%;
+        width: min(80cqw, 100%);
       }
-      .artwork-column { width: min(100%, 340px); max-width: 100%; }
+      .artwork-column, .details-column, .lyrics-card, .technical-specs-card {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
       .artwork-column { order: 1; }
-      .details-column, .lyrics-card, .technical-specs-card { width: min(100%, 520px); max-width: 100%; }
       .details-column { order: 2; }
       .technical-specs-card { order: 3; }
       .lyrics-card { order: 4; height: 240px; }
       .lyrics-card h2, .lyrics-line { text-align: left; }
-      .artist-album-row { justify-content: center; }
+      .artist-album-row { text-align: center; }
       .specs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .details-affordance > span { display: none; }
+      .layout-liquid-glass .now-playing-content,
+      .layout-liquid-glass .now-playing-content:not(.has-lyrics) {
+        width: min(80cqw, 100%);
+        align-items: stretch;
+        gap: var(--space-5);
+      }
+      .layout-liquid-glass .artwork-column { width: 100%; }
+      .layout-liquid-glass .details-column {
+        align-self: auto;
+        width: 100%;
+        gap: 10px;
+      }
+      .layout-liquid-glass .lyrics-card {
+        width: 100%;
+        height: clamp(240px, 40vh, 300px);
+      }
+      .layout-liquid-glass .track-heading-card { text-align: left; }
+      .layout-liquid-glass .artist-album-row { text-align: left; }
+      .layout-liquid-glass .visualization-controls { min-height: 190px; }
     }
 
     @container main-content (max-width: 360px) {
@@ -572,4 +735,16 @@
       .panel-transport .playback-mode-button { margin-right: var(--space-1); }
       .panel-volume-control { margin-left: var(--space-1); }
       .inline-controls { padding: var(--space-3); }
+    }
+
+    @media (max-height: 520px) {
+      .now-playing-page { padding: 12px; }
+      .now-playing-content { row-gap: 12px; }
+      @container main-content (min-width: 761px) {
+        .artwork-column { width: min(100%, 190px); }
+      }
+      .layout-liquid-glass .now-playing-content {
+        grid-template-columns: minmax(190px, 28%) minmax(0, 1fr);
+      }
+      .layout-liquid-glass .lyrics-card { height: 220px; }
     }

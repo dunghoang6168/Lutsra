@@ -1,0 +1,14 @@
+{
+  "name": "BtbN FFmpeg 9.0 LGPL shared x64",
+  "version": "n9.0.2-22-g46d8f462ee",
+  "releaseTag": "autobuild-2026-10-01-13-06",
+  "archive": "ffmpeg-n9.0.2-22-g46d8f462ee-win64-lgpl-shared-9.0.zip",
+  "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-01-13-06/ffmpeg-n9.0.2-22-g46d8f462ee-win64-lgpl-shared-9.0.zip",
+  "sha256": "2a41605c6c28455c7029e5057f77cda18838203fa09d40bed6e6cac14200e1f5",
+  "license": "LGPL-2.1-or-later",
+  "linking": "dynamic",
+  "gpl": false,
+  "nonfree": false,
+  "sourceArchive": "ffmpeg-46d8f462ee-source.tar.gz",
+  "sourceUrl": "https://github.com/FFmpeg/FFmpeg/archive/46d8f462ee.tar.gz"
+}

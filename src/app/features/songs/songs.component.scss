@@ -18,17 +18,26 @@
       flex-wrap: wrap;
     }
 
+    .title-area {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
+      white-space: nowrap;
+    }
+
     .title-area h1 {
       font-size: var(--font-size-2xl);
       font-weight: 700;
       letter-spacing: -0.02em;
     }
 
+    .title-separator {
+      color: var(--text-muted);
+    }
+
     .track-count {
       font-size: var(--font-size-xs);
       color: var(--text-muted);
-      margin-top: 2px;
-      display: block;
     }
 
     .toolbar {
@@ -120,14 +129,21 @@
       font-size: var(--font-size-sm);
     }
 
-    .table-scroll-container {
+    .table-frame {
       flex: 1;
       min-width: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
+      min-height: 0;
+      overflow: hidden;
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       background: var(--bg-surface);
+    }
+
+    .table-scroll-container {
+      height: 100%;
+      min-width: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .songs-table {
@@ -314,6 +330,8 @@
     .song-row:focus-within .row-actions {
       opacity: 1;
     }
+
+    @media (hover: none) { .row-actions { opacity: 1; } }
 
     .row-action-btn {
       width: 28px;

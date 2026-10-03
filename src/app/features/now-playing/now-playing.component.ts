@@ -33,6 +33,13 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
   readonly lyricsStatus = signal<'loading' | 'ready' | 'missing' | 'unsupported' | 'error'>('loading');
   readonly lyricLines = signal<LyricLine[]>([]);
   readonly activeLineIndex = computed(() => activeLyricIndex(this.lyricLines(), this.player.currentTime()));
+  readonly trackMetadataLabel = computed(() => {
+    const track = this.player.currentTrack();
+    if (!track) return '';
+    return [track.artist || 'Unknown Artist', track.album, track.year?.toString(), track.genre]
+      .filter((value): value is string => Boolean(value))
+      .join(' • ');
+  });
   readonly playbackMode = computed<'off' | 'shuffle' | 'repeat-all' | 'repeat-one' | 'combined'>(() => {
     const shuffle = this.player.isShuffle();
     const repeat = this.player.repeatMode();

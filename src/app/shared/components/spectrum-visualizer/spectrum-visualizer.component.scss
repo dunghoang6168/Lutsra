@@ -34,13 +34,37 @@
       pointer-events: none;
     }
 
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .spectrum-label {
+      padding: 2px 5px;
+      border-radius: 5px;
+      color: var(--text-secondary);
+      background: var(--glass-readable-surface);
+      font-size: 10px;
+    }
+
     canvas {
       display: block;
       width: 100%;
       height: 100%;
     }
 
-    @media (max-width: 960px), (max-height: 700px) {
+    @media (max-height: 700px) {
+      :host {
+        flex-basis: 104px;
+        min-height: 104px;
+        margin-bottom: var(--space-4);
+      }
+
+      .spectrum-panel {
+        height: 100%;
+      }
+
+      .spectrum-label {
+        top: 6px;
+      }
+    }
+
+    @container main-content (max-width: 760px) {
       :host {
         flex-basis: 104px;
         min-height: 104px;

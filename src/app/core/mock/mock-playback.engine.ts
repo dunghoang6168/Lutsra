@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { AudioAnalysisEngine, PlaybackEngine } from '../contracts';
-import { PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent, Track } from '../models';
+import { AudioOutputDevice, AudioPathStatus, OutputMode, PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent, SYSTEM_DEFAULT_OUTPUT_ID, Track } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class MockPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
@@ -49,7 +49,7 @@ export class MockPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
         track,
         error: {
           code: 'FILE_UNAVAILABLE',
-          message: `Audio file is unavailable or missing: ${track.path}`,
+          message: 'This audio file is unavailable or missing.',
           trackId: track.id,
         },
       });
@@ -77,7 +77,7 @@ export class MockPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
         track: this.currentTrack,
         error: {
           code: 'FILE_UNAVAILABLE',
-          message: `Audio file is unavailable: ${this.currentTrack.path}`,
+          message: 'This audio file is unavailable.',
           trackId: this.currentTrack.id,
         },
       });
@@ -126,6 +126,49 @@ export class MockPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
       isMuted: this.isMuted,
     });
   }
+
+  async prepareNext(track: Track): Promise<boolean> { return track.isAvailable; }
+  cancelPreparedNext(): void {}
+  async transitionTo(track: Track, _crossfadeSeconds: number): Promise<boolean> {
+    if (!track.isAvailable) return false;
+    this.stopTimer();
+    this.currentTrack = track;
+    this.currentTime = 0;
+    this.duration = track.duration;
+    this.stateChangeSubject.next({ state: 'playing', track });
+    this.timeUpdateSubject.next({ currentTime: 0, duration: this.duration });
+    this.startTimer();
+    return true;
+  }
+
+  async listOutputDevices(): Promise<AudioOutputDevice[]> {
+    return [{ id: SYSTEM_DEFAULT_OUTPUT_ID, name: 'System Default', isDefault: true, isConnected: true, supportedModes: ['shared'], supportedFormats: null, mixFormat: null }];
+  }
+  async selectOutputDevice(_deviceId: string): Promise<void> {}
+  setOutputFallbackEnabled(_enabled: boolean): void {}
+  async setOutputMode(mode: OutputMode): Promise<void> {
+    if (mode !== 'shared') throw Object.assign(new Error('This output mode requires the Native Audio Host.'), { code: 'OUTPUT_MODE_UNSUPPORTED' });
+  }
+  async getAudioPathStatus(): Promise<AudioPathStatus> {
+    return {
+      backend: 'chromium', hostState: 'unavailable', resamplingActive: false, channelConversionActive: false,
+      bitPerfectEligible: false, processingReasons: ['Mock Chromium Shared audio pipeline'],
+      preferredDeviceId: SYSTEM_DEFAULT_OUTPUT_ID,
+      activeDeviceId: SYSTEM_DEFAULT_OUTPUT_ID,
+      deviceName: 'System Default',
+      mode: 'shared',
+      sourceFormat: this.currentTrack ? { sampleRate: this.currentTrack.sampleRate, bitDepth: this.currentTrack.bitDepth, channels: this.currentTrack.channels } : null,
+      outputFormat: null,
+      isConnected: true,
+      capabilitiesAvailable: false,
+      reason: 'Output format details require the Native Audio Host.',
+    };
+  }
+  getBackend(): 'chromium' { return 'chromium'; }
+  async setBackend(backend: 'chromium' | 'native-shared'): Promise<void> {
+    if (backend !== 'chromium') throw Object.assign(new Error('Native Shared is unavailable in browser preview.'), { code: 'AUDIO_HOST_UNAVAILABLE' });
+  }
+  subscribeDeviceChanges(_listener: () => void): () => void { return () => undefined; }
 
   async prepareFrequencyAnalysis(): Promise<number> {
     return 1024;

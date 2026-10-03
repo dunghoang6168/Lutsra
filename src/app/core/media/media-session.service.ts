@@ -1,6 +1,7 @@
 import { effect, inject, Injectable, InjectionToken, NgZone, OnDestroy } from '@angular/core';
 import { Track } from '../models';
 import { PlayerService } from '../player/player.service';
+import { getDesktopApi, type NativeMediaKeyAction } from '../desktop/desktop-api';
 
 type MediaMetadataFactory = (init: MediaMetadataInit) => MediaMetadata | null;
 
@@ -36,8 +37,10 @@ export class MediaSessionService implements OnDestroy {
   private readonly metadataFactory = inject(MEDIA_METADATA_FACTORY);
   private readonly zone = inject(NgZone);
   private readonly registeredActions = new Set<MediaSessionAction>();
+  private readonly removeNativeMediaKeyListener: (() => void) | null;
 
   constructor() {
+    this.removeNativeMediaKeyListener = getDesktopApi()?.mediaKeys?.onAction((action) => this.handleNativeMediaKey(action)) ?? null;
     if (!this.mediaSession) return;
 
     this.registerActionHandlers();
@@ -53,6 +56,7 @@ export class MediaSessionService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.removeNativeMediaKeyListener?.();
     if (!this.mediaSession) return;
 
     for (const action of this.registeredActions) {
@@ -105,6 +109,15 @@ export class MediaSessionService implements OnDestroy {
 
   private run(callback: () => void): void {
     this.zone.run(callback);
+  }
+
+  private handleNativeMediaKey(action: NativeMediaKeyAction): void {
+    this.run(() => {
+      if (action === 'play-pause') void this.player.togglePlayPause().catch(() => undefined);
+      else if (action === 'previous') void this.player.previous().catch(() => undefined);
+      else if (action === 'next') void this.player.next().catch(() => undefined);
+      else this.player.stop();
+    });
   }
 
   private syncMetadata(track: Track | null): void {

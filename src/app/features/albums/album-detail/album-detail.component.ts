@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
+import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
@@ -25,6 +26,7 @@ export class AlbumDetailComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly album = signal<Album | null>(null);
   readonly albumTracks = signal<Track[]>([]);
@@ -118,5 +120,13 @@ export class AlbumDetailComponent implements OnInit {
     const idx = tracks.findIndex((t) => t.id === track.id);
     this.player.setShuffle(false);
     this.player.playCollection(tracks, Math.max(0, idx));
+  }
+
+  onAddAllToQueue(): void {
+    this.queueActions.add(this.orderedAlbumTracks());
+  }
+
+  onAddTrackToQueue(track: Track): void {
+    this.queueActions.add([track]);
   }
 }

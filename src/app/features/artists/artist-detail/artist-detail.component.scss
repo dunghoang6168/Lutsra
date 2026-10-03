@@ -175,9 +175,8 @@
       margin-bottom: var(--space-2);
     }
 
-    .quick-play-btn {
+    .quick-play-btn, .quick-queue-btn {
       position: absolute;
-      right: var(--space-2);
       bottom: var(--space-2);
       width: 40px;
       height: 40px;
@@ -196,13 +195,18 @@
         background var(--transition-fast);
     }
 
+    .quick-play-btn { right: var(--space-2); }
+    .quick-queue-btn { right: 56px; background: var(--bg-elevated); color: var(--text-primary); }
+
     .album-card:hover .quick-play-btn,
-    .album-card:focus-within .quick-play-btn {
+    .album-card:hover .quick-queue-btn,
+    .album-card:focus-within .quick-play-btn,
+    .album-card:focus-within .quick-queue-btn {
       opacity: 1;
       transform: translateY(0);
     }
 
-    .quick-play-btn:hover {
+    .quick-play-btn:hover, .quick-queue-btn:hover {
       background: var(--accent-hover);
       transform: scale(1.08);
     }
@@ -230,7 +234,7 @@
     }
 
     .album-year {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-muted);
     }
 
@@ -290,6 +294,16 @@
     .col-title { min-width: 250px; }
     .col-album { width: 220px; color: var(--text-secondary); }
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
+    .col-actions { width: 44px; text-align: right; }
+    .queue-row-btn {
+      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); color: var(--text-muted); opacity: 0;
+      transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+    }
+    .track-row:hover .queue-row-btn, .track-row:focus-within .queue-row-btn { opacity: 1; }
+    @media (hover: none) { .quick-play-btn, .quick-queue-btn, .queue-row-btn { opacity: 1; transform: none; } }
+    .queue-row-btn:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-surface-hover); }
+    .queue-row-btn:disabled { cursor: not-allowed; }
 
     .playing-icon { color: var(--accent-primary); font-size: 11px; }
 

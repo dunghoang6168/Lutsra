@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { LIBRARY_GATEWAY, type LibrarySnapshot } from '../../../core/contracts/library.gateway';
 import type { Album, Artist, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
+import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { IconComponent } from '../icon/icon.component';
 
 type SearchKind = 'song' | 'album' | 'artist';
@@ -37,6 +38,7 @@ export class GlobalSearchComponent {
   private readonly gateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   private readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly inputElement = viewChild.required<ElementRef<HTMLInputElement>>('searchInput');
@@ -130,6 +132,11 @@ export class GlobalSearchComponent {
     if (result.kind === 'song') await this.player.playTrack(result.item as Track);
     else await this.router.navigate([result.kind === 'album' ? '/albums' : '/artists', result.item.id]);
     this.close();
+  }
+
+  addSongToQueue(event: MouseEvent, result: SearchResult): void {
+    event.stopPropagation();
+    if (result.kind === 'song' && !result.disabled) this.queueActions.add([result.item as Track]);
   }
 
   optionId(key: string): string { return `global-search-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`; }

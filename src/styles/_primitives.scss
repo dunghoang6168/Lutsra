@@ -209,17 +209,6 @@
     font-size: var(--font-size-xs);
     color: var(--text-muted);
   }
-
-  select {
-    width: 100%;
-    height: 36px;
-    padding: 0 var(--space-2);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-    cursor: pointer;
-  }
 }
 
 .browse-filter-actions {
@@ -227,7 +216,7 @@
   align-items: center;
   gap: var(--space-2);
 
-  select { flex: 1; min-width: 0; }
+  app-searchable-filter-select { flex: 1; min-width: 0; }
 }
 
 .browse-filter-clear {
@@ -238,7 +227,7 @@
   cursor: pointer;
 }
 
-.browse-filter-field select:focus-visible, .browse-filter-clear:focus-visible {
+.browse-filter-clear:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
 }

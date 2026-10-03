@@ -1,9 +1,24 @@
 import { Track } from './track.model';
 
-export type PlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
+export type PlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error';
+
+export type PlaybackErrorCode =
+  | 'FILE_UNAVAILABLE'
+  | 'MEDIA_ABORTED'
+  | 'MEDIA_NETWORK'
+  | 'MEDIA_DECODE'
+  | 'MEDIA_UNSUPPORTED'
+  | 'MEDIA_UNKNOWN'
+  | 'OUTPUT_DEVICE_UNAVAILABLE'
+  | 'OUTPUT_DEVICE_PERMISSION_DENIED'
+  | 'OUTPUT_DEVICE_UNSUPPORTED'
+  | 'OUTPUT_MODE_UNSUPPORTED'
+  | 'AUDIO_HOST_UNAVAILABLE'
+  | 'AUDIO_HOST_PROTOCOL_ERROR'
+  | 'PLAYBACK_FAILED';
 
 export interface PlaybackError {
-  code: string;
+  code: PlaybackErrorCode;
   message: string;
   trackId?: string;
 }

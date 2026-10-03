@@ -5,6 +5,13 @@
 @use 'styles/utilities';
 @use 'styles/responsive';
 
+html[data-theme='liquid-glass'][data-runtime='desktop'] {
+  .modal-card,
+  .metadata-modal-card {
+    background: rgba(250, 250, 252, 0.94);
+  }
+}
+
 .now-playing-page .visualization-controls:not(.waveform-mode) { display: contents; }
 .now-playing-page .visualization-controls.waveform-mode {
   flex: 0 0 auto;

@@ -17,6 +17,7 @@ export interface LibraryGateway {
   selectAndAddMusicFolders(): Promise<MusicFolder[]>;
   removeMusicFolder(folderId: string): Promise<void>;
   requestScan(folderIds?: string[]): Promise<void>;
+  requestFolderScan(folderId: string, directoryPath: string): Promise<void>;
   scanProgress$: Observable<ScanProgress>;
   libraryChanged$: Observable<void>;
 }

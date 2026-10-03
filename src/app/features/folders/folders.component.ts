@@ -6,8 +6,17 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LIBRARY_GATEWAY, LYRICS_GATEWAY } from '../../core/contracts';
 import { FolderNode, MusicFolder, ScanProgress, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+
+interface FolderSummary {
+  trackCount: number;
+  duration: number;
+  artwork: string | null;
+}
+
+const EMPTY_FOLDER_SUMMARY: FolderSummary = { trackCount: 0, duration: 0, artwork: null };
 
 @Component({
   selector: 'app-folders',
@@ -22,19 +31,49 @@ export class FoldersComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
   private readonly sub = new Subscription();
   private rootsLoaded = false;
   private loadVersion = 0;
   private selectionVersion = 0;
-  private loadedRootId: string | null = null;
-  private loadedTree: FolderNode | null = null;
   private lyricsRequestVersion = 0;
 
   readonly roots = signal<MusicFolder[]>([]);
+  readonly folderTrees = signal<ReadonlyMap<string, FolderNode>>(new Map());
+  readonly unavailableRootIds = signal<ReadonlySet<string>>(new Set());
   readonly selectedRootId = signal<string | null>(null);
   readonly nodeStack = signal<FolderNode[]>([]);
   readonly allTracks = signal<Track[]>([]);
   readonly tracksById = computed(() => new Map(this.allTracks().map((track) => [track.id, track])));
+  readonly folderSummaries = computed(() => {
+    const summaries = new Map<string, FolderSummary>();
+    const tracks = this.tracksById();
+    const summarize = (node: FolderNode): FolderSummary => {
+      let trackCount = 0;
+      let duration = 0;
+      let artwork: string | null = null;
+      for (const child of [...(node.children ?? [])].sort(compareFolderNodes)) {
+        if (child.isFolder) {
+          const childSummary = summarize(child);
+          trackCount += childSummary.trackCount;
+          duration += childSummary.duration;
+          artwork ??= childSummary.artwork;
+        } else {
+          const track = child.trackId ? tracks.get(child.trackId) : undefined;
+          if (!track) continue;
+          trackCount++;
+          duration += Number.isFinite(track.duration) ? Math.max(0, track.duration) : 0;
+          artwork ??= track.artwork;
+        }
+      }
+      const summary = { trackCount, duration, artwork };
+      summaries.set(node.id, summary);
+      return summary;
+    };
+    for (const tree of this.folderTrees().values()) summarize(tree);
+    return summaries;
+  });
+  readonly failedArtworks = signal<ReadonlySet<string>>(new Set());
   readonly lyricTrackIds = signal<ReadonlySet<string>>(new Set());
   readonly isLoading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
@@ -51,19 +90,40 @@ export class FoldersComponent implements OnInit, OnDestroy {
   readonly showRemoveDialog = signal<boolean>(false);
 
   selectedRoot = () => this.roots().find((r) => r.id === this.selectedRootId()) || null;
+  sortedRoots = () => [...this.roots()].sort((a, b) => compareFolderNames(a.name, b.name) || a.id.localeCompare(b.id));
+  rootParentName = (root: MusicFolder): string => {
+    const parent = root.path.split(/[\\/]+/).filter(Boolean).at(-2);
+    return parent && !/^[a-z]:$/i.test(parent) ? parent : 'Music root';
+  };
   currentNode = () => {
     const stack = this.nodeStack();
     return stack.length > 0 ? stack[stack.length - 1] : null;
   };
   subfolders = () => {
     const curr = this.currentNode();
-    return curr?.children?.filter((c) => c.isFolder) || [];
+    return curr?.children?.filter((c) => c.isFolder).sort(compareFolderNodes) || [];
   };
+  folderSummary = (node: FolderNode | null | undefined): FolderSummary =>
+    node ? this.folderSummaries().get(node.id) ?? EMPTY_FOLDER_SUMMARY : EMPTY_FOLDER_SUMMARY;
+  artworkFor = (node: FolderNode | null | undefined): string | null => {
+    const artwork = this.folderSummary(node).artwork;
+    return artwork && !this.failedArtworks().has(artwork) ? artwork : null;
+  };
+
+  onArtworkError(artwork: string): void {
+    this.failedArtworks.update((failed) => new Set([...failed, artwork]));
+  }
   readonly filesInCurrentFolder = computed(() => {
     const curr = this.currentNode();
     return (curr?.children?.filter((child) => !child.isFolder) ?? [])
       .sort(compareFolderFiles);
   });
+  readonly currentFolderTracks = computed(() => this.filesInCurrentFolder()
+    .flatMap((file) => {
+      const track = file.trackId ? this.tracksById().get(file.trackId) : undefined;
+      return track ? [track] : [];
+    }));
+  readonly hasAvailableFolderTracks = computed(() => this.currentFolderTracks().some((track) => track.isAvailable));
 
   constructor() {
     effect(() => {
@@ -118,8 +178,19 @@ export class FoldersComponent implements OnInit, OnDestroy {
       if (loadVersion !== this.loadVersion) return;
       this.roots.set(lib.folders);
       this.allTracks.set(lib.tracks);
-      this.loadedRootId = null;
-      this.loadedTree = null;
+      this.folderTrees.set(new Map());
+      this.unavailableRootIds.set(new Set());
+      this.failedArtworks.set(new Set());
+      const treeResults = await Promise.allSettled(lib.folders.map((folder) => this.libraryGateway.getFolderTree(folder.id)));
+      if (loadVersion !== this.loadVersion) return;
+      const trees = new Map<string, FolderNode>();
+      const unavailable = new Set<string>();
+      treeResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value) trees.set(lib.folders[index].id, result.value);
+        else unavailable.add(lib.folders[index].id);
+      });
+      this.folderTrees.set(trees);
+      this.unavailableRootIds.set(unavailable);
       this.rootsLoaded = true;
       await this.syncSelectionFromUrl();
     } catch (err: any) {
@@ -133,6 +204,13 @@ export class FoldersComponent implements OnInit, OnDestroy {
   onSelectRoot(root: MusicFolder): void {
     if (root.id === this.selectedRootId() && this.nodeStack().length === 1) return;
     this.navigateToFolder(root.id, []);
+  }
+
+  onNavigateOverview(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { root: null, folder: null },
+    });
   }
 
   onEnterFolder(node: FolderNode): void {
@@ -156,25 +234,37 @@ export class FoldersComponent implements OnInit, OnDestroy {
     const version = ++this.selectionVersion;
     const params = this.route.snapshot.queryParamMap;
     const requestedRootId = params.get('root');
-    const root = this.roots().find((item) => item.id === requestedRootId) ?? this.roots()[0];
+    const root = requestedRootId ? this.roots().find((item) => item.id === requestedRootId) : undefined;
     if (!root) {
       this.selectedRootId.set(null);
       this.nodeStack.set([]);
+      this.errorMessage.set(null);
+      this.isLoading.set(false);
       if (requestedRootId || params.getAll('folder').length) this.replaceFolderUrl(null, []);
       return;
     }
 
     this.selectedRootId.set(root.id);
+    this.nodeStack.set([]);
     this.isLoading.set(true);
     this.errorMessage.set(null);
     try {
-      if (this.loadedRootId !== root.id) {
-        const tree = await this.libraryGateway.getFolderTree(root.id);
+      let tree = this.folderTrees().get(root.id);
+      if (!tree) {
+        const fetchedTree = await this.libraryGateway.getFolderTree(root.id);
         if (version !== this.selectionVersion) return;
-        this.loadedRootId = root.id;
-        this.loadedTree = tree;
+        if (fetchedTree) {
+          tree = fetchedTree;
+          this.folderTrees.update((current) => new Map(current).set(root.id, fetchedTree));
+          this.unavailableRootIds.update((current) => {
+            const next = new Set(current);
+            next.delete(root.id);
+            return next;
+          });
+        }
       }
-      const stack: FolderNode[] = this.loadedTree ? [this.loadedTree] : [];
+      if (!tree) throw new Error(`Folder tree is unavailable for ${root.name}`);
+      const stack: FolderNode[] = [tree];
       const requestedFolders = params.getAll('folder');
       for (const id of requestedFolders) {
         const child = stack.at(-1)?.children?.find((item) => item.isFolder && item.id === id);
@@ -208,6 +298,18 @@ export class FoldersComponent implements OnInit, OnDestroy {
       await this.libraryGateway.requestScan(root ? [root.id] : undefined);
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Failed to request scan');
+    }
+  }
+
+  async onScanCurrentFolder(): Promise<void> {
+    const rootId = this.selectedRootId();
+    const node = this.currentNode();
+    if (!rootId || !node || this.nodeStack().length < 2) return;
+    this.errorMessage.set(null);
+    try {
+      await this.libraryGateway.requestFolderScan(rootId, node.path);
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Failed to request folder scan');
     }
   }
 
@@ -246,21 +348,19 @@ export class FoldersComponent implements OnInit, OnDestroy {
   }
 
   onPlayFolderFiles(): void {
-    const files = this.filesInCurrentFolder();
-    const trackMap = new Map<string, Track>();
-    this.allTracks().forEach((t) => trackMap.set(t.id, t));
-
-    const tracks: Track[] = [];
-    files.forEach((f) => {
-      if (f.trackId) {
-        const t = trackMap.get(f.trackId);
-        if (t) tracks.push(t);
-      }
-    });
-
+    const tracks = this.currentFolderTracks();
     if (tracks.length > 0) {
       this.player.playCollection(tracks, 0);
     }
+  }
+
+  onAddFolderFilesToQueue(): void {
+    this.queueActions.add(this.currentFolderTracks());
+  }
+
+  onAddFileToQueue(fileNode: FolderNode): void {
+    const track = fileNode.trackId ? this.tracksById().get(fileNode.trackId) : undefined;
+    this.queueActions.add(track ? [track] : []);
   }
 
   isHiRes(track: Track): boolean {
@@ -271,8 +371,16 @@ export class FoldersComponent implements OnInit, OnDestroy {
 
 const fileNameCollator = new Intl.Collator('vi', { sensitivity: 'base', numeric: true });
 
-function compareFolderFiles(a: FolderNode, b: FolderNode): number {
-  return fileNameCollator.compare(a.name, b.name)
-    || fileNameCollator.compare(a.path, b.path)
+function compareFolderNames(a: string, b: string): number {
+  return fileNameCollator.compare(a, b);
+}
+
+function compareFolderNodes(a: FolderNode, b: FolderNode): number {
+  return compareFolderNames(a.name, b.name)
+    || compareFolderNames(a.path, b.path)
     || a.id.localeCompare(b.id);
+}
+
+function compareFolderFiles(a: FolderNode, b: FolderNode): number {
+  return compareFolderNodes(a, b);
 }

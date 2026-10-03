@@ -36,6 +36,9 @@ export class ElectronLibraryGateway implements LibraryGateway {
     this.changed.next();
   }
   requestScan(folderIds?: string[]): Promise<void> { return this.requireApi().library.startScan(folderIds); }
+  requestFolderScan(folderId: string, directoryPath: string): Promise<void> {
+    return this.requireApi().library.startFolderScan(folderId, directoryPath);
+  }
 
   private requireApi() {
     if (!this.api) throw new Error('Electron desktop API is unavailable');

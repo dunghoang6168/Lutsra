@@ -43,6 +43,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   });
 
   private readonly themeEffect = effect(() => {
+    this.theme.effectiveTheme();
     this.theme.themePreset();
     this.theme.accentColor();
     if (this.viewReady) {

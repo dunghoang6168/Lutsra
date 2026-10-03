@@ -1,7 +1,41 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { LIBRARY_GATEWAY, PLAYBACK_ENGINE, SETTINGS_GATEWAY } from '../contracts';
-import { PlaybackState, QueueEntry, RepeatMode, Track } from '../models';
+import { AudioEngineBackend, AudioOutputDevice, AudioPathStatus, PlaybackError, PlaybackState, QueueEntry, RepeatMode, Settings, SYSTEM_DEFAULT_OUTPUT_ID, Track } from '../models';
+import { getDesktopApi } from '../desktop/desktop-api';
+import { logPlaybackDiagnostic } from './playback-diagnostics';
+import { nextPlayableQueueIndex } from './playback-policy';
+
+export interface QueueAddResult {
+  addedCount: number;
+  skippedCount: number;
+}
+
+function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackError {
+  const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
+  const codes: PlaybackError['code'][] = [
+    'FILE_UNAVAILABLE', 'MEDIA_ABORTED', 'MEDIA_NETWORK', 'MEDIA_DECODE', 'MEDIA_UNSUPPORTED', 'MEDIA_UNKNOWN',
+    'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_PERMISSION_DENIED', 'OUTPUT_DEVICE_UNSUPPORTED', 'OUTPUT_MODE_UNSUPPORTED',
+    'AUDIO_HOST_UNAVAILABLE', 'AUDIO_HOST_PROTOCOL_ERROR', 'PLAYBACK_FAILED',
+  ];
+  const code: PlaybackError['code'] = typeof rawCode === 'string' && codes.includes(rawCode as PlaybackError['code'])
+    ? rawCode as PlaybackError['code'] : 'PLAYBACK_FAILED';
+  const knownMessages: Partial<Record<PlaybackError['code'], string>> = {
+    FILE_UNAVAILABLE: 'This audio file is no longer available.',
+    MEDIA_ABORTED: 'Audio loading was interrupted.',
+    MEDIA_NETWORK: 'The audio file could not be read.',
+    MEDIA_DECODE: 'The audio file is damaged or could not be decoded.',
+    MEDIA_UNSUPPORTED: 'This audio format is not supported by the current engine.',
+    OUTPUT_DEVICE_UNAVAILABLE: 'The selected audio output is disconnected.',
+    OUTPUT_DEVICE_PERMISSION_DENIED: 'Chromium denied permission to use this audio output. Restart Lutsra and try again.',
+    OUTPUT_DEVICE_UNSUPPORTED: 'This runtime cannot select a specific audio output.',
+    OUTPUT_MODE_UNSUPPORTED: 'This output mode requires the Native Audio Host.',
+    AUDIO_HOST_UNAVAILABLE: 'Native Audio Host is unavailable. Playback has returned to Chromium and remains paused.',
+    AUDIO_HOST_PROTOCOL_ERROR: 'Native Audio Host communication failed. Playback has returned to Chromium and remains paused.',
+    PLAYBACK_FAILED: 'The audio file could not be played.',
+  };
+  return { code, message: knownMessages[code] ?? 'The audio file could not be played.', trackId };
+}
 
 @Injectable({ providedIn: 'root' })
 export class PlayerService implements OnDestroy {
@@ -15,6 +49,12 @@ export class PlayerService implements OnDestroy {
   // Internal Request Counter for handling overlapping load requests
   private loadSequence = 0;
   private libraryRefreshVersion = 0;
+  private preparedCandidateId: string | null = null;
+  private preparationReady = false;
+  private transitioning = false;
+  private recoveringFromFailure = false;
+  private readonly failedEntryIds = new Set<string>();
+  private suspendSnapshot: { entryId: string; position: number; shouldResume: boolean } | null = null;
   private readonly playRequested = signal(false);
 
   // Primary Signals
@@ -28,7 +68,20 @@ export class PlayerService implements OnDestroy {
   readonly isMuted = signal<boolean>(false);
   readonly repeatMode = signal<RepeatMode>('off');
   readonly isShuffle = signal<boolean>(false);
+  readonly crossfadeEnabled = signal<boolean>(true);
+  readonly crossfadeSeconds = signal<number>(5);
   readonly error = signal<string | null>(null);
+  readonly playbackNotice = signal<string | null>(null);
+  readonly outputDevices = signal<AudioOutputDevice[]>([]);
+  readonly audioPathStatus = signal<AudioPathStatus | null>(null);
+  readonly audioEngineBackend = signal<AudioEngineBackend>('chromium');
+  readonly preferredAudioOutputId = signal<string>(SYSTEM_DEFAULT_OUTPUT_ID);
+  readonly preferredAudioOutputName = signal<string>('System Default');
+  private readonly preferredChromiumOutputId = signal<string>(SYSTEM_DEFAULT_OUTPUT_ID);
+  private readonly preferredChromiumOutputName = signal<string>('System Default');
+  private readonly preferredNativeOutputId = signal<string>(SYSTEM_DEFAULT_OUTPUT_ID);
+  private readonly preferredNativeOutputName = signal<string>('System Default');
+  readonly audioOutputFallbackEnabled = signal<boolean>(false);
 
   // Original queue before shuffle was toggled on
   private originalQueue: QueueEntry[] = [];
@@ -36,7 +89,7 @@ export class PlayerService implements OnDestroy {
   // Derived Computed Signals
   readonly isPlaying = computed(() => this.playbackState() === 'playing');
   readonly isLoading = computed(() => this.playbackState() === 'loading');
-  readonly isPlaybackActive = computed(() => this.isPlaying() || (this.isLoading() && this.playRequested()));
+  readonly isPlaybackActive = computed(() => this.isPlaying() || this.playbackState() === 'buffering' || (this.isLoading() && this.playRequested()));
 
   readonly currentQueueEntry = computed<QueueEntry | null>(() => {
     const q = this.queue();
@@ -52,6 +105,12 @@ export class PlayerService implements OnDestroy {
 
   constructor() {
     this.initEngineListeners();
+    this.subscriptions.add(this.engine.subscribeDeviceChanges(() => void this.handleOutputDevicesChanged()));
+    const lifecycle = getDesktopApi()?.appLifecycle;
+    if (lifecycle) {
+      this.subscriptions.add(lifecycle.onSuspend(() => this.handleSuspend()));
+      this.subscriptions.add(lifecycle.onResume(() => void this.handleResume()));
+    }
     this.loadSavedSettings();
     let wasScanning = false;
     if (this.libraryGateway) this.subscriptions.add(this.libraryGateway.scanProgress$.subscribe((progress) => {
@@ -71,6 +130,8 @@ export class PlayerService implements OnDestroy {
       const tracks = new Map((await this.libraryGateway.getLibrary()).tracks.map((track) => [track.id, track]));
       if (version !== this.libraryRefreshVersion) return;
       const currentEntry = this.currentQueueEntry();
+      const previousIndex = this.currentIndex();
+      const shouldContinue = this.isPlaybackActive();
       const keep = (entry: QueueEntry): QueueEntry | null => {
         const track = tracks.get(entry.track.id);
         return track ? { ...entry, track } : null;
@@ -78,22 +139,33 @@ export class PlayerService implements OnDestroy {
       const nextQueue = this.queue().flatMap((entry) => keep(entry) ?? []);
       this.originalQueue = this.originalQueue.flatMap((entry) => keep(entry) ?? []);
       this.queue.set(nextQueue);
+      this.failedEntryIds.clear();
       const currentIndex = currentEntry ? nextQueue.findIndex((entry) => entry.id === currentEntry.id) : -1;
       if (currentEntry && currentIndex < 0) {
         this.loadSequence++;
-        this.playRequested.set(false);
+        this.clearPreparedCandidate();
         this.engine.dispose();
-        this.currentTrack.set(null);
         this.currentTime.set(0);
         this.duration.set(0);
-        this.error.set(null);
-        this.playbackState.set('idle');
+        const replacementIndex = nextQueue.length ? Math.min(Math.max(previousIndex, 0), nextQueue.length - 1) : -1;
+        this.currentIndex.set(replacementIndex);
+        if (replacementIndex >= 0) {
+          this.playbackNotice.set('The current track is no longer available. Moving to the next available track.');
+          if (shouldContinue) await this.loadAndPlayCurrent();
+          else await this.loadCurrentPaused();
+        } else {
+          this.playRequested.set(false);
+          this.currentTrack.set(null);
+          this.error.set(null);
+          this.playbackState.set('idle');
+        }
       } else if (currentIndex >= 0) {
         this.currentTrack.set(nextQueue[currentIndex].track);
+        this.currentIndex.set(currentIndex);
+        this.refreshPreparedCandidate();
       }
-      this.currentIndex.set(currentIndex);
     } catch (error) {
-      console.error('[playback:library] Failed to reconcile queue', error);
+      logPlaybackDiagnostic('error', { operation: 'transition', errorCode: 'PLAYBACK_FAILED' });
     }
   }
 
@@ -132,6 +204,29 @@ export class PlayerService implements OnDestroy {
         if (typeof settings.shuffle === 'boolean') {
           this.setShuffle(settings.shuffle);
         }
+        if (typeof settings.crossfadeEnabled === 'boolean') this.setCrossfadeEnabled(settings.crossfadeEnabled);
+        if (Number.isInteger(settings.crossfadeSeconds)) this.setCrossfadeSeconds(settings.crossfadeSeconds);
+        this.audioOutputFallbackEnabled.set(settings.audioOutputFallbackEnabled === true);
+        this.engine.setOutputFallbackEnabled(settings.audioOutputFallbackEnabled === true);
+        this.preferredChromiumOutputId.set(settings.preferredAudioOutputId || SYSTEM_DEFAULT_OUTPUT_ID);
+        this.preferredChromiumOutputName.set(settings.preferredAudioOutputName || 'System Default');
+        this.preferredNativeOutputId.set(settings.preferredNativeAudioOutputId || SYSTEM_DEFAULT_OUTPUT_ID);
+        this.preferredNativeOutputName.set(settings.preferredNativeAudioOutputName || 'System Default');
+        try { await this.engine.setBackend(settings.audioEngineBackend === 'native-shared' ? 'native-shared' : 'chromium'); }
+        catch {
+          await this.engine.setBackend('chromium');
+          this.playbackNotice.set('Native Audio Host is unavailable. Chromium Shared remains active.');
+        }
+        this.audioEngineBackend.set(this.engine.getBackend());
+        await this.syncNativeMediaKeys();
+        if (this.audioEngineBackend() === 'native-shared') await this.migrateNativeDeviceByUniqueName();
+        this.syncPreferredOutputSignals();
+        try {
+          await this.engine.selectOutputDevice(this.preferredAudioOutputId());
+        } catch {
+          this.playbackNotice.set('The preferred audio output is currently unavailable.');
+        }
+        await this.refreshAudioOutputState();
       }
     } catch {
       // Retain default values
@@ -154,8 +249,11 @@ export class PlayerService implements OnDestroy {
         if (evt.error) {
           this.playRequested.set(false);
           this.error.set(evt.error.message);
+          if (evt.error.code === 'AUDIO_HOST_UNAVAILABLE' || evt.error.code === 'AUDIO_HOST_PROTOCOL_ERROR') void this.recoverFromNativeHostFailure(evt.error);
+          else void this.handlePlaybackFailure(evt.error);
         } else if (evt.state === 'playing') {
           this.error.set(null);
+          this.refreshPreparedCandidate();
         }
 
         if (evt.state === 'ended') {
@@ -174,6 +272,8 @@ export class PlayerService implements OnDestroy {
         }
         this.currentTime.set(evt.currentTime);
         this.duration.set(evt.duration);
+        this.refreshPreparedCandidate();
+        this.maybeStartCrossfade(evt.currentTime, evt.duration);
       })
     );
 
@@ -201,6 +301,7 @@ export class PlayerService implements OnDestroy {
 
     const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
     const entries = this.createQueueEntries(tracks);
+    this.failedEntryIds.clear();
 
     this.originalQueue = [...entries];
 
@@ -228,6 +329,7 @@ export class PlayerService implements OnDestroy {
     const existingIndex = q.findIndex((e) => e.track.id === track.id);
 
     if (existingIndex >= 0) {
+      this.failedEntryIds.delete(q[existingIndex].id);
       this.currentIndex.set(existingIndex);
       await this.loadAndPlayCurrent();
       return;
@@ -277,7 +379,9 @@ export class PlayerService implements OnDestroy {
       await this.engine.play();
     } catch (error) {
       this.playRequested.set(false);
-      throw error;
+      const failure = normalizePlaybackFailure(error, this.currentTrack()?.id);
+      this.error.set(failure.message);
+      await this.handlePlaybackFailure(failure);
     }
   }
 
@@ -324,6 +428,7 @@ export class PlayerService implements OnDestroy {
 
   setRepeatMode(mode: RepeatMode): void {
     this.repeatMode.set(mode);
+    this.refreshPreparedCandidate();
     if (!this.restoringSettings) void this.persistSettings({ repeatMode: mode });
   }
 
@@ -373,14 +478,157 @@ export class PlayerService implements OnDestroy {
         }
       }
     }
+    this.refreshPreparedCandidate();
   }
 
-  private async persistSettings(value: { defaultVolume?: number; repeatMode?: RepeatMode; shuffle?: boolean }): Promise<void> {
+  setCrossfadeEnabled(enabled: boolean): void {
+    this.crossfadeEnabled.set(enabled);
+    this.refreshPreparedCandidate();
+    if (!this.restoringSettings) void this.persistSettings({ crossfadeEnabled: enabled });
+  }
+
+  setCrossfadeSeconds(seconds: number): void {
+    if (!Number.isInteger(seconds)) return;
+    const clamped = Math.max(1, Math.min(12, seconds));
+    this.crossfadeSeconds.set(clamped);
+    this.refreshPreparedCandidate();
+    if (!this.restoringSettings) void this.persistSettings({ crossfadeSeconds: clamped });
+  }
+
+  async refreshAudioOutputState(): Promise<void> {
+    const [devices, status] = await Promise.all([
+      this.engine.listOutputDevices(),
+      this.engine.getAudioPathStatus(),
+    ]);
+    const preferredId = this.preferredAudioOutputId();
+    if (preferredId !== SYSTEM_DEFAULT_OUTPUT_ID && !devices.some((device) => device.id === preferredId)) {
+      devices.push({
+        id: preferredId,
+        name: this.preferredAudioOutputName(),
+        isDefault: false,
+        isConnected: false,
+        supportedModes: ['shared'],
+        supportedFormats: null,
+        mixFormat: null,
+      });
+    }
+    this.outputDevices.set(devices);
+    this.audioPathStatus.set({ ...status, preferredDeviceId: preferredId, deviceName: this.preferredAudioOutputName() });
+  }
+
+  async selectAudioOutput(deviceId: string): Promise<void> {
+    const device = this.outputDevices().find((candidate) => candidate.id === deviceId);
+    const previousId = this.preferredAudioOutputId();
+    try {
+      await this.engine.selectOutputDevice(deviceId);
+      this.preferredAudioOutputId.set(deviceId);
+      this.preferredAudioOutputName.set(device?.name || (deviceId === SYSTEM_DEFAULT_OUTPUT_ID ? 'System Default' : 'Audio output'));
+      this.playbackNotice.set(null);
+      if (this.audioEngineBackend() === 'native-shared') {
+        this.preferredNativeOutputId.set(this.preferredAudioOutputId());
+        this.preferredNativeOutputName.set(this.preferredAudioOutputName());
+        await this.persistSettings({ preferredNativeAudioOutputId: this.preferredAudioOutputId(), preferredNativeAudioOutputName: this.preferredAudioOutputName(), outputMode: 'shared' });
+      } else {
+        this.preferredChromiumOutputId.set(this.preferredAudioOutputId());
+        this.preferredChromiumOutputName.set(this.preferredAudioOutputName());
+        await this.persistSettings({ preferredAudioOutputId: this.preferredAudioOutputId(), preferredAudioOutputName: this.preferredAudioOutputName(), outputMode: 'shared' });
+      }
+    } catch (error) {
+      try { await this.engine.selectOutputDevice(previousId); } catch { /* Keep playback paused if the previous output also disappeared. */ }
+      this.playbackNotice.set(normalizePlaybackFailure(error).message);
+    }
+    await this.refreshAudioOutputState();
+  }
+
+  setAudioOutputFallbackEnabled(enabled: boolean): void {
+    this.audioOutputFallbackEnabled.set(enabled);
+    this.engine.setOutputFallbackEnabled(enabled);
+    void this.persistSettings({ audioOutputFallbackEnabled: enabled });
+  }
+
+  async switchAudioBackend(backend: AudioEngineBackend, persist = true): Promise<void> {
+    if (backend === this.audioEngineBackend()) return;
+    const track = this.currentTrack();
+    const position = this.currentTime();
+    this.pause();
+    this.clearPreparedCandidate();
+    try {
+      await this.engine.setBackend(backend);
+      this.audioEngineBackend.set(backend);
+      await this.syncNativeMediaKeys();
+      if (backend === 'native-shared') await this.migrateNativeDeviceByUniqueName();
+      this.syncPreferredOutputSignals();
+      this.engine.setOutputFallbackEnabled(this.audioOutputFallbackEnabled());
+      await this.engine.selectOutputDevice(this.preferredAudioOutputId());
+      if (track) {
+        await this.engine.load(track);
+        this.engine.seek(position);
+        this.playbackState.set('paused');
+      }
+      if (persist) await this.persistSettings({ audioEngineBackend: backend });
+      this.playbackNotice.set(backend === 'native-shared' ? 'Native Shared Beta is active. Playback remains paused.' : 'Chromium Shared is active. Playback remains paused.');
+    } catch (error) {
+      if (backend === 'native-shared') {
+        await this.engine.setBackend('chromium');
+        this.audioEngineBackend.set('chromium');
+        await this.syncNativeMediaKeys();
+        this.syncPreferredOutputSignals();
+      }
+      this.playbackNotice.set(normalizePlaybackFailure(error).message);
+    }
+    await this.refreshAudioOutputState();
+  }
+
+  private syncPreferredOutputSignals(): void {
+    const native = this.audioEngineBackend() === 'native-shared';
+    this.preferredAudioOutputId.set(native ? this.preferredNativeOutputId() : this.preferredChromiumOutputId());
+    this.preferredAudioOutputName.set(native ? this.preferredNativeOutputName() : this.preferredChromiumOutputName());
+  }
+
+  private async migrateNativeDeviceByUniqueName(): Promise<void> {
+    if (this.preferredNativeOutputId() !== SYSTEM_DEFAULT_OUTPUT_ID || this.preferredChromiumOutputId() === SYSTEM_DEFAULT_OUTPUT_ID) return;
+    const chromiumName = this.preferredChromiumOutputName().trim();
+    const matches = (await this.engine.listOutputDevices()).filter((device) => !device.isDefault && device.isConnected && device.name.trim() === chromiumName);
+    if (matches.length === 1) {
+      this.preferredNativeOutputId.set(matches[0].id);
+      this.preferredNativeOutputName.set(matches[0].name);
+      await this.persistSettings({ preferredNativeAudioOutputId: matches[0].id, preferredNativeAudioOutputName: matches[0].name });
+    } else if (matches.length > 1) {
+      this.playbackNotice.set('More than one native endpoint has the previous device name. Select the WASAPI output again.');
+    }
+  }
+
+  private async recoverFromNativeHostFailure(error: PlaybackError): Promise<void> {
+    if (this.audioEngineBackend() !== 'native-shared') return;
+    const position = this.currentTime();
+    const track = this.currentTrack();
+    try {
+      await this.engine.setBackend('chromium');
+      this.audioEngineBackend.set('chromium');
+      await this.syncNativeMediaKeys();
+      this.syncPreferredOutputSignals();
+      await this.engine.selectOutputDevice(this.preferredAudioOutputId());
+      if (track) { await this.engine.load(track); this.engine.seek(position); this.engine.pause(); }
+      await this.persistSettings({ audioEngineBackend: 'chromium' });
+    } catch { /* Stay paused and require an explicit output selection. */ }
+    this.playbackNotice.set(normalizePlaybackFailure(error).message);
+    await this.refreshAudioOutputState();
+  }
+
+  private async persistSettings(value: Partial<Settings>): Promise<void> {
     if (!this.settingsGateway) return;
     try {
       await this.settingsGateway.saveSettings(value);
     } catch (error) {
-      console.error('[playback:settings] Failed to persist player settings', error);
+      logPlaybackDiagnostic('error', { operation: 'transition', errorCode: 'PLAYBACK_FAILED' });
+    }
+  }
+
+  private async syncNativeMediaKeys(): Promise<void> {
+    try {
+      await getDesktopApi()?.mediaKeys?.setNativeActive(this.audioEngineBackend() === 'native-shared');
+    } catch {
+      // Media keys remain available through Chromium Media Session when supported.
     }
   }
 
@@ -407,7 +655,7 @@ export class PlayerService implements OnDestroy {
 
     // Skip unavailable tracks safely (max 1 full loop)
     let attempts = 0;
-    while (!q[nextIndex].track.isAvailable && attempts < q.length) {
+    while (!this.isEntryPlayable(q[nextIndex]) && attempts < q.length) {
       nextIndex++;
       attempts++;
       if (nextIndex >= q.length) {
@@ -457,7 +705,7 @@ export class PlayerService implements OnDestroy {
 
     // Skip unavailable tracks backwards
     let attempts = 0;
-    while (!q[prevIndex].track.isAvailable && attempts < q.length) {
+    while (!this.isEntryPlayable(q[prevIndex]) && attempts < q.length) {
       prevIndex--;
       attempts++;
       if (prevIndex < 0) {
@@ -501,24 +749,34 @@ export class PlayerService implements OnDestroy {
     q.splice(currIdx + 1, 0, ...newEntries);
     this.queue.set(q);
     this.originalQueue.push(...newEntries);
+    this.refreshPreparedCandidate();
   }
 
-  addToQueue(tracks: Track[]): void {
-    if (!tracks || tracks.length === 0) return;
+  addToQueue(tracks: Track[]): QueueAddResult {
+    if (!tracks || tracks.length === 0) return { addedCount: 0, skippedCount: 0 };
 
-    const newEntries = this.createQueueEntries(tracks);
+    const availableTracks = tracks.filter((track) => track.isAvailable);
+    const result = {
+      addedCount: availableTracks.length,
+      skippedCount: tracks.length - availableTracks.length,
+    };
+    if (availableTracks.length === 0) return result;
+
+    const newEntries = this.createQueueEntries(availableTracks);
     const q = this.queue();
 
     if (q.length === 0) {
       this.queue.set(newEntries);
       this.originalQueue = [...newEntries];
       this.currentIndex.set(0);
-      this.loadAndPlayCurrent();
-      return;
+      void this.loadCurrentPaused();
+      return result;
     }
 
     this.queue.update((current) => [...current, ...newEntries]);
     this.originalQueue.push(...newEntries);
+    this.refreshPreparedCandidate();
+    return result;
   }
 
   removeFromQueue(queueEntryId: string): void {
@@ -545,13 +803,36 @@ export class PlayerService implements OnDestroy {
     } else if (removeIdx < this.currentIndex()) {
       this.currentIndex.update((idx) => idx - 1);
     }
+    this.refreshPreparedCandidate();
+  }
+
+  moveQueueEntry(sourceId: string, targetId: string, placement: 'before' | 'after'): boolean {
+    const current = this.queue();
+    const sourceIndex = current.findIndex((entry) => entry.id === sourceId);
+    if (sourceIndex < 0 || sourceId === targetId) return false;
+
+    const currentEntryId = this.currentQueueEntry()?.id;
+    const reordered = current.filter((entry) => entry.id !== sourceId);
+    const targetIndex = reordered.findIndex((entry) => entry.id === targetId);
+    if (targetIndex < 0) return false;
+
+    reordered.splice(targetIndex + (placement === 'after' ? 1 : 0), 0, current[sourceIndex]);
+    if (reordered.every((entry, index) => entry.id === current[index].id)) return false;
+
+    this.queue.set(reordered);
+    this.currentIndex.set(currentEntryId ? reordered.findIndex((entry) => entry.id === currentEntryId) : -1);
+    this.originalQueue = [...reordered];
+    this.refreshPreparedCandidate();
+    return true;
   }
 
   clearQueue(): void {
     this.loadSequence++;
+    this.clearPreparedCandidate();
     this.playRequested.set(false);
     this.engine.dispose();
     this.queue.set([]);
+    this.failedEntryIds.clear();
     this.originalQueue = [];
     this.currentIndex.set(-1);
     this.currentTrack.set(null);
@@ -564,6 +845,7 @@ export class PlayerService implements OnDestroy {
   async jumpToQueueIndex(index: number): Promise<void> {
     const q = this.queue();
     if (index >= 0 && index < q.length) {
+      this.failedEntryIds.delete(q[index].id);
       this.currentIndex.set(index);
       await this.loadAndPlayCurrent();
     }
@@ -574,6 +856,7 @@ export class PlayerService implements OnDestroy {
   // ==========================================
 
   private async loadAndPlayCurrent(): Promise<void> {
+    this.clearPreparedCandidate();
     const entry = this.currentQueueEntry();
     if (!entry) {
       this.currentTrack.set(null);
@@ -595,15 +878,39 @@ export class PlayerService implements OnDestroy {
     } catch (err) {
       if (thisSequence === this.loadSequence && this.queue().length > 0) {
         this.playRequested.set(false);
-        this.error.set(`Cannot play track: ${track.title}`);
-        // If track is unavailable, skip to next after a moment
-        if (!track.isAvailable) {
-          setTimeout(() => {
-            if (thisSequence === this.loadSequence && this.queue().length > 0) {
-              this.next();
-            }
-          }, 800);
-        }
+        const failure = normalizePlaybackFailure(err, track.id);
+        this.error.set(failure.message);
+        await this.handlePlaybackFailure(failure);
+      }
+    }
+  }
+
+  private async loadCurrentPaused(): Promise<void> {
+    this.clearPreparedCandidate();
+    const entry = this.currentQueueEntry();
+    if (!entry) {
+      this.currentTrack.set(null);
+      return;
+    }
+
+    const track = entry.track;
+    this.currentTrack.set(track);
+    this.playRequested.set(false);
+    this.error.set(null);
+    const thisSequence = ++this.loadSequence;
+
+    try {
+      await this.engine.load(track);
+      if (thisSequence === this.loadSequence && this.currentQueueEntry()?.id === entry.id && !this.playRequested()) {
+        this.playbackState.set('paused');
+      }
+    } catch (err) {
+      if (thisSequence === this.loadSequence && this.currentQueueEntry()?.id === entry.id) {
+        this.playRequested.set(false);
+        this.playbackState.set('error');
+        const failure = normalizePlaybackFailure(err, track.id);
+        this.error.set(failure.message);
+        await this.handlePlaybackFailure(failure);
       }
     }
   }
@@ -611,9 +918,228 @@ export class PlayerService implements OnDestroy {
   private handleTrackEnded(): void {
     if (this.repeatMode() === 'one') {
       this.seek(0);
-      this.play();
+      void this.play();
     } else {
-      this.next();
+      void this.advanceAfterEnded();
+    }
+  }
+
+  private async advanceAfterEnded(): Promise<void> {
+    if (this.transitioning) return;
+    const index = this.automaticNextIndex();
+    const candidate = index >= 0 ? this.queue()[index] : null;
+    if (!candidate) {
+      await this.next();
+      return;
+    }
+
+    if (this.preparationReady && this.preparedCandidateId === candidate.id) {
+      this.transitioning = true;
+      const originalEntryId = this.currentQueueEntry()?.id;
+      try {
+        const started = await this.engine.transitionTo(candidate.track, 0);
+        const stillCurrent = this.currentQueueEntry()?.id === originalEntryId;
+        const nextIndex = this.queue().findIndex((entry) => entry.id === candidate.id);
+        if (started && stillCurrent && nextIndex >= 0) {
+          this.currentIndex.set(nextIndex);
+          this.currentTrack.set(candidate.track);
+          this.playRequested.set(true);
+          this.error.set(null);
+          return;
+        }
+      } catch { /* Fall back to the regular load path below. */ }
+      finally {
+        this.transitioning = false;
+        this.preparedCandidateId = null;
+        this.preparationReady = false;
+        this.refreshPreparedCandidate();
+      }
+    }
+
+    await this.next();
+  }
+
+  private automaticNextIndex(): number {
+    const q = this.queue();
+    if (!q.length || this.currentIndex() < 0 || this.repeatMode() === 'one') return -1;
+    for (let offset = 1; offset < q.length; offset++) {
+      const index = this.currentIndex() + offset;
+      if (index >= q.length && this.repeatMode() !== 'all') break;
+      const candidate = index % q.length;
+      if (this.isEntryPlayable(q[candidate])) return candidate;
+    }
+    return -1;
+  }
+
+  private automaticCandidate(): { id: string; index: number; track: Track } | null {
+    const current = this.currentTrack();
+    if (!current || !this.isPlaying()) return null;
+    const index = this.automaticNextIndex();
+    if (index < 0) return null;
+    const entry = this.queue()[index];
+    return { id: entry.id, index, track: entry.track };
+  }
+
+  private clearPreparedCandidate(): void {
+    this.preparedCandidateId = null;
+    this.preparationReady = false;
+    this.engine.cancelPreparedNext();
+  }
+
+  private refreshPreparedCandidate(): void {
+    if (this.transitioning) return;
+    const candidate = this.automaticCandidate();
+    if (!candidate) {
+      if (this.preparedCandidateId) this.clearPreparedCandidate();
+      return;
+    }
+    if (candidate.id === this.preparedCandidateId) return;
+    this.clearPreparedCandidate();
+    this.preparedCandidateId = candidate.id;
+    void this.engine.prepareNext(candidate.track).then((ready) => {
+      if (this.preparedCandidateId !== candidate.id) return;
+      this.preparationReady = ready;
+      if (ready) this.maybeStartCrossfade(this.currentTime(), this.duration());
+    }).catch(() => { if (this.preparedCandidateId === candidate.id) this.preparationReady = false; });
+  }
+
+  private maybeStartCrossfade(time: number, duration: number): void {
+    if (!this.crossfadeEnabled() || this.transitioning || !this.preparationReady || !Number.isFinite(duration) || duration <= 0) return;
+    const candidate = this.automaticCandidate();
+    if (!candidate || candidate.id !== this.preparedCandidateId) return;
+    const seconds = Math.min(this.crossfadeSeconds(), duration / 2);
+    if (duration - time > seconds) return;
+    this.transitioning = true;
+    const originalEntryId = this.currentQueueEntry()?.id;
+    void this.engine.transitionTo(candidate.track, seconds).then((started) => {
+      if (!started) return;
+      const stillCurrent = this.currentQueueEntry()?.id === originalEntryId;
+      const nextIndex = this.queue().findIndex((entry) => entry.id === candidate.id);
+      if (stillCurrent && nextIndex >= 0) {
+        this.currentIndex.set(nextIndex);
+        this.currentTrack.set(candidate.track);
+        this.error.set(null);
+      }
+    }).catch(() => { /* The current track continues until its normal end. */ }).finally(() => {
+      this.transitioning = false;
+      this.preparedCandidateId = null;
+      this.preparationReady = false;
+      this.refreshPreparedCandidate();
+    });
+  }
+
+  private isEntryPlayable(entry: QueueEntry): boolean {
+    return entry.track.isAvailable && !this.failedEntryIds.has(entry.id);
+  }
+
+  private async handlePlaybackFailure(failure: PlaybackError): Promise<void> {
+    if (failure.code === 'OUTPUT_DEVICE_UNAVAILABLE' || failure.code === 'OUTPUT_DEVICE_PERMISSION_DENIED' || failure.code === 'OUTPUT_DEVICE_UNSUPPORTED' || failure.code === 'OUTPUT_MODE_UNSUPPORTED') {
+      this.playRequested.set(false);
+      this.playbackNotice.set(failure.message);
+      return;
+    }
+    const entry = this.currentQueueEntry();
+    if (!entry || this.recoveringFromFailure || this.failedEntryIds.has(entry.id)) return;
+    this.recoveringFromFailure = true;
+    try {
+      let currentFailure = failure;
+      while (true) {
+        const failedEntry = this.currentQueueEntry();
+        if (!failedEntry) return;
+        this.failedEntryIds.add(failedEntry.id);
+        this.playRequested.set(false);
+        this.playbackNotice.set(`${failedEntry.track.title} could not be played and was skipped.`);
+        logPlaybackDiagnostic('warn', { operation: 'transition', state: 'error', errorCode: currentFailure.code, trackId: failedEntry.track.id });
+        const nextIndex = this.nextPlayableIndexAfterFailure();
+        if (nextIndex < 0) {
+          this.playbackState.set('error');
+          this.error.set('No playable tracks remain in the queue.');
+          return;
+        }
+        this.currentIndex.set(nextIndex);
+        const nextEntry = this.queue()[nextIndex];
+        this.currentTrack.set(nextEntry.track);
+        this.playRequested.set(true);
+        const sequence = ++this.loadSequence;
+        try {
+          await this.engine.load(nextEntry.track);
+          if (sequence !== this.loadSequence) return;
+          await this.engine.play();
+          this.error.set(null);
+          return;
+        } catch (err) {
+          if (sequence !== this.loadSequence) return;
+          currentFailure = normalizePlaybackFailure(err, nextEntry.track.id);
+        }
+      }
+    } finally {
+      this.recoveringFromFailure = false;
+    }
+  }
+
+  private nextPlayableIndexAfterFailure(): number {
+    const entries = this.queue();
+    const start = this.currentIndex();
+    return nextPlayableQueueIndex(entries.length, start, this.repeatMode() === 'all', (index) => this.isEntryPlayable(entries[index]));
+  }
+
+  private async handleOutputDevicesChanged(): Promise<void> {
+    const wasConnected = this.audioPathStatus()?.isConnected ?? true;
+    await this.refreshAudioOutputState();
+    const status = this.audioPathStatus();
+    if (status && !status.isConnected) {
+      this.playRequested.set(false);
+      this.playbackNotice.set(this.audioOutputFallbackEnabled() && status.activeDeviceId === SYSTEM_DEFAULT_OUTPUT_ID
+        ? 'The preferred audio output was disconnected. System Default is ready; press Play to continue.'
+        : 'The preferred audio output was disconnected. Playback has been paused.');
+    } else if (!wasConnected) {
+      this.playbackNotice.set('The preferred audio output was reconnected. Playback remains paused.');
+    }
+  }
+
+  private handleSuspend(): void {
+    const entry = this.currentQueueEntry();
+    if (!entry) return;
+    this.suspendSnapshot = {
+      entryId: entry.id,
+      position: this.currentTime(),
+      shouldResume: this.isPlaybackActive(),
+    };
+    logPlaybackDiagnostic('info', { operation: 'suspend', state: this.playbackState(), trackId: entry.track.id });
+    this.pause();
+  }
+
+  private async handleResume(): Promise<void> {
+    const snapshot = this.suspendSnapshot;
+    this.suspendSnapshot = null;
+    if (!snapshot) return;
+    const index = this.queue().findIndex((entry) => entry.id === snapshot.entryId);
+    if (index < 0) return;
+    this.currentIndex.set(index);
+    try {
+      this.engine.setOutputFallbackEnabled(this.audioOutputFallbackEnabled());
+      await this.engine.selectOutputDevice(this.preferredAudioOutputId());
+      await this.refreshAudioOutputState();
+      const sequence = ++this.loadSequence;
+      const track = this.queue()[index].track;
+      await this.engine.load(track);
+      if (sequence !== this.loadSequence) return;
+      this.currentTrack.set(track);
+      this.engine.seek(snapshot.position);
+      if (snapshot.shouldResume && this.audioPathStatus()?.activeDeviceId) {
+        this.playRequested.set(true);
+        await this.engine.play();
+      } else {
+        this.playRequested.set(false);
+        this.playbackState.set('paused');
+      }
+      logPlaybackDiagnostic('info', { operation: 'resume', state: snapshot.shouldResume ? 'playing' : 'paused', trackId: track.id, deviceId: this.audioPathStatus()?.activeDeviceId ?? undefined });
+    } catch (err) {
+      const failure = normalizePlaybackFailure(err, this.currentTrack()?.id);
+      this.playRequested.set(false);
+      this.playbackState.set('error');
+      this.error.set(failure.message);
+      this.playbackNotice.set(failure.message);
     }
   }
 

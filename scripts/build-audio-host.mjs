@@ -1,0 +1,28 @@
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import path from 'node:path';
+
+const root = path.resolve(import.meta.dirname, '..');
+const nativeRoot = path.join(root, 'native', 'audio-host');
+const dependency = JSON.parse(readFileSync(path.join(nativeRoot, 'ffmpeg-dependency.json'), 'utf8'));
+const ffmpegRoot = process.env.LUTSRA_FFMPEG_ROOT || path.join(nativeRoot, 'third_party', 'ffmpeg');
+const archive = process.env.LUTSRA_FFMPEG_ARCHIVE || path.join(nativeRoot, 'third_party', dependency.archive);
+if (!existsSync(archive)) throw new Error(`Pinned FFmpeg archive is missing. Run npm run prepare:audio-host.`);
+const digest = createHash('sha256').update(readFileSync(archive)).digest('hex');
+if (digest !== dependency.sha256) throw new Error(`FFmpeg SHA-256 mismatch: expected ${dependency.sha256}`);
+if (!existsSync(path.join(ffmpegRoot, 'include')) || !existsSync(path.join(ffmpegRoot, 'lib'))) throw new Error(`Pinned FFmpeg dependency is missing. Extract ${dependency.archive} to ${ffmpegRoot}`);
+const sourceArchive = path.join(nativeRoot, 'third_party', dependency.sourceArchive);
+if (!existsSync(sourceArchive)) throw new Error(`Corresponding FFmpeg source archive is missing. Run npm run prepare:audio-host.`);
+const vswhere = path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
+if (!existsSync(vswhere)) throw new Error('Visual Studio Build Tools were not found (vswhere.exe missing).');
+const install = execFileSync(vswhere, ['-latest', '-products', '*', '-requires', 'Microsoft.Component.MSBuild', '-property', 'installationPath'], { encoding: 'utf8' }).trim();
+const msbuild = path.join(install, 'MSBuild', 'Current', 'Bin', 'MSBuild.exe');
+execFileSync(msbuild, [path.join(nativeRoot, 'lutsra-audio-host.vcxproj'), '/m', '/p:Configuration=Release', '/p:Platform=x64', `/p:FfmpegRoot=${ffmpegRoot}`], { stdio: 'inherit' });
+const output = path.join(root, 'dist-electron', 'audio-host'); mkdirSync(output, { recursive: true });
+for (const file of readdirSync(path.join(ffmpegRoot, 'bin'))) if (file.toLowerCase().endsWith('.dll')) copyFileSync(path.join(ffmpegRoot, 'bin', file), path.join(output, file));
+copyFileSync(path.join(nativeRoot, 'NOTICE.txt'), path.join(output, 'NOTICE.txt'));
+copyFileSync(path.join(nativeRoot, 'ffmpeg-dependency.json'), path.join(output, 'ffmpeg-dependency.json'));
+copyFileSync(sourceArchive, path.join(output, dependency.sourceArchive));
+const license = ['LICENSE.txt', 'COPYING.LGPLv2.1', 'COPYING.LGPLv3'].find((name) => existsSync(path.join(ffmpegRoot, name)));
+if (license) copyFileSync(path.join(ffmpegRoot, license), path.join(output, license));

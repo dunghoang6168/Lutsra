@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, LYRICS_GATEWAY } from '../../core/contracts';
 import { compareAlbumTracks, SongColumn, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { SongColumnPreferencesService } from '../../core/settings/song-column-preferences.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -26,12 +27,23 @@ const UNKNOWN_YEAR = 'unknown';
   styleUrl: './songs.component.scss'
 })
 export class SongsComponent implements OnInit {
+  readonly sortOptions = [
+    { value: 'title', label: 'Title' },
+    { value: 'artist', label: 'Artist' },
+    { value: 'album', label: 'Album' },
+    { value: 'duration', label: 'Duration' },
+    { value: 'codec', label: 'Codec' },
+    { value: 'sampleRate', label: 'Sample rate' },
+  ] as const;
+  readonly sortDirectionOptions = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }] as const;
+
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly lyricsGateway = inject(LYRICS_GATEWAY);
   readonly songColumns = inject(SongColumnPreferencesService);
   private readonly destroyRef = inject(DestroyRef);
   private lyricsRequestVersion = 0;
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly tracks = signal<Track[]>([]);
   readonly lyricTrackIds = signal<ReadonlySet<string>>(new Set());
@@ -131,6 +143,7 @@ export class SongsComponent implements OnInit {
       return comparison * dir || this.compareTrackFallback(a, b);
     });
   });
+  readonly hasAvailableFilteredTracks = computed(() => this.filteredTracks().some((track) => track.isAvailable));
 
   private textOptions(values: (string | null)[], selected: string, unknown: string): string[] {
     return [...new Set([
@@ -220,7 +233,11 @@ export class SongsComponent implements OnInit {
   }
 
   onAddToQueue(track: Track): void {
-    this.player.addToQueue([track]);
+    this.queueActions.add([track]);
+  }
+
+  onAddAllToQueue(): void {
+    this.queueActions.add(this.filteredTracks());
   }
 
   toggleSort(col: SortColumn): void {

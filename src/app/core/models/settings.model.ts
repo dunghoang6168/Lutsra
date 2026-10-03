@@ -14,8 +14,9 @@ export type AccentColor = (typeof ACCENT_COLORS)[number];
 
 export const DEFAULT_THEME_PRESET: ThemePreset = 'dark';
 export const DEFAULT_ACCENT_COLOR: AccentColor = 'violet';
+export const DEFAULT_LIQUID_GLASS_ACCENT_COLOR: AccentColor = 'rose';
 
-export const LAYOUT_MODES = ['inset', 'classic'] as const;
+export const LAYOUT_MODES = ['inset', 'classic', 'liquid-glass'] as const;
 export type LayoutMode = (typeof LAYOUT_MODES)[number];
 export const DEFAULT_LAYOUT_MODE: LayoutMode = 'inset';
 
@@ -80,8 +81,18 @@ export interface Settings {
   defaultVolume: number; // 0.0 to 1.0
   repeatMode: RepeatMode;
   shuffle: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeSeconds: number;
+  preferredAudioOutputId: string;
+  preferredAudioOutputName: string;
+  outputMode: 'shared';
+  audioOutputFallbackEnabled: boolean;
+  audioEngineBackend: 'chromium' | 'native-shared';
+  preferredNativeAudioOutputId: string;
+  preferredNativeAudioOutputName: string;
   themePreset: ThemePreset;
   accentColor: AccentColor;
+  liquidGlassAccentColor: AccentColor;
   layoutMode: LayoutMode;
   audioVisualizationMode: AudioVisualizationMode;
   hiddenSongColumns: SongColumn[];

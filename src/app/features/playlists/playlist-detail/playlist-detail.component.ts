@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../../core/contracts';
 import { Playlist, PlaylistEntry, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
+import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
@@ -27,6 +28,7 @@ export class PlaylistDetailComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
 
   readonly playlist = signal<Playlist | null>(null);
   readonly allLibraryTracks = signal<Track[]>([]);
@@ -160,5 +162,13 @@ export class PlaylistDetailComponent implements OnInit {
       if (!tracks[index].isAvailable) return;
       this.player.playCollection(tracks, index);
     }
+  }
+
+  onAddAllToQueue(): void {
+    this.queueActions.add(this.trackRows().map((row) => row.track));
+  }
+
+  onAddTrackToQueue(track: Track): void {
+    this.queueActions.add([track]);
   }
 }

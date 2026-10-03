@@ -3,6 +3,12 @@
 # Compiled output
 /dist
 /dist-electron
+/native/window-snap/build/
+/native/audio-host/obj/
+/native/audio-host/x64/
+/native/audio-host/third_party/
+/native/audio-host/lutsra-a.*/
+/.codex-staging/
 /release
 /tmp
 /out-tsc
@@ -36,6 +42,7 @@ yarn-error.log
 /connect.lock
 *.spec.ts
 *.test.ts
+!/tests/audio-engine.spec.ts
 /libpeerconnection.log
 testem.log
 /typings

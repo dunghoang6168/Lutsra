@@ -52,4 +52,18 @@
         </a>
       </nav>
 
+      @if (showNowPlayingDock() && player.currentTrack(); as track) {
+        <a routerLink="/now-playing" class="sidebar-now-playing" [title]="'Open Now Playing: ' + track.title">
+          @if (track.artwork) {
+            <img [src]="track.artwork" [alt]="track.title" />
+          } @else {
+            <span class="sidebar-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="20" /></span>
+          }
+          <span class="sidebar-track-meta">
+            <strong class="truncate">{{ track.title }}</strong>
+            <span class="truncate">{{ track.artist || 'Unknown Artist' }}</span>
+          </span>
+        </a>
+      }
+
     </aside>

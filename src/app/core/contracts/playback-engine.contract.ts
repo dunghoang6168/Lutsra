@@ -1,6 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Track, PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent } from '../models';
+import { AudioEngineBackend, AudioOutputDevice, AudioPathStatus, OutputMode, Track, PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent } from '../models';
 
 export interface PlaybackEngine {
   load(track: Track): Promise<void>;
@@ -9,6 +9,17 @@ export interface PlaybackEngine {
   seek(positionSeconds: number): void;
   setVolume(volume: number): void;
   setMute(isMuted: boolean): void;
+  prepareNext(track: Track): Promise<boolean>;
+  cancelPreparedNext(): void;
+  transitionTo(track: Track, crossfadeSeconds: number): Promise<boolean>;
+  listOutputDevices(): Promise<AudioOutputDevice[]>;
+  selectOutputDevice(deviceId: string): Promise<void>;
+  setOutputFallbackEnabled(enabled: boolean): void;
+  setOutputMode(mode: OutputMode): Promise<void>;
+  getAudioPathStatus(): Promise<AudioPathStatus>;
+  subscribeDeviceChanges(listener: () => void): () => void;
+  getBackend(): AudioEngineBackend;
+  setBackend(backend: AudioEngineBackend): Promise<void>;
   dispose(): void;
 
   readonly stateChange$: Observable<PlaybackStateEvent>;

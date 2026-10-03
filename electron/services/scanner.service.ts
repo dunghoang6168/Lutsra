@@ -3,7 +3,7 @@ import { opendir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseFile } from 'music-metadata';
 import { ScanProgress } from '../../src/app/core/models/index.js';
-import { canonicalPath, pathKey, stableId } from '../utils/path-utils.js';
+import { canonicalPath, isPathInside, pathKey, stableId } from '../utils/path-utils.js';
 import { ArtworkService } from './artwork.service.js';
 import { DatabaseService, StoredTrack } from './database.service.js';
 import { log } from '../utils/logger.js';
@@ -12,44 +12,72 @@ const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg
 const COVER_NAMES = ['cover', 'folder', 'front'];
 const COVER_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
+interface ScanTarget {
+  folderId: string;
+  folderName: string;
+  directoryPath: string;
+  scoped: boolean;
+}
+
 export class ScannerService {
   private scanning = false;
   constructor(private readonly database: DatabaseService, private readonly artwork: ArtworkService, private readonly progress: (value: ScanProgress) => void) {}
 
   async scan(folderIds?: string[]): Promise<void> {
-    if (this.scanning) throw new Error('A library scan is already running');
     const folders = this.database.listFolders().filter((folder) => !folderIds?.length || folderIds.includes(folder.id));
     if (folderIds?.some((id) => !folders.some((folder) => folder.id === id))) throw new Error('Unknown music folder');
+    await this.scanTargets(folders.map((folder) => ({ folderId: folder.id, folderName: folder.name, directoryPath: folder.path, scoped: false })));
+  }
+
+  async scanDirectory(folderId: string, directoryPath: string): Promise<void> {
+    if (this.scanning) throw new Error('A library scan is already running');
+    const folder = this.database.getFolder(folderId);
+    if (!folder) throw new Error('Unknown music folder');
+    const root = await canonicalPath(folder.path);
+    const directory = await canonicalPath(directoryPath);
+    if (!isPathInside(directory, root)) throw new Error('Folder is outside the music root');
+    if (pathKey(directory) === pathKey(root)) return this.scan([folderId]);
+    if (!this.database.hasIndexedDirectory(folderId, directory)) throw new Error('Folder is not in the indexed library');
+    await this.scanTargets([{ folderId, folderName: path.basename(directory), directoryPath: directory, scoped: true }]);
+  }
+
+  private async scanTargets(targets: ScanTarget[]): Promise<void> {
+    if (this.scanning) throw new Error('A library scan is already running');
     this.scanning = true;
     let scannedFiles = 0; let audioFiles = 0; let warnings = 0; let lastEmit = 0;
-    log('info', 'scan', 'Scan started', { folderCount: folders.length });
+    log('info', 'scan', 'Scan started', { folderCount: targets.length, directory: targets.length === 1 && targets[0].scoped ? targets[0].directoryPath : undefined });
     const emit = (currentPath: string | null, error: string | null = null, force = false) => {
       const now = Date.now(); if (!force && now - lastEmit < 250) return; lastEmit = now;
       this.progress({ isScanning: true, scannedFiles, audioFiles, currentPath, error });
     };
-    this.progress({ isScanning: true, scannedFiles: 0, audioFiles: 0, currentPath: folders[0]?.path ?? null });
+    this.progress({ isScanning: true, scannedFiles: 0, audioFiles: 0, currentPath: targets[0]?.directoryPath ?? null });
     try {
-      for (const folder of folders) {
+      for (const target of targets) {
         let folderWarnings = 0;
-        const scanId = randomUUID(); this.database.startScan(scanId, folder.id);
+        let traversalWarnings = 0;
+        const scanId = randomUUID(); this.database.startScan(scanId, target.folderId);
         try {
-          const root = await canonicalPath(folder.path);
+          const root = await canonicalPath(target.directoryPath);
           const files: string[] = [];
           const covers = new Map<string, string[]>();
-          const directories: Array<{ path: string; parentPath: string | null; name: string }> = [{ path: root, parentPath: null, name: folder.name }];
-          await this.walk(root, root, files, covers, directories, () => { scannedFiles++; emit(root); }, () => { warnings++; folderWarnings++; });
+          const directories: Array<{ path: string; parentPath: string | null; name: string }> = [
+            { path: root, parentPath: target.scoped ? path.dirname(root) : null, name: target.scoped ? path.basename(root) : target.folderName },
+          ];
+          await this.walk(root, root, files, covers, directories, () => { scannedFiles++; emit(root); }, () => { warnings++; folderWarnings++; traversalWarnings++; });
           audioFiles += files.length;
-          const results = await this.readMetadata(files, covers, folder.id, scanId, (filePath, warning) => {
+          const results = await this.readMetadata(files, covers, target.folderId, scanId, (filePath, warning) => {
             if (warning) { warnings++; folderWarnings++; log('warn', 'metadata', warning); }
             emit(filePath, warning);
           });
-          for (let index = 0; index < results.length; index += 100) this.database.upsertTracks(folder.id, scanId, results.slice(index, index + 100));
-          this.database.saveDirectories(folder.id, scanId, directories);
-          this.database.finishScan(scanId, folder.id, folderWarnings);
+          for (let index = 0; index < results.length; index += 100) this.database.upsertTracks(target.folderId, scanId, results.slice(index, index + 100));
+          this.database.saveDirectories(target.folderId, scanId, directories);
+          // An unreadable descendant must not make its previously indexed tracks appear deleted.
+          if (target.scoped) this.database.finishScopedScan(scanId, target.folderId, root, folderWarnings, traversalWarnings === 0);
+          else this.database.finishScan(scanId, target.folderId, folderWarnings);
         } catch (error) {
           warnings++; folderWarnings++; this.database.failScan(scanId, folderWarnings);
-          log('error', 'scan', `Scan failed for ${folder.path}`, error);
-          emit(folder.path, errorMessage(error), true);
+          log('error', 'scan', `Scan failed for ${target.directoryPath}`, error);
+          emit(target.directoryPath, errorMessage(error), true);
         }
       }
     } finally {

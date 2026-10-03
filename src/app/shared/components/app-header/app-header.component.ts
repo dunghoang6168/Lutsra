@@ -1,20 +1,22 @@
 import {
-  ChangeDetectionStrategy, Component, HostListener, computed, effect, inject, input, output, viewChild,
+  ChangeDetectionStrategy, Component, HostListener, computed, effect, inject, input, output, signal, viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { getDesktopApi } from '../../../core/desktop/desktop-api';
 import { NavigationHistoryService } from '../../../core/layout/navigation-history.service';
-import { LIGHT_THEME_PRESETS, type ScanProgress } from '../../../core/models';
+import { LayoutPreferenceService } from '../../../core/layout/layout-preference.service';
+import { type ScanProgress } from '../../../core/models';
 import { ThemeService } from '../../../core/theme/theme.service';
 import { GlobalSearchComponent } from '../global-search/global-search.component';
 import { IconComponent } from '../icon/icon.component';
+import { WindowControlsComponent } from '../window-controls/window-controls.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, GlobalSearchComponent, IconComponent],
+  imports: [RouterLink, RouterLinkActive, GlobalSearchComponent, IconComponent, WindowControlsComponent],
   templateUrl: './app-header.component.html',
   styleUrl: './app-header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,11 +24,13 @@ import { IconComponent } from '../icon/icon.component';
 export class AppHeaderComponent {
   readonly sidebarHidden = input(false);
   readonly toggleSidebarVisibility = output<void>();
+  readonly layoutPreference = inject(LayoutPreferenceService);
   private readonly gateway = inject(LIBRARY_GATEWAY);
   private readonly theme = inject(ThemeService);
   private readonly search = viewChild.required(GlobalSearchComponent);
   private readonly desktopApi = getDesktopApi();
   private wasScanning = false;
+  readonly compactSearchOpen = signal(false);
 
   readonly history = inject(NavigationHistoryService);
   readonly scanProgress = toSignal(this.gateway.scanProgress$, {
@@ -49,8 +53,7 @@ export class AppHeaderComponent {
 
   constructor() {
     effect(() => {
-      const preset = this.theme.themePreset();
-      const mode = (LIGHT_THEME_PRESETS as readonly string[]).includes(preset) ? 'light' : 'dark';
+      const mode = this.theme.effectiveTheme() === 'dark' ? 'dark' : 'light';
       void this.desktopApi?.windowControls.setTitleBarAppearance(mode).catch(() => undefined);
     });
     effect(() => {
@@ -62,9 +65,33 @@ export class AppHeaderComponent {
 
   @HostListener('window:keydown', ['$event'])
   onWindowKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.compactSearchOpen()) this.closeCompactSearch();
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === 'k') {
       event.preventDefault();
-      this.search().focus();
+      this.openCompactSearch();
     }
+  }
+
+  openCompactSearch(): void {
+    this.compactSearchOpen.set(true);
+    requestAnimationFrame(() => this.search().focus());
+  }
+
+  toggleCompactSearch(): void {
+    if (this.compactSearchOpen()) this.closeCompactSearch();
+    else this.openCompactSearch();
+  }
+
+  private closeCompactSearch(): void {
+    this.compactSearchOpen.set(false);
+    this.search().close();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.compactSearchOpen() || !(event.target instanceof Element)) return;
+    const target = event.target;
+    if (target.closest('app-global-search, .compact-search-button')) return;
+    this.closeCompactSearch();
   }
 }

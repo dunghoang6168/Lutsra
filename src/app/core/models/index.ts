@@ -8,5 +8,6 @@ export * from './playlist.model';
 export * from './queue.model';
 export * from './settings.model';
 export * from './playback.model';
+export * from './audio-output.model';
 export * from './scan.model';
 export * from './lyrics.model';

@@ -1,5 +1,84 @@
 
-    <footer class="player-bar" role="region" aria-label="Audio Player">
+    @if (variant() === 'liquid-dock') {
+    <div class="player-bar liquid-dock" role="region" aria-label="Audio Player">
+      <div class="dock-island dock-transport">
+        @if (showTrackIdentity()) {
+          @if (player.currentTrack(); as track) {
+            <a routerLink="/now-playing" class="dock-track-info" [title]="'Open Now Playing: ' + track.title">
+              @if (track.artwork) {
+                <img [src]="track.artwork" [alt]="track.title" class="dock-artwork" />
+              } @else {
+                <span class="dock-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="18" /></span>
+              }
+              <span class="dock-track-meta"><strong>{{ track.title }}</strong><span>{{ track.artist || 'Unknown Artist' }}</span></span>
+            </a>
+          } @else {
+            <span class="dock-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="18" /></span>
+          }
+        }
+        <div class="dock-transport-buttons">
+          <button type="button" class="ctrl-btn" (click)="player.previous()" [disabled]="!player.currentTrack()"
+            title="Previous (P)" aria-label="Previous Track"><app-icon name="skip-back" [size]="18" /></button>
+          <button type="button" class="play-pause-btn" (click)="player.togglePlayPause()"
+            [disabled]="!player.currentTrack() && player.queue().length === 0"
+            [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
+            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'">
+            <app-icon [name]="player.isPlaybackActive() ? 'pause' : 'play'" [size]="18" />
+          </button>
+          <button type="button" class="ctrl-btn" (click)="player.next()" [disabled]="!player.currentTrack()"
+            title="Next (N)" aria-label="Next Track"><app-icon name="skip-forward" [size]="18" /></button>
+        </div>
+      </div>
+
+      <div class="dock-island dock-timeline">
+        <span class="time-label">{{ player.currentTime() | duration }}</span>
+        <div class="progress-bar-wrap"
+          (pointerdown)="onTimelinePointerDown($event)" (pointermove)="onTimelinePointerMove($event)"
+          (pointerup)="onTimelinePointerUp($event)" (pointercancel)="onTimelinePointerCancel($event)"
+          (keydown)="onTimelineKeyDown($event)" role="slider"
+          [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
+          [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
+          [attr.aria-valuenow]="player.currentTime()" [attr.aria-valuemin]="0"
+          [attr.aria-valuemax]="player.duration()" aria-label="Timeline scrubber">
+          <div class="progress-bar-track"><div class="progress-bar-fill" [style.width.%]="player.progressPercent()"></div></div>
+        </div>
+        <span class="time-label">{{ player.duration() | duration }}</span>
+      </div>
+
+      <div class="dock-island dock-extras">
+        <div class="volume-container">
+          <button type="button" class="ctrl-btn" (click)="player.toggleMute()"
+            [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'" aria-label="Mute or Unmute">
+            <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
+          </button>
+          <div class="volume-slider-shell" [class.adjusting]="isVolumeAdjusting()"
+            [style.--volume-position]="volumePosition()">
+            <app-range-slider class="volume-slider dock-responsive-vertical" [min]="0" [max]="100" [step]="1"
+              [value]="volumePercent()" [muted]="player.isMuted()"
+              ariaLabel="Volume" [ariaValueText]="volumeAriaText()"
+              (valueChange)="player.setVolume($event / 100)"
+              (adjustingChange)="isVolumeAdjusting.set($event)" />
+            <span class="volume-tooltip" aria-hidden="true">{{ volumeTooltip() }}</span>
+          </div>
+        </div>
+        <button type="button" class="ctrl-btn" [class.active]="player.isShuffle()" (click)="player.toggleShuffle()"
+          [disabled]="player.queue().length === 0" title="Shuffle (S)" aria-label="Toggle Shuffle">
+          <app-icon name="shuffle" [size]="16" />
+        </button>
+        <button type="button" class="ctrl-btn" [class.active]="player.repeatMode() !== 'off'"
+          (click)="player.cycleRepeatMode()" [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
+          aria-label="Toggle Repeat Mode">
+          <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
+        </button>
+        <button type="button" class="queue-btn" [class.active]="isQueueOpen()" (click)="toggleQueue.emit()"
+          title="Toggle Queue Drawer (Q)" aria-label="Toggle Playback Queue Drawer">
+          <app-icon name="queue" [size]="18" />
+          @if (player.queue().length > 0) { <span class="queue-badge">{{ player.queue().length }}</span> }
+        </button>
+      </div>
+    </div>
+    } @else {
+    <div class="player-bar" role="region" aria-label="Audio Player">
       <!-- Left: Current Track Info (Click opens Now Playing) -->
       <div class="track-info">
         @if (player.currentTrack(); as track) {
@@ -135,23 +214,12 @@
           <div
             class="volume-slider-shell"
             [class.adjusting]="isVolumeAdjusting()"
-            [class.muted]="player.isMuted()"
             [style.--volume-position]="volumePosition()">
-            <input
-              class="volume-slider"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              [value]="volumePercent()"
-              [attr.aria-valuenow]="volumePercent()"
-              [attr.aria-valuetext]="volumeAriaText()"
-              aria-label="Volume"
-              (input)="onVolumeInput($event)"
-              (pointerdown)="isVolumeAdjusting.set(true)"
-              (pointerup)="finishVolumeAdjustment()"
-              (pointercancel)="finishVolumeAdjustment()"
-              (blur)="finishVolumeAdjustment()" />
+            <app-range-slider class="volume-slider" [min]="0" [max]="100" [step]="1"
+              [value]="volumePercent()" [muted]="player.isMuted()"
+              ariaLabel="Volume" [ariaValueText]="volumeAriaText()"
+              (valueChange)="player.setVolume($event / 100)"
+              (adjustingChange)="isVolumeAdjusting.set($event)" />
             <span class="volume-tooltip" aria-hidden="true">{{ volumeTooltip() }}</span>
           </div>
         </div>
@@ -170,4 +238,5 @@
           }
         </button>
       </div>
-    </footer>
+    </div>
+    }

@@ -2,7 +2,13 @@
     <div class="settings-page">
       <header class="settings-header">
         <h1>Settings</h1>
-        <p class="subtitle">Configure appearance, library folders, playback preferences, and Songs columns</p>
+        <p class="subtitle">
+          @if (layoutPreference.mode() === 'liquid-glass') {
+            Configure the Apple Acrylic accent, library folders, playback preferences, and Songs columns
+          } @else {
+            Configure appearance, library folders, playback preferences, and Songs columns
+          }
+        </p>
       </header>
 
       @if (errorMessage()) {
@@ -44,6 +50,7 @@
 
       <div class="settings-sections">
         <!-- Section 0: Appearance & Theme -->
+        @if (layoutPreference.mode() !== 'liquid-glass') {
         <section class="settings-card card-base appearance-card">
           <div class="card-header appearance-header">
             <div>
@@ -158,6 +165,72 @@
             </div>
           </div>
         </section>
+        }
+
+        @if (layoutPreference.mode() === 'liquid-glass') {
+        <section class="settings-card card-base appearance-card acrylic-accent-card">
+          <div class="card-header appearance-header">
+            <div>
+              <h2>Appearance & Accent</h2>
+              <span class="card-desc">Choose the accent used by Apple Acrylic controls and highlights</span>
+            </div>
+            <div class="theme-status-indicator" aria-live="polite">
+              @if (themeService.saveState() === 'saving') {
+                <span class="theme-save-badge badge saving">
+                  <span class="spinner-dot"></span>
+                  Saving…
+                </span>
+              } @else if (themeService.saveState() === 'saved') {
+                <span class="theme-save-badge badge saved">
+                  <app-icon name="check" [size]="14" />
+                  Saved
+                </span>
+              }
+            </div>
+          </div>
+
+          @if (themeService.saveState() === 'error') {
+            <div class="theme-error-banner" role="alert">
+              <app-icon name="alert-triangle" [size]="16" />
+              <span>{{ themeService.errorMessage() || 'Failed to persist the Apple Acrylic accent.' }}</span>
+            </div>
+          }
+
+          <div class="appearance-sections">
+            <div class="accent-picker-section">
+              <div class="theme-group-header">
+                <span class="group-icon accent-icon" aria-hidden="true">
+                  <app-icon name="sparkles" [size]="15" />
+                </span>
+                <span class="group-title">Accent Color</span>
+                <span class="group-desc-inline">Active items, sliders, buttons, focus rings, and glow</span>
+              </div>
+
+              <div class="accent-palette-row" role="radiogroup" aria-label="Apple Acrylic Accent Color">
+                @for (color of accentColors; track color.id) {
+                  <button
+                    type="button"
+                    class="accent-option-btn btn"
+                    [class.active]="themeService.liquidGlassAccentColor() === color.id"
+                    [style.--accent-swatch]="color.acrylicHex"
+                    role="radio"
+                    [attr.aria-checked]="themeService.liquidGlassAccentColor() === color.id"
+                    (click)="themeService.setLiquidGlassAccentColor(color.id)"
+                    [title]="color.label"
+                    [attr.aria-label]="color.label + ' Apple Acrylic accent color'">
+                    <span class="accent-circle">
+                      @if (themeService.liquidGlassAccentColor() === color.id) {
+                        <app-icon name="check" [size]="13" />
+                      }
+                    </span>
+                    <span class="accent-label">{{ color.label }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+        }
 
         <app-layout-settings />
 
@@ -211,14 +284,15 @@
                 <span class="pref-desc">Audio volume when starting the player</span>
               </div>
               <div class="pref-control">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  [ngModel]="player.volume()"
-                  (ngModelChange)="onVolumeChange($event)"
-                  class="volume-slider" />
+                <app-range-slider
+                  class="settings-range-slider"
+                  [min]="0"
+                  [max]="1"
+                  [step]="0.05"
+                  [value]="player.volume()"
+                  ariaLabel="Default Volume"
+                  [ariaValueText]="((player.volume() * 100) | number:'1.0-0') + ' percent'"
+                  (valueChange)="onVolumeChange($event)" />
                 <span class="pref-val">{{ (player.volume() * 100) | number:'1.0-0' }}%</span>
               </div>
             </div>
@@ -230,11 +304,8 @@
                 <span class="pref-desc">Queue looping behavior upon track completion</span>
               </div>
               <div class="pref-control">
-                <select [ngModel]="player.repeatMode()" (ngModelChange)="onRepeatChange($event)" class="select-box">
-                  <option value="off">Off (Stop at end of queue)</option>
-                  <option value="all">Repeat All (Cycle entire queue)</option>
-                  <option value="one">Repeat One (Loop single track)</option>
-                </select>
+                <app-searchable-filter-select class="repeat-mode-select" label="Repeat Mode" [options]="repeatOptions" [allLabel]="null"
+                  [value]="player.repeatMode()" (valueChange)="onRepeatChange($event)" />
               </div>
             </div>
 
@@ -254,7 +325,101 @@
                 </button>
               </div>
             </div>
+            <div class="pref-row">
+              <div class="pref-label">
+                <div class="pref-title-line">
+                  <span class="pref-title">Crossfade</span>
+                  <span class="beta-tag">BETA</span>
+                </div>
+                <span class="pref-desc">Blend songs when playback advances automatically</span>
+              </div>
+              <div class="pref-control">
+                <button type="button" class="btn-toggle" [class.active]="player.crossfadeEnabled()"
+                  (click)="player.setCrossfadeEnabled(!player.crossfadeEnabled())"
+                  [attr.aria-pressed]="player.crossfadeEnabled()">
+                  {{ player.crossfadeEnabled() ? 'Crossfade ON' : 'Crossfade OFF' }}
+                </button>
+              </div>
+            </div>
+            @if (player.crossfadeEnabled()) {
+              <div class="pref-row crossfade-duration-row">
+                <div class="pref-label">
+                  <label class="pref-title" for="crossfade-duration">Crossfade Duration</label>
+                  <span class="pref-desc">How long the two songs overlap</span>
+                </div>
+                <div class="pref-control">
+                  <app-range-slider
+                    class="settings-range-slider"
+                    inputId="crossfade-duration"
+                    [min]="1"
+                    [max]="12"
+                    [step]="1"
+                    [value]="player.crossfadeSeconds()"
+                    [ariaValueText]="player.crossfadeSeconds() + ' seconds'"
+                    (valueChange)="player.setCrossfadeSeconds($event)" />
+                  <span class="pref-val">{{ player.crossfadeSeconds() }}s</span>
+                </div>
+              </div>
+            }
           </div>
+        </section>
+
+        <section class="settings-card card-base audio-output-card">
+          <div class="card-header">
+            <h2>Audio Output</h2>
+            <span class="card-desc">Choose where Shared Mode playback is sent</span>
+          </div>
+          <div class="pref-rows">
+            <div class="pref-row">
+              <div class="pref-label">
+                <span class="pref-title">Playback Engine</span>
+                <span class="pref-desc">Native Shared is an opt-in Windows Beta; switching always pauses playback</span>
+              </div>
+              <div class="pref-control output-device-control">
+                <app-searchable-filter-select label="Playback Engine" [options]="audioEngineOptions" [allLabel]="null"
+                  [value]="player.audioEngineBackend()" (valueChange)="onAudioBackendChange($event)" />
+              </div>
+            </div>
+            <div class="pref-row">
+              <div class="pref-label">
+                <span class="pref-title">Preferred Device</span>
+                <span class="pref-desc">Saved separately for Chromium and WASAPI endpoint IDs</span>
+              </div>
+              <div class="pref-control output-device-control">
+                <app-searchable-filter-select label="Audio Output" [options]="audioOutputOptions()" [allLabel]="null"
+                  [value]="player.preferredAudioOutputId()" (valueChange)="onAudioOutputChange($event)" />
+              </div>
+            </div>
+            <div class="pref-row">
+              <div class="pref-label">
+                <span class="pref-title">Fallback to System Default</span>
+                <span class="pref-desc">Switch safely when the preferred DAC disconnects; playback remains paused</span>
+              </div>
+              <div class="pref-control">
+                <button type="button" class="btn-toggle" [class.active]="player.audioOutputFallbackEnabled()"
+                  [attr.aria-pressed]="player.audioOutputFallbackEnabled()"
+                  (click)="player.setAudioOutputFallbackEnabled(!player.audioOutputFallbackEnabled())">
+                  {{ player.audioOutputFallbackEnabled() ? 'Fallback ON' : 'Fallback OFF' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          @if (player.audioPathStatus(); as path) {
+            <div class="audio-path-status" [class.disconnected]="!path.isConnected">
+              <div><span>Preferred</span><strong>{{ player.preferredAudioOutputName() }}</strong></div>
+              <div><span>Active</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
+              <div><span>Mode</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared (Beta)' : 'WASAPI Shared (Chromium)' }}</strong></div>
+              <div><span>Host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
+              <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
+              <div><span>Source</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
+              <div><span>Output format</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Unavailable until Native Audio Host }</strong></div>
+              <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Shared Mode (Processed)' }}</strong></div>
+              <div><span>Conversion</span><strong>{{ path.resamplingActive ? 'Resampling' : 'No resampling' }} / {{ path.channelConversionActive ? 'Channel conversion' : 'No channel conversion' }}</strong></div>
+            </div>
+          }
+          @if (player.playbackNotice()) {
+            <p class="audio-output-notice" role="status">{{ player.playbackNotice() }}</p>
+          }
         </section>
 
         <app-song-columns-settings />
@@ -283,6 +448,10 @@
             <div class="about-item">
               <span class="about-label">Playback</span>
               <span class="about-value">Control your queue, shuffle, and repeat</span>
+            </div>
+            <div class="about-item">
+              <span class="about-label">Native Audio Beta</span>
+              <span class="about-value">Dynamically links an LGPL-shared FFmpeg build; notices and corresponding source ship with the app</span>
             </div>
             <div class="about-item">
               <span class="about-label">Make it yours</span>

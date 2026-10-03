@@ -63,6 +63,15 @@
                 <app-icon name="shuffle" [size]="16" />
                 Shuffle
               </button>
+              <button
+                type="button"
+                class="btn-shuffle"
+                (click)="onAddAllToQueue()"
+                [disabled]="albumTracks().length === 0"
+                aria-label="Add Album to Queue">
+                <app-icon name="plus" [size]="16" />
+                Add to Queue
+              </button>
             </div>
           </div>
         </header>
@@ -85,6 +94,7 @@
                     <th class="col-title">Title</th>
                     <th class="col-duration">Time</th>
                     <th class="col-spec">Quality</th>
+                    <th class="col-actions"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,6 +132,12 @@
                         @if (track.sampleRate) {
                           <span class="spec-detail">{{ track.sampleRate / 1000 }} kHz</span>
                         }
+                      </td>
+                      <td class="col-actions" (click)="$event.stopPropagation()">
+                        <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
+                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue">
+                          <app-icon name="plus" [size]="14" />
+                        </button>
                       </td>
                     </tr>
                   }

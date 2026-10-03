@@ -4,6 +4,7 @@
       <header class="songs-header">
         <div class="title-area">
           <h1>Songs</h1>
+          <span class="title-separator" aria-hidden="true">-</span>
           <span class="track-count">{{ filteredTracks().length }} tracks</span>
         </div>
 
@@ -13,7 +14,7 @@
             type="button"
             class="action-btn primary"
             (click)="onPlayAll()"
-            [disabled]="filteredTracks().length === 0"
+            [disabled]="!hasAvailableFilteredTracks()"
             title="Play all tracks in current view"
             aria-label="Play all tracks">
             <app-icon name="play" [size]="16" />
@@ -29,6 +30,17 @@
             aria-label="Shuffle all tracks">
             <app-icon name="shuffle" [size]="16" />
             Shuffle
+          </button>
+
+          <button
+            type="button"
+            class="action-btn secondary"
+            (click)="onAddAllToQueue()"
+            [disabled]="!hasAvailableFilteredTracks()"
+            title="Add tracks in the current view to queue"
+            aria-label="Add tracks in the current view to queue">
+            <app-icon name="plus" [size]="16" />
+            Add to Queue
           </button>
 
           <!-- Search Box -->
@@ -49,16 +61,12 @@
           <app-browse-filter-popover [activeCount]="activeFilterCount()">
             <div class="browse-filter-fields">
               <div class="browse-filter-field">
-                <label for="song-sort">Sort by</label>
+                <span class="field-label">Sort by</span>
                 <div class="browse-filter-actions">
-                  <select id="song-sort" [ngModel]="sortColumn()" (ngModelChange)="sortColumn.set($event)">
-                    <option value="title">Title</option><option value="artist">Artist</option>
-                    <option value="album">Album</option><option value="duration">Duration</option>
-                    <option value="codec">Codec</option><option value="sampleRate">Sample rate</option>
-                  </select>
-                  <select aria-label="Sort direction" [ngModel]="sortDirection()" (ngModelChange)="sortDirection.set($event)">
-                    <option value="asc">Ascending</option><option value="desc">Descending</option>
-                  </select>
+                  <app-searchable-filter-select label="Sort by" [options]="sortOptions" [allLabel]="null"
+                    [value]="sortColumn()" (valueChange)="sortColumn.set($event)" />
+                  <app-searchable-filter-select label="Sort direction" [options]="sortDirectionOptions" [allLabel]="null"
+                    [value]="sortDirection()" (valueChange)="sortDirection.set($event)" />
                 </div>
               </div>
               <div class="browse-filter-field">
@@ -74,12 +82,10 @@
                   unknownLabel="Unknown Album" (valueChange)="albumFilter.set($event)" />
               </div>
               <div class="browse-filter-field">
-                <label for="song-year-filter">Year</label>
-                <select id="song-year-filter" [ngModel]="yearFilter()" (ngModelChange)="yearFilter.set($event)">
-                  <option value="">All years</option>
-                  @for (year of yearOptions(); track year) { <option [value]="year">{{ year }}</option> }
-                  @if (hasUnknownYear()) { <option value="unknown">Unknown Year</option> }
-                </select>
+                <span class="field-label">Year</span>
+                <app-searchable-filter-select label="Year" [options]="yearOptions()" [value]="yearFilter()"
+                  allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown Year"
+                  (valueChange)="yearFilter.set($event)" />
               </div>
               @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
             </div>
@@ -98,7 +104,8 @@
       }
 
       <!-- Main Songs Table View -->
-      <div class="table-scroll-container">
+      <div class="table-frame">
+        <div class="table-scroll-container">
         @if (errorMessage()) {
           <div class="error-state" role="alert">
             <app-icon name="alert-triangle" [size]="48" />
@@ -284,6 +291,7 @@
                         type="button"
                         class="row-action-btn"
                         (click)="onAddToQueue(track)"
+                        [disabled]="!track.isAvailable"
                         title="Add to Queue"
                         aria-label="Add to Queue">
                         <app-icon name="plus" [size]="14" />
@@ -295,5 +303,6 @@
             </tbody>
           </table>
         }
+        </div>
       </div>
     </div>

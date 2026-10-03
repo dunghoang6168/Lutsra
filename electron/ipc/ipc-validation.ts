@@ -10,6 +10,13 @@ export function validIdArray(value: unknown): string[] {
   return value.map(validId);
 }
 
+export function validDirectoryPath(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 32767 || value.includes('\0')) {
+    throw new Error('Invalid directory path');
+  }
+  return value;
+}
+
 export function validName(value: unknown): string {
   if (typeof value !== 'string' || value.trim().length < 1 || value.trim().length > 200) throw new Error('Invalid name');
   return value.trim();

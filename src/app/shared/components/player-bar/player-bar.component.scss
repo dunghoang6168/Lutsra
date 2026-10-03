@@ -9,6 +9,7 @@
     :host-context(.layout-classic) {
       padding: 0;
     }
+    :host-context(.layout-liquid-glass) { padding: 0 8px 8px; }
 
     :host-context(.layout-classic) .player-bar {
       border: 0;
@@ -28,6 +29,14 @@
       padding: 0 var(--space-4);
       flex-shrink: 0;
       user-select: none;
+    }
+    :host-context(.layout-liquid-glass) .player-bar {
+      border-color: var(--glass-border);
+      border-radius: 20px;
+      background: var(--glass-regular);
+      box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
     }
 
     /* Left: Track Info */
@@ -138,6 +147,7 @@
     .ctrl-btn.active {
       color: var(--accent-primary);
     }
+    :host-context(.layout-liquid-glass) .ctrl-btn.active { filter: drop-shadow(0 0 7px var(--glass-accent-halo)); }
 
     .play-pause-btn {
       width: 32px;
@@ -153,6 +163,9 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+    }
+    :host-context(.layout-liquid-glass) .play-pause-btn {
+      box-shadow: 0 0 0 1px color-mix(in srgb, #fff 24%, transparent), 0 0 22px var(--glass-accent-halo);
     }
 
     .play-pause-btn svg {
@@ -208,6 +221,7 @@
       background: var(--accent-primary);
       border-radius: var(--radius-full);
     }
+    :host-context(.layout-liquid-glass) .progress-bar-fill { box-shadow: 0 0 10px var(--glass-accent-halo); }
 
     /* Right: Extras */
     .player-extras {
@@ -225,7 +239,6 @@
     }
 
     .volume-slider-shell {
-      --volume-fill: var(--accent-primary);
       --volume-position: 80%;
       flex: 1;
       min-width: 0;
@@ -235,76 +248,9 @@
       align-items: center;
     }
 
-    .volume-slider-shell.muted { --volume-fill: var(--text-muted); }
-
     .volume-slider {
-      appearance: none;
-      -webkit-appearance: none;
-      width: 100%;
-      height: 20px;
-      margin: 0;
-      padding: 0;
-      border: 0;
-      outline: none;
-      background: transparent;
-      cursor: pointer;
-      touch-action: none;
-    }
-
-    .volume-slider::-webkit-slider-runnable-track {
-      height: 4px;
-      border-radius: var(--radius-full);
-      background: linear-gradient(
-        to right,
-        var(--volume-fill) 0,
-        var(--volume-fill) var(--volume-position),
-        var(--color-border) var(--volume-position),
-        var(--color-border) 100%
-      );
-    }
-
-    .volume-slider::-webkit-slider-thumb {
-      appearance: none;
-      -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
-      margin-top: -5px;
-      border-radius: var(--radius-full);
-      border: 2px solid var(--bg-surface);
-      background: var(--volume-fill);
-      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
-      transition: box-shadow var(--transition-fast), background var(--transition-fast);
-    }
-
-    .volume-slider::-moz-range-track {
-      height: 4px;
-      border-radius: var(--radius-full);
-      background: var(--color-border);
-    }
-
-    .volume-slider::-moz-range-progress {
-      height: 4px;
-      border-radius: var(--radius-full);
-      background: var(--volume-fill);
-    }
-
-    .volume-slider::-moz-range-thumb {
-      width: 10px;
-      height: 10px;
-      border-radius: var(--radius-full);
-      border: 2px solid var(--bg-surface);
-      background: var(--volume-fill);
-      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
-    }
-
-    .volume-slider:hover::-webkit-slider-thumb,
-    .volume-slider:focus-visible::-webkit-slider-thumb,
-    .volume-slider-shell.adjusting .volume-slider::-webkit-slider-thumb {
-      box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px rgba(0, 0, 0, 0.35);
-    }
-
-    .volume-slider:focus-visible::-moz-range-thumb {
-      box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px rgba(0, 0, 0, 0.35);
+      flex: 1;
+      min-width: 0;
     }
 
     .volume-tooltip {
@@ -357,6 +303,7 @@
       background: var(--accent-muted);
       border-color: var(--accent-primary);
     }
+    :host-context(.layout-liquid-glass) .queue-btn.active { box-shadow: 0 0 18px var(--glass-accent-halo); }
 
     .queue-badge {
       position: absolute;
@@ -378,6 +325,7 @@
     }
 
     @media (max-width: 900px) {
+      :host-context(.layout-liquid-glass) { padding: 0 6px 6px; }
       .player-bar {
         grid-template-columns: 180px 1fr 180px;
         padding: 0 var(--space-2);
@@ -386,4 +334,171 @@
       .buttons-row {
         gap: var(--space-2);
       }
+    }
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+      :host-context(.layout-liquid-glass) .player-bar { background: #fafafc; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      :host-context(.layout-liquid-glass) .player-bar { background: #fafafc; }
+    }
+
+    :host-context(.layout-liquid-glass) .player-bar.liquid-dock {
+      height: 50px;
+      grid-template-columns: auto minmax(150px, 1fr) auto;
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .dock-island {
+      height: 50px;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      background: var(--glass-regular);
+      box-shadow: inset 0 1px 0 var(--glass-specular), 0 5px 18px rgba(24, 32, 38, 0.09);
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
+    }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .dock-island {
+      background: var(--glass-regular);
+    }
+    .dock-transport { gap: 8px; padding: 0 12px; }
+    .dock-transport-buttons { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+    .dock-track-info { display: flex; align-items: center; gap: 8px; width: 165px; min-width: 0; color: var(--text-primary); text-decoration: none; }
+    .dock-track-info:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; border-radius: 6px; }
+    .dock-artwork,
+    .dock-artwork-placeholder { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 7px; object-fit: cover; }
+    .dock-artwork-placeholder { display: grid; place-items: center; background: var(--bg-elevated); color: var(--text-muted); }
+    .dock-track-meta { display: flex; flex-direction: column; min-width: 0; gap: 2px; font-size: 11px; }
+    .dock-track-meta strong,
+    .dock-track-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dock-track-meta span { color: var(--text-secondary); }
+    .dock-timeline { gap: 9px; padding: 0 14px; }
+    .dock-timeline .time-label { min-width: 32px; font-size: 10px; }
+    .dock-timeline .progress-bar-track { background: rgba(29, 29, 31, 0.16); }
+    .dock-extras { gap: 5px; padding: 0 10px; }
+    .dock-extras .volume-container { width: 112px; gap: 2px; }
+    .dock-extras .queue-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--glass-clear); }
+    .dock-transport .ctrl-btn,
+    .dock-extras .ctrl-btn { width: 30px; height: 30px; }
+    .dock-transport .play-pause-btn { width: 34px; height: 34px; }
+    .dock-transport button:focus-visible,
+    .dock-extras button:focus-visible,
+    .dock-timeline .progress-bar-wrap:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+    @media (max-width: 1024px) {
+      .dock-track-info { width: 38px; }
+      .dock-track-meta { display: none; }
+      .dock-extras .volume-container {
+        position: relative;
+        width: 30px;
+        overflow: visible;
+      }
+      .dock-extras .volume-slider-shell {
+        position: absolute;
+        z-index: 20;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        box-sizing: border-box;
+        width: 36px;
+        height: 132px;
+        justify-content: center;
+        padding: 8px 0;
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        background: var(--glass-elevated);
+        box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translate(-50%, 4px);
+        transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+      }
+      .dock-extras .volume-slider {
+        flex: 0 0 20px;
+        width: 20px;
+        height: 116px;
+      }
+      .dock-extras .volume-tooltip {
+        left: 50%;
+        bottom: calc(100% + 2px);
+      }
+      .dock-extras .volume-slider-shell::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: -9px;
+        left: 0;
+        height: 9px;
+      }
+      .dock-extras .volume-container:hover .volume-slider-shell,
+      .dock-extras .volume-container:focus-within .volume-slider-shell,
+      .dock-extras .volume-slider-shell.adjusting {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translate(-50%, 0);
+      }
+      .dock-extras .volume-container:hover .volume-tooltip,
+      .dock-extras .volume-container:focus-within .volume-tooltip,
+      .dock-extras .volume-slider-shell.adjusting .volume-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, 0);
+      }
+    }
+    @media (max-width: 900px) {
+      :host-context(.layout-liquid-glass) .player-bar.liquid-dock { height: 46px; gap: 6px; }
+      .dock-island { height: 46px; border-radius: 16px; }
+      .dock-transport { gap: 5px; padding: 0 7px; }
+      .dock-track-info { width: 32px; gap: 5px; }
+      .dock-artwork,
+      .dock-artwork-placeholder { width: 32px; height: 32px; flex-basis: 32px; }
+      .dock-timeline { gap: 5px; padding: 0 9px; }
+      .dock-extras { gap: 2px; padding: 0 6px; }
+    }
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+      .dock-island,
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .dock-island { background: #fafafc; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .dock-island,
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .dock-island { background: #fafafc; }
+    }
+
+    @media (max-width: 650px) {
+      :host-context(.layout-liquid-glass) { padding: 0 6px 6px; }
+      .player-bar:not(.liquid-dock) {
+        grid-template-columns: 36px minmax(0, 1fr) 36px;
+        gap: 6px;
+        padding: 0 8px;
+      }
+      .player-bar:not(.liquid-dock) .track-meta,
+      .player-bar:not(.liquid-dock) .player-extras .volume-container,
+      .player-bar:not(.liquid-dock) .time-label { display: none; }
+      .player-bar:not(.liquid-dock) .track-info { width: 36px; }
+      .player-bar:not(.liquid-dock) .artwork-img,
+      .player-bar:not(.liquid-dock) .artwork-placeholder { width: 34px; height: 34px; }
+      .player-bar:not(.liquid-dock) .buttons-row { gap: 2px; }
+      .player-bar:not(.liquid-dock) .player-extras { gap: 0; }
+      :host-context(.layout-liquid-glass) .player-bar.liquid-dock {
+        grid-template-columns: auto minmax(64px, 1fr) auto;
+        gap: 4px;
+      }
+      .dock-track-info { width: 30px; }
+      .dock-track-meta,
+      .dock-timeline .time-label { display: none; }
+      .dock-extras .volume-container { width: 28px; }
+      .dock-extras .ctrl-btn { width: 27px; height: 30px; }
+      .dock-extras .queue-btn { width: 28px; height: 30px; }
+      .dock-transport { gap: 3px; padding: 0 5px; }
+      .dock-timeline { padding: 0 6px; }
+      .dock-extras { padding: 0 4px; }
     }

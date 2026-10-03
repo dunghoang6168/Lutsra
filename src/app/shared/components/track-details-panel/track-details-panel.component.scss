@@ -30,6 +30,31 @@
     }
     :host(.open) .track-details-panel { transform: translateX(0); }
     :host(.resizing) .track-details-panel { width: var(--drag-width); transition: none; }
+    :host-context(.layout-liquid-glass) .track-details-panel {
+      inset: 8px 8px 8px auto;
+      width: calc(var(--track-details-width) - 8px);
+      height: calc(100% - 16px);
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      background: var(--glass-elevated);
+      box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
+    }
+    :host-context(.layout-liquid-glass):host(.resizing) .track-details-panel { width: calc(var(--drag-width) - 8px); }
+    :host-context(.layout-liquid-glass) .panel-header { background: rgba(19, 28, 50, 0.68); }
+
+    @media (max-width: 700px) {
+      :host { position: absolute; top: 0; right: 0; bottom: 0; }
+      :host(.open),
+      :host(.open.resizing) { width: min(400px, calc(100% - 52px)); }
+      .track-details-panel,
+      :host(.resizing) .track-details-panel { width: 100%; }
+      :host-context(.layout-liquid-glass) .track-details-panel,
+      :host-context(.layout-liquid-glass):host(.resizing) .track-details-panel { width: calc(100% - 8px); }
+      .resize-handle { display: none; }
+    }
 
     .resize-handle {
       position: absolute;
@@ -59,11 +84,11 @@
     .panel-header {
       position: relative;
       flex: 0 0 auto;
-      min-height: 82px;
+      min-height: 58px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      gap: 2px var(--space-3);
+      gap: var(--space-3);
       padding: var(--space-3) var(--space-4);
       background: var(--bg-elevated);
       border-bottom: 1px solid var(--border-default);
@@ -81,16 +106,6 @@
       flex: 0 0 auto;
     }
     h2 { margin: 0; font-size: var(--font-size-lg); line-height: 1.25; }
-    .title-group p {
-      margin: 3px 0 0;
-      color: var(--text-secondary);
-      font-size: var(--font-size-xs);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .source-note { grid-column: 1 / -1; color: var(--text-muted); font-size: 10px; padding-left: 46px; }
-
     .close-button,
     .retry-button { border: 0; color: var(--text-primary); cursor: pointer; font: inherit; }
     .close-button {
@@ -228,4 +243,39 @@
     @media (prefers-reduced-motion: reduce) {
       :host, .track-details-panel { transition-duration: 0.01ms; }
       .loading-indicator { animation: none; }
+    }
+    @media (max-width: 900px) {
+      :host-context(.layout-liquid-glass) .track-details-panel { inset: 6px 6px 6px auto; width: calc(var(--track-details-width) - 6px); height: calc(100% - 12px); }
+      :host-context(.layout-liquid-glass):host(.resizing) .track-details-panel { width: calc(var(--drag-width) - 6px); }
+    }
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+      :host-context(.layout-liquid-glass) .track-details-panel { background: #fafafc; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      :host-context(.layout-liquid-glass) .track-details-panel { background: #fafafc; }
+    }
+
+    :host-context(.layout-liquid-glass) .track-details-panel {
+      border-color: rgba(29, 29, 31, 0.12);
+      background: rgba(255, 255, 255, 0.80);
+      box-shadow: inset 0 1px 0 var(--glass-specular), -10px 12px 34px rgba(32, 32, 36, 0.12);
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
+    }
+    :host-context(.layout-liquid-glass) .panel-header { background: rgba(255, 255, 255, 0.42); }
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .track-details-panel,
+    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .panel-header { background: var(--glass-elevated); }
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+      :host-context(.layout-liquid-glass) .track-details-panel { background: #fafafc; }
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .track-details-panel,
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .panel-header {
+        background: #fafafc;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      :host-context(.layout-liquid-glass) .track-details-panel { background: #fafafc; }
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .track-details-panel,
+      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .panel-header { background: #fafafc; }
     }

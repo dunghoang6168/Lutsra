@@ -1,0 +1,71 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.window-control {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.window-control:hover { background: var(--bg-surface-hover); }
+.window-control.close:hover { background: #e81123; color: #fff; }
+.window-control:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+
+.control-dot { display: grid; place-items: center; }
+.control-dot svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:host-context(.layout-liquid-glass) .window-controls { gap: 1px; margin-left: 2px; }
+:host-context(.layout-liquid-glass) .window-control { width: 30px; height: 32px; border-radius: 50%; }
+:host-context(.layout-liquid-glass) .window-control:hover { background: transparent; }
+:host-context(.layout-liquid-glass) .window-control:hover .control-dot { filter: brightness(1.08); }
+:host-context(.layout-liquid-glass) .control-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.32);
+}
+:host-context(.layout-liquid-glass) .minimize .control-dot { background: #ffbd44; }
+:host-context(.layout-liquid-glass) .maximize .control-dot { background: #00c850; }
+:host-context(.layout-liquid-glass) .close .control-dot { background: #ff5f57; }
+:host-context(.layout-liquid-glass) .control-dot svg { width: 10px; height: 10px; opacity: 0; stroke-width: 1.8; color: rgba(0, 0, 0, 0.65); }
+:host-context(.layout-liquid-glass) .window-controls:hover .control-dot svg,
+:host-context(.layout-liquid-glass) .window-control.native-hover .control-dot svg,
+:host-context(.layout-liquid-glass) .window-control:focus-visible .control-dot svg { opacity: 1; }
+
+@media (max-width: 900px) {
+  .window-control { width: 32px; height: 32px; }
+  :host-context(.layout-liquid-glass) .window-control { width: 28px; }
+}
+
+@media (forced-colors: active) {
+  :host-context(.layout-liquid-glass) .control-dot { border-color: ButtonText; background: ButtonFace; }
+  :host-context(.layout-liquid-glass) .control-dot svg { opacity: 1; color: ButtonText; }
+}

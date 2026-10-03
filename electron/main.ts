@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, session, type BrowserWindow as BrowserWindowType } from 'electron';
+import { app, BrowserWindow, globalShortcut, Menu, powerMonitor, session, type BrowserWindow as BrowserWindowType } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ArtworkService } from './services/artwork.service.js';
@@ -7,9 +7,11 @@ import { ScannerService } from './services/scanner.service.js';
 import { TrackDetailsService } from './services/track-details.service.js';
 import { ArtistMetadataService } from './services/artist-metadata.service.js';
 import { LyricsService } from './services/lyrics.service.js';
+import { AudioHostService } from './services/audio-host.service.js';
 import { migrateLegacyProfile } from './services/profile-migration.service.js';
 import { broadcastProgress, registerIpc } from './ipc/register-ipc.js';
 import { installProtocolHandlers, registerPrivilegedSchemes } from './protocols/register-protocols.js';
+import { installWindowSnap } from './window-snap.js';
 
 registerPrivilegedSchemes();
 
@@ -17,20 +19,35 @@ const development = process.argv.includes('--dev');
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindowType | null = null;
 let database: DatabaseService | null = null;
+let audioHost: AudioHostService | null = null;
+const nativeMediaAccelerators = new Map([
+  ['MediaPlayPause', 'play-pause'],
+  ['MediaPreviousTrack', 'previous'],
+  ['MediaNextTrack', 'next'],
+  ['MediaStop', 'stop'],
+] as const);
 
 
 function createWindow(): void {
+  const usesNativeAcrylic = process.platform === 'win32';
+
   mainWindow = new BrowserWindow({
     name: 'lutsra-main',
     windowStatePersistence: true,
     width: 1280,
     height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: 500,
+    minHeight: 420,
     show: true,
-    backgroundColor: '#09090b',
+    backgroundColor: usesNativeAcrylic ? '#00000000' : '#eaf0f3',
+    ...(usesNativeAcrylic ? {
+      backgroundMaterial: 'acrylic' as const,
+      roundedCorners: true,
+    } : {}),
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: '#f9fafb', height: 64 },
+    ...(process.platform === 'win32' ? {} : {
+      titleBarOverlay: { color: '#00000000', symbolColor: '#f9fafb', height: 64 },
+    }),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(currentDirectory, 'preload.cjs'),
@@ -38,14 +55,23 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      transparent: usesNativeAcrylic,
     },
   });
+  installWindowSnap(mainWindow);
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, target) => {
     const allowed = target.startsWith('app://lutsra/') || (development && target.startsWith('http://localhost:4200/'));
     if (!allowed) event.preventDefault();
   });
+  const window = mainWindow;
+  const broadcastWindowState = () => {
+    if (!window.isDestroyed()) window.webContents.send('window:state-changed', { isMaximized: window.isMaximized() });
+  };
+  window.on('maximize', broadcastWindowState);
+  window.on('unmaximize', broadcastWindowState);
+  window.on('restore', broadcastWindowState);
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (development) void mainWindow.loadURL('http://localhost:4200/');
@@ -68,10 +94,26 @@ app.whenReady().then(async () => {
   const rendererRoot = path.join(app.getAppPath(), 'dist', 'lutsra', 'browser');
 
   installProtocolHandlers(database, rendererRoot, development);
-  registerIpc(database, scanner, trackDetails, artistMetadata, lyrics, () => mainWindow, development);
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  audioHost = new AudioHostService(database, () => mainWindow);
+  registerIpc(database, scanner, trackDetails, artistMetadata, lyrics, audioHost, () => mainWindow, development, setNativeMediaKeysActive);
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    callback(permission === 'speaker-selection'
+      && webContents === mainWindow?.webContents
+      && trustedRendererUrl(details.requestingUrl));
+  });
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    if (permission !== 'speaker-selection') return false;
+    const trustedOrigin = [requestingOrigin, details.requestingUrl, details.securityOrigin]
+      .some((value) => trustedRendererUrl(value));
+    return trustedOrigin && (webContents === null || webContents === mainWindow?.webContents);
+  });
   createWindow();
+  powerMonitor.on('suspend', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('system:suspend');
+  });
+  powerMonitor.on('resume', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('system:resume');
+  });
 
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 }).catch((error) => {
@@ -80,4 +122,36 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => { database?.close(); database = null; });
+app.on('before-quit', () => {
+  setNativeMediaKeysActive(false);
+  void audioHost?.stop();
+  audioHost = null;
+  database?.close();
+  database = null;
+});
+
+function setNativeMediaKeysActive(enabled: boolean): void {
+  if (process.platform !== 'win32') return;
+  for (const [accelerator, action] of nativeMediaAccelerators) {
+    if (enabled) {
+      if (!globalShortcut.isRegistered(accelerator)) {
+        globalShortcut.register(accelerator, () => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('media-keys:action', action);
+        });
+      }
+    } else if (globalShortcut.isRegistered(accelerator)) {
+      globalShortcut.unregister(accelerator);
+    }
+  }
+}
+
+function trustedRendererUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'app:' && url.hostname === 'lutsra')
+      || (development && url.origin === 'http://localhost:4200');
+  } catch {
+    return false;
+  }
+}

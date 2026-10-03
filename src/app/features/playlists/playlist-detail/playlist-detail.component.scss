@@ -151,7 +151,8 @@
     .col-title { min-width: 250px; }
     .col-artist { width: 200px; color: var(--text-secondary); }
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
-    .col-actions { width: 50px; text-align: right; }
+    .col-actions { width: 78px; text-align: right; }
+    .entry-actions { display: flex; justify-content: flex-end; gap: var(--space-1); }
 
     .reorder-btns {
       display: flex;
@@ -201,12 +202,17 @@
 
     .playing-icon { color: var(--accent-primary); font-size: 11px; }
 
-    .btn-remove-entry {
+    .btn-remove-entry, .btn-queue-entry {
       width: 28px;
       height: 28px;
       border-radius: var(--radius-sm);
       color: var(--text-muted);
     }
+
+    .btn-queue-entry { opacity: 0; transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast); }
+    .entry-row:hover .btn-queue-entry, .entry-row:focus-within .btn-queue-entry { opacity: 1; }
+    @media (hover: none) { .btn-queue-entry { opacity: 1; } }
+    .btn-queue-entry:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-surface-hover); }
 
     .btn-remove-entry:hover {
       color: var(--status-error);

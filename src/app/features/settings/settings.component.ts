@@ -1,13 +1,16 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
-import { AccentColor, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
+import { AccentColor, AudioEngineBackend, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { ThemeService } from '../../core/theme/theme.service';
+import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
 import { getDesktopApi } from '../../core/desktop/desktop-api';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { RangeSliderComponent } from '../../shared/components/range-slider/range-slider.component';
 import { SongColumnsSettingsComponent } from './song-columns-settings.component';
 import { LayoutSettingsComponent } from './layout-settings.component';
 
@@ -25,15 +28,26 @@ export interface ThemePresetOption {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SongColumnsSettingsComponent, LayoutSettingsComponent],
+  imports: [CommonModule, FormsModule, IconComponent, RangeSliderComponent, SongColumnsSettingsComponent, LayoutSettingsComponent, SearchableFilterSelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
 export class SettingsComponent implements OnInit {
+  readonly repeatOptions = [
+    { value: 'off', label: 'Off (Stop at end of queue)' },
+    { value: 'all', label: 'Repeat All (Cycle entire queue)' },
+    { value: 'one', label: 'Repeat One (Loop single track)' },
+  ] as const;
+  readonly audioEngineOptions = [
+    { value: 'chromium', label: 'Chromium Shared (Default)' },
+    { value: 'native-shared', label: 'Native Shared (Beta)' },
+  ] as const;
+
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly settingsGateway = inject(SETTINGS_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly themeService = inject(ThemeService);
+  readonly layoutPreference = inject(LayoutPreferenceService);
   readonly player = inject(PlayerService);
   readonly isDesktop = Boolean(getDesktopApi());
 
@@ -60,18 +74,22 @@ export class SettingsComponent implements OnInit {
     },
   ];
 
-  readonly accentColors: { id: AccentColor; label: string; hex: string }[] = [
-    { id: 'violet', label: 'Violet', hex: '#8b5cf6' },
-    { id: 'blue', label: 'Blue', hex: '#3b82f6' },
-    { id: 'cyan', label: 'Cyan', hex: '#06b6d4' },
-    { id: 'emerald', label: 'Emerald', hex: '#10b981' },
-    { id: 'amber', label: 'Amber', hex: '#f59e0b' },
-    { id: 'rose', label: 'Rose', hex: '#f43f5e' },
+  readonly accentColors: { id: AccentColor; label: string; hex: string; acrylicHex: string }[] = [
+    { id: 'violet', label: 'Violet', hex: '#8b5cf6', acrylicHex: '#7c3aed' },
+    { id: 'blue', label: 'Blue', hex: '#3b82f6', acrylicHex: '#2563eb' },
+    { id: 'cyan', label: 'Cyan', hex: '#06b6d4', acrylicHex: '#0891b2' },
+    { id: 'emerald', label: 'Emerald', hex: '#10b981', acrylicHex: '#059669' },
+    { id: 'amber', label: 'Amber', hex: '#f59e0b', acrylicHex: '#d97706' },
+    { id: 'rose', label: 'Rose', hex: '#f43f5e', acrylicHex: '#fa2d48' },
   ];
 
   readonly folders = signal<MusicFolder[]>([]);
   readonly isLoading = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly audioOutputOptions = computed(() => this.player.outputDevices().map((device) => ({
+    value: device.id,
+    label: `${device.name}${device.isConnected ? '' : ' (Disconnected)'}`,
+  })));
 
   async ngOnInit(): Promise<void> {
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadFolders());
@@ -79,6 +97,7 @@ export class SettingsComponent implements OnInit {
       this.loadFolders(),
       this.loadSettings(),
     ]);
+    await this.player.refreshAudioOutputState();
   }
 
   async loadSettings(): Promise<void> {
@@ -159,5 +178,13 @@ export class SettingsComponent implements OnInit {
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Failed to save repeat preference');
     }
+  }
+
+  async onAudioOutputChange(deviceId: string): Promise<void> {
+    await this.player.selectAudioOutput(deviceId);
+  }
+
+  async onAudioBackendChange(backend: string): Promise<void> {
+    if (backend === 'chromium' || backend === 'native-shared') await this.player.switchAudioBackend(backend as AudioEngineBackend);
   }
 }

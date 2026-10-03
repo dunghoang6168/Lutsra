@@ -1,3 +1,4 @@
+import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -5,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ARTIST_METADATA_GATEWAY, LIBRARY_GATEWAY } from '../../core/contracts';
 import { Artist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Album } from '../../core/models';
@@ -19,13 +21,21 @@ type SortDirection = 'asc' | 'desc';
 @Component({
   selector: 'app-artists',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
   templateUrl: './artists.component.html',
   styleUrl: './artists.component.scss'
 })
 export class ArtistsComponent implements OnInit {
+  readonly sortOptions = [
+    { value: 'name', label: 'Name' },
+    { value: 'albums', label: 'Album count' },
+    { value: 'tracks', label: 'Track count' },
+  ] as const;
+  readonly sortDirectionOptions = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }] as const;
+
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly player = inject(PlayerService);
+  private readonly queueActions = inject(QueueActionsService);
   private readonly artistMetadata = inject(ARTIST_METADATA_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -119,10 +129,19 @@ export class ArtistsComponent implements OnInit {
 
   onPlayArtist(event: MouseEvent, artist: Artist): void {
     event.stopPropagation();
-    const tracks = orderArtistTracks(artist, this.allAlbums(), this.allTracks());
+    const tracks = this.tracksForArtist(artist);
     if (tracks.length > 0) {
       this.player.setShuffle(false);
       this.player.playCollection(tracks, 0);
     }
+  }
+
+  onAddArtistToQueue(event: MouseEvent, artist: Artist): void {
+    event.stopPropagation();
+    this.queueActions.add(this.tracksForArtist(artist));
+  }
+
+  private tracksForArtist(artist: Artist): Track[] {
+    return orderArtistTracks(artist, this.allAlbums(), this.allTracks());
   }
 }

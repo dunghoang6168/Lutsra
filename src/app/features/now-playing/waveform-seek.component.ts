@@ -64,6 +64,7 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
   });
 
   private readonly staticEffect = effect(() => {
+    this.theme.effectiveTheme();
     this.theme.themePreset();
     this.theme.accentColor();
     if (this.viewReady) this.scheduleStaticRender();

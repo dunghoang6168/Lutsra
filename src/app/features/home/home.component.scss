@@ -176,10 +176,9 @@
       font-size: 24px;
     }
 
-    .quick-play-btn {
+    .quick-play-btn, .quick-queue-btn {
       position: absolute;
       bottom: var(--space-2);
-      right: var(--space-2);
       width: 36px;
       height: 36px;
       border-radius: var(--radius-full);
@@ -194,10 +193,18 @@
       transition: opacity var(--transition-fast), transform var(--transition-fast);
     }
 
-    .album-card:hover .quick-play-btn {
+    .quick-play-btn { right: var(--space-2); }
+    .quick-queue-btn { right: 48px; background: var(--bg-elevated); color: var(--text-primary); }
+
+    .album-card:hover .quick-play-btn,
+    .album-card:hover .quick-queue-btn,
+    .album-card:focus-within .quick-play-btn,
+    .album-card:focus-within .quick-queue-btn {
       opacity: 1;
       transform: translateY(0);
     }
+
+    @media (hover: none) { .quick-play-btn, .quick-queue-btn { opacity: 1; transform: none; } }
 
     .album-title {
       font-size: var(--font-size-sm);

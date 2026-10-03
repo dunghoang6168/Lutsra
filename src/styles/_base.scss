@@ -23,9 +23,23 @@ html, body, app-root {
     border-color var(--transition-normal);
 }
 
+html[data-theme='liquid-glass'][data-runtime='desktop'],
+html[data-theme='liquid-glass'][data-runtime='desktop'] body,
+html[data-theme='liquid-glass'][data-runtime='desktop'] app-root {
+  background-color: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  html[data-theme='liquid-glass'][data-runtime='desktop'],
+  html[data-theme='liquid-glass'][data-runtime='desktop'] body,
+  html[data-theme='liquid-glass'][data-runtime='desktop'] app-root {
+    background-color: #eef1f4;
+  }
+}
+
 html, body {
   font-family: var(--font-family-base);
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -60,6 +74,90 @@ app-root {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-scrollbar-thumb-hover);
+}
+
+/* Acrylic scrollbars sit inside their surfaces without a wide native rail. */
+html[data-theme='liquid-glass'][data-runtime='desktop'] *::-webkit-scrollbar {
+  width: var(--scrollbar-compact-size);
+  height: var(--scrollbar-compact-size);
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] *::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: var(--radius-full);
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] *::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] *::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Acrylic uses an in-content thumb so scrollbars do not take table width. */
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-host {
+  scrollbar-width: none;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-host::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-anchor {
+  position: sticky;
+  z-index: 5;
+  display: block;
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
+  margin-left: auto;
+  pointer-events: none;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-hit-area {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16px;
+  pointer-events: auto;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-thumb {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  width: var(--scrollbar-compact-size);
+  border-radius: var(--radius-full);
+  background: var(--color-scrollbar-thumb);
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-hit-area:hover .acrylic-scroll-thumb,
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-hit-area:focus-within .acrylic-scroll-thumb,
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-hit-area.is-dragging .acrylic-scroll-thumb {
+  opacity: 1;
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-thumb:hover,
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-thumb:focus-visible {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+html[data-theme='liquid-glass'][data-runtime='desktop'] .acrylic-scroll-thumb:active {
+  cursor: grabbing;
 }
 
 /* Clean Button & Input Defaults */

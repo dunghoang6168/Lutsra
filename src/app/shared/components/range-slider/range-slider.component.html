@@ -1,0 +1,16 @@
+<div class="range-slider" [style.--range-progress]="progress() + '%'">
+  <span class="range-track" aria-hidden="true"><span class="range-fill"></span></span>
+  <input
+    type="range"
+    [attr.id]="inputId()"
+    [attr.min]="min()"
+    [attr.max]="max()"
+    [attr.step]="step()"
+    [value]="value().toString()"
+    [disabled]="disabled()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-valuetext]="ariaValueText()"
+    (input)="onInput($event)"
+    (pointerdown)="onPointerDown()"
+    (blur)="onBlur()" />
+</div>

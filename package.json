@@ -10,12 +10,19 @@
     "start": "ng serve",
     "build": "npm run build:web && npm run build:electron",
     "build:web": "ng build",
-    "build:electron": "tsup --config tsup.config.ts && node scripts/fix-electron-bundle.mjs",
+    "build:electron": "tsup --config tsup.config.ts && node scripts/fix-electron-bundle.mjs && node scripts/build-window-snap.mjs",
+    "build:audio-host": "node scripts/build-audio-host.mjs",
+    "prepare:audio-host": "node scripts/prepare-audio-host-deps.mjs",
+    "build:native:required": "node scripts/build-window-snap.mjs --required",
     "dev": "concurrently -k -n WEB,ELECTRON -c cyan,magenta \"ng serve\" \"npm run dev:electron\"",
-    "dev:electron": "npm run build:electron && wait-on http://localhost:4200 && node scripts/run-electron.mjs --dev",
-    "electron": "npm run build && node scripts/run-electron.mjs",
-    "package:win": "npm run build && electron-builder --win",
-    "package:win:dir": "npm run build && electron-builder --win --dir",
+    "dev:electron": "npm run build:electron && npm run build:audio-host && wait-on http://localhost:4200 && node scripts/run-electron.mjs --dev",
+    "electron": "npm run build && npm run build:audio-host && node scripts/run-electron.mjs",
+    "package:win": "npm run build && npm run build:native:required && npm run build:audio-host && electron-builder --win",
+    "package:win:dir": "npm run build && npm run build:native:required && npm run build:audio-host && electron-builder --win --dir",
+    "test:audio": "vitest run tests/audio-engine.spec.ts",
+    "test:audio-host": "node scripts/test-audio-host.mjs",
+    "test:audio-host:smoke": "node scripts/smoke-audio-host.mjs",
+    "test:audio-host:codecs": "node scripts/integration-audio-host-codecs.mjs",
     "watch": "ng build --watch --configuration development"
   },
   "private": true,
@@ -27,6 +34,7 @@
     "@angular/platform-browser": "^21.2.0",
     "@angular/platform-browser-dynamic": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@fontsource-variable/manrope": "^5.3.0",
     "@wasm-audio-decoders/flac": "^0.2.11",
     "music-metadata": "^11.15.0",
     "rxjs": "~7.8.0",
@@ -41,7 +49,9 @@
     "concurrently": "^9.2.1",
     "electron": "^44.4.1",
     "electron-builder": "^26.15.3",
+    "node-gyp": "^12.4.0",
     "tsup": "^8.5.1",
+    "vitest": "^3.2.4",
     "typescript": "~5.9.3",
     "wait-on": "^8.0.4"
   },
@@ -49,12 +59,19 @@
     "appId": "com.lutsra.desktop",
     "productName": "Lutsra",
     "asar": true,
+    "asarUnpack": [
+      "dist-electron/native/*.node"
+    ],
+    "extraResources": [
+      { "from": "dist-electron/audio-host", "to": "audio-host", "filter": ["**/*"] }
+    ],
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/lutsra/**/*",
       "dist-electron/**/*",
+      "!dist-electron/audio-host/**/*",
       "package.json"
     ],
     "win": {

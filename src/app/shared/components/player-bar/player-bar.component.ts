@@ -4,16 +4,19 @@ import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
 import { IconComponent } from '../icon/icon.component';
+import { RangeSliderComponent } from '../range-slider/range-slider.component';
 
 @Component({
   selector: 'app-player-bar',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, IconComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, RangeSliderComponent],
   templateUrl: './player-bar.component.html',
   styleUrl: './player-bar.component.scss'
 })
 export class PlayerBarComponent {
   readonly player = inject(PlayerService);
+  readonly variant = input<'footer' | 'liquid-dock'>('footer');
+  readonly showTrackIdentity = input(true);
   readonly isQueueOpen = input<boolean>(false);
   readonly toggleQueue = output<void>();
   readonly isVolumeAdjusting = signal(false);
@@ -85,11 +88,4 @@ export class PlayerBarComponent {
   private canSeek(): boolean {
     return Boolean(this.player.currentTrack()) && this.player.duration() > 0;
   }
-
-  onVolumeInput(event: Event): void {
-    const input = event.currentTarget as HTMLInputElement;
-    this.player.setVolume(Number(input.value) / 100);
-  }
-
-  finishVolumeAdjustment(): void { this.isVolumeAdjusting.set(false); }
 }

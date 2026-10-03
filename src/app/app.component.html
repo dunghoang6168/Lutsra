@@ -1,10 +1,13 @@
 
-    <div class="app-layout" [class.layout-classic]="layoutPreference.mode() === 'classic'" [attr.inert]="showOnboarding() ? '' : null">
+    <div class="app-layout"
+      [class.layout-classic]="layoutPreference.mode() === 'classic'"
+      [class.layout-liquid-glass]="layoutPreference.mode() === 'liquid-glass'"
+      [attr.inert]="showOnboarding() ? '' : null">
       @if (nowPlayingArtwork(); as artwork) {
         <div class="now-playing-backdrop" aria-hidden="true">
           @if (layoutPreference.mode() === 'classic') {
             <img class="classic-ambient-img" [src]="artwork" alt="" />
-          } @else if (artworkGlowPosition.bounds(); as bounds) {
+          } @else if (layoutPreference.mode() === 'inset' && artworkGlowPosition.bounds(); as bounds) {
             @if (panelGlow(); as glow) {
               @if (glow.source === artwork) {
                 @if (glow.url) {
@@ -33,6 +36,7 @@
         @if (!isSidebarHidden()) {
           <app-sidebar
             [isCollapsed]="isSidebarCollapsed()"
+            [showNowPlayingDock]="layoutPreference.mode() === 'liquid-glass' && hasTrackOrQueue() && !isSidebarCollapsed() && !compactWindow()"
             (toggleCollapse)="onToggleSidebar()"
           />
         }
@@ -51,11 +55,26 @@
 
       @if (showPlayerBar()) {
         <app-player-bar
+          [variant]="layoutPreference.mode() === 'liquid-glass' ? 'liquid-dock' : 'footer'"
+          [showTrackIdentity]="compactWindow() || isSidebarHidden() || isSidebarCollapsed() || !player.currentTrack()"
           [isQueueOpen]="isQueueOpen()"
           (toggleQueue)="onToggleQueue()"
         />
       }
     </div>
+    @if (queueActions.notice(); as notice) {
+      <div class="queue-notice" role="status" aria-live="polite" aria-atomic="true">
+        <app-icon name="queue" [size]="17" />
+        <span>{{ notice }}</span>
+      </div>
+    }
+    @if (player.playbackNotice(); as notice) {
+      <div class="playback-notice" role="status" aria-live="polite" aria-atomic="true">
+        <app-icon name="headphones" [size]="17" />
+        <span>{{ notice }}</span>
+        <button type="button" (click)="player.playbackNotice.set(null)" aria-label="Dismiss audio notice"><app-icon name="x" [size]="15" /></button>
+      </div>
+    }
     @if (showOnboarding()) {
       <div class="onboarding-backdrop">
         <section #onboardingDialog class="onboarding-dialog" role="dialog" aria-modal="true"
