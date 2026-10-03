@@ -249,13 +249,12 @@ WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
     return nullptr;
   }
-  UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
-  hr = bundle->client->GetSharedModeEnginePeriod(bundle->mixFormat,
-       &defaultPeriod, &fundamental, &minimum, &maximum);
-  if (SUCCEEDED(hr))
-    hr = bundle->client->InitializeSharedAudioStream(
-        AUDCLNT_STREAMFLAGS_EVENTCALLBACK, defaultPeriod, bundle->mixFormat,
-        nullptr);
+  // Music playback favors glitch resistance over minimum output latency.
+  constexpr REFERENCE_TIME kSharedBufferHns = 100 * 10'000; // 100 ms
+  hr = bundle->client->Initialize(AUDCLNT_SHAREMODE_SHARED,
+                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                                  kSharedBufferHns, 0, bundle->mixFormat,
+                                  nullptr);
   if (SUCCEEDED(hr))
     hr = bundle->client->SetEventHandle(bundle->event);
   if (SUCCEEDED(hr))
@@ -295,6 +294,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   deviceName_ = std::move(bundle->name);
   activeId_ = id;
   connected_ = true;
+  endpointGeneration_.fetch_add(1, std::memory_order_release);
   if (previousRate && (previousRate != mixFormat_->nSamplesPerSec ||
                        previousChannels != mixFormat_->nChannels)) {
     fadeFramesRemaining_ = 0;
@@ -415,23 +415,46 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
   return true;
 }
 
+bool WasapiHost::startClientWithSilence() {
+  if (!client_ || !renderClient_)
+    return false;
+  client_->Stop();
+  if (FAILED(client_->Reset()))
+    return false;
+  BYTE *bytes = nullptr;
+  if (FAILED(renderClient_->GetBuffer(bufferFrames_, &bytes)))
+    return false;
+  if (FAILED(renderClient_->ReleaseBuffer(bufferFrames_,
+                                           AUDCLNT_BUFFERFLAGS_SILENT)))
+    return false;
+  return SUCCEEDED(client_->Start());
+}
+
 void WasapiHost::play() {
   std::unique_lock lock(controlMutex_);
   const uint64_t token = desiredActiveToken_;
   if (!token || !client_ || deviceInvalidated_)
     return;
+  if (playing_)
+    return;
+  const uint64_t generation = endpointGeneration_.load();
+  const size_t minimumSamples =
+      static_cast<size_t>(mixFormat_->nSamplesPerSec) * mixFormat_->nChannels / 4;
   lock.unlock();
   const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::milliseconds(500);
-  while (activeTokenSnapshot_.load() != token &&
-         std::chrono::steady_clock::now() < deadline)
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                        std::chrono::milliseconds(1500);
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (activeTokenSnapshot_.load() == token &&
+        (activeBufferedSamples_.load() >= minimumSamples ||
+         activeDecodeFinished_))
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
   lock.lock();
   if (desiredActiveToken_ != token || activeTokenSnapshot_.load() != token ||
-      !client_ || deviceInvalidated_)
+      !client_ || deviceInvalidated_ || endpointGeneration_.load() != generation)
     return;
-  const HRESULT result = client_->Start();
-  if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
+  if (!startClientWithSilence())
     return;
   playing_ = true;
   sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
@@ -443,6 +466,7 @@ void WasapiHost::pause() {
   playing_ = false;
   if (client_)
     client_->Stop();
+  // TODO: ramp the last 5-10 ms before Stop to avoid a possible pause click.
   sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
             jsonEscape(trackIds_[desiredActiveToken_]) + "\"}}");
 }
@@ -511,8 +535,7 @@ bool WasapiHost::transition(double seconds) {
     if (activeTokenSnapshot_.load() != token || !client_)
       return false;
     desiredActiveToken_ = token;
-    const HRESULT result = client_->Start();
-    if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
+    if (!startClientWithSilence())
       return false;
     playing_ = true;
     return true;
@@ -625,8 +648,7 @@ void WasapiHost::recoverInvalidated() {
         deviceInvalidated_ = false;
         connected_ = true;
         if (sameEndpoint && resume && desiredActiveToken_ && client_) {
-          const HRESULT start = client_->Start();
-          if (SUCCEEDED(start) || start == AUDCLNT_E_NOT_STOPPED) {
+          if (startClientWithSilence()) {
             playing_ = true;
             const auto found = trackIds_.find(desiredActiveToken_);
             const std::string trackId = found == trackIds_.end() ? "" : found->second;
@@ -820,6 +842,8 @@ void WasapiHost::drainRenderEvents() {
 
 void WasapiHost::publishActive() noexcept {
   activeTokenSnapshot_.store(activeToken_, std::memory_order_release);
+  activeBufferedSamples_ = 0;
+  activeDecodeFinished_ = false;
   sourceRate_ = activeSource_.sampleRate;
   sourceBits_ = activeSource_.bitDepth;
   sourceChannels_ = activeSource_.channels;
@@ -929,6 +953,11 @@ void WasapiHost::renderLoopSafe() {
       active_->acknowledgeSeek();
       if (!active_->seekPending())
         position_ = active_->position();
+      activeBufferedSamples_ = active_->seekPending() ? 0 : active_->bufferedSamples();
+      activeDecodeFinished_ = active_->ended() || active_->failed();
+    } else {
+      activeBufferedSamples_ = 0;
+      activeDecodeFinished_ = false;
     }
     if (incoming_)
       incoming_->acknowledgeSeek();
@@ -938,6 +967,11 @@ void WasapiHost::renderLoopSafe() {
       active_->acknowledgeSeek();
       if (!active_->seekPending())
         position_ = active_->position();
+      activeBufferedSamples_ = active_->seekPending() ? 0 : active_->bufferedSamples();
+      activeDecodeFinished_ = active_->ended() || active_->failed();
+    } else {
+      activeBufferedSamples_ = 0;
+      activeDecodeFinished_ = false;
     }
     if (incoming_)
       incoming_->acknowledgeSeek();

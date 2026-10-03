@@ -116,6 +116,7 @@ private:
   void deviceMonitorLoop();
   void recoverInvalidated();
   void signalRenderFailure(HRESULT result) noexcept;
+  bool startClientWithSilence();
   void onDevicesChanged();
   EventSink sink_; std::wstring preferredId_{L"system-default"}, activeId_{L"system-default"}, activeEndpointId_, deviceName_{L"System Default"};
   std::atomic<bool> connected_{true};
@@ -149,6 +150,9 @@ private:
   std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0}, activeDurationSnapshot_{0};
   std::atomic<int> sourceRate_{0}, sourceBits_{0}, sourceChannels_{0};
   std::atomic<uint64_t> activeTokenSnapshot_{0}, underruns_{0};
+  std::atomic<size_t> activeBufferedSamples_{0};
+  std::atomic<bool> activeDecodeFinished_{false};
+  std::atomic<uint64_t> endpointGeneration_{0};
   std::atomic<double> preparedPosition_{0};
   std::atomic<int> fadeFramesRemaining_{0}, fadeFramesTotal_{0};
   std::atomic<bool> currentExhausted_{false};
