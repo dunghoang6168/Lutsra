@@ -373,7 +373,7 @@
             <div class="pref-row">
               <div class="pref-label">
                 <span class="pref-title">Playback Engine</span>
-                <span class="pref-desc">Native Shared is an opt-in Windows Beta; switching always pauses playback</span>
+                <span class="pref-desc">Native Shared is the Windows default; Chromium Shared stays as a fallback. Switching always pauses playback</span>
               </div>
               <div class="pref-control output-device-control">
                 <app-searchable-filter-select label="Playback Engine" [options]="audioEngineOptions" [allLabel]="null"
@@ -408,7 +408,7 @@
             <div class="audio-path-status" [class.disconnected]="!path.isConnected">
               <div><span>Preferred</span><strong>{{ player.preferredAudioOutputName() }}</strong></div>
               <div><span>Active</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
-              <div><span>Mode</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared (Beta)' : 'WASAPI Shared (Chromium)' }}</strong></div>
+              <div><span>Mode</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared' : 'WASAPI Shared (Chromium)' }}</strong></div>
               <div><span>Host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
               <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
               <div><span>Source</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
@@ -453,7 +453,7 @@
               <span class="about-value">Control your queue, shuffle, and repeat</span>
             </div>
             <div class="about-item">
-              <span class="about-label">Native Audio Beta</span>
+              <span class="about-label">Native Audio</span>
               <span class="about-value">Dynamically links an LGPL-shared FFmpeg build; notices and corresponding source ship with the app</span>
             </div>
             <div class="about-item">

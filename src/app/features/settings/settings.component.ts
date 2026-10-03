@@ -39,8 +39,8 @@ export class SettingsComponent implements OnInit {
     { value: 'one', label: 'Repeat One (Loop single track)' },
   ] as const;
   readonly audioEngineOptions = [
-    { value: 'chromium', label: 'Chromium Shared (Default)' },
-    { value: 'native-shared', label: 'Native Shared (Beta)' },
+    { value: 'native-shared', label: 'Native Shared (Default)' },
+    { value: 'chromium', label: 'Chromium Shared (Fallback)' },
   ] as const;
 
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);

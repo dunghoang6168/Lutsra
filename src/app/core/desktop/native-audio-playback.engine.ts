@@ -106,7 +106,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
   selectOutputDevice(deviceId: string): Promise<void> { return this.api!.selectDevice(deviceId); }
   setOutputFallbackEnabled(enabled: boolean): void { void this.api!.setFallbackEnabled(enabled); }
   async setOutputMode(mode: OutputMode): Promise<void> {
-    if (mode !== 'shared') throw Object.assign(new Error('Only WASAPI Shared is available in Native Beta.'), { code: 'OUTPUT_MODE_UNSUPPORTED' });
+    if (mode !== 'shared') throw Object.assign(new Error('Only WASAPI Shared is available in the Native engine.'), { code: 'OUTPUT_MODE_UNSUPPORTED' });
   }
   getAudioPathStatus(): Promise<AudioPathStatus> { return this.api!.getPathStatus(); }
   subscribeDeviceChanges(listener: () => void): () => void { this.deviceListeners.add(listener); return () => this.deviceListeners.delete(listener); }

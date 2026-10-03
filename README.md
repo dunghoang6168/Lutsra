@@ -41,7 +41,7 @@ Giao diện hiện tại là nền tảng để sử dụng và tiếp tục tin
 | Persistence | SQLite lưu folder, track, directory snapshot, playlist, settings và scan run |
 | Desktop UX | Bố cục Panel/Classic, sidebar có thể thu gọn hoặc ẩn, bottom player, Now Playing với Spectrum/Waveform, lyrics `.lrc` đồng bộ, hướng dẫn thêm nhạc, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
 
-Định dạng scanner ưu tiên: **MP3, FLAC, WAV, M4A/AAC, OGG và Opus**. Việc đọc được metadata không đảm bảo Chromium phát được mọi codec/container. File không được Chromium hỗ trợ sẽ tạo playback error; V1 không transcoding.
+Định dạng scanner ưu tiên: **MP3, FLAC, WAV, M4A/AAC, OGG và Opus**. Việc đọc được metadata không đảm bảo Chromium phát được mọi codec/container. File không được Chromium hỗ trợ sẽ tạo playback error; V1 không transcoding. Với backend Native Shared (mặc định trên Windows), FFmpeg giải mã toàn bộ các định dạng trên.
 
 ### Chất lượng audio
 
@@ -63,7 +63,7 @@ Trường không đọc được giữ `null` và không hiển thị giá trị
 - Node APIs trong Main Process; renderer không truy cập trực tiếp filesystem hoặc raw IPC.
 - `music-metadata` để đọc tag và format information.
 - `node:sqlite` để persistence, không dùng database server hoặc native addon ngoài Electron.
-- `HTMLAudioElement`/Chromium audio cho playback V1.
+- Native Audio Host (C++20, FFmpeg LGPL-shared, WASAPI Shared, gapless) là playback backend mặc định trên Windows; `HTMLAudioElement`/Chromium audio là backend dự phòng và chỉ nhận sửa lỗi.
 - Jasmine/Karma cho Angular và `node:test` cho backend.
 
 ## Kiến trúc
@@ -214,14 +214,16 @@ Lyrics cục bộ được đọc từ file `.lrc` có cùng tên gốc và nằ
 
 ## Giới hạn V1
 
-Bit-perfect, WASAPI Exclusive, ASIO, điều khiển USB DAC, tự đổi sample rate thiết bị, DSD/DoP, FFmpeg native, custom audio driver, EQ, ReplayGain, crossfade và DSP nằm ngoài V1.
+ASIO, DSD/DoP, điều khiển USB DAC và custom audio driver nằm ngoài phạm vi. WASAPI Exclusive với tự đổi sample rate, bit-perfect, EQ/DSP và ReplayGain đang theo [lộ trình Audio Engine](docs/AUDIO_ENGINE_PLAN.md).
 
-Dự án chưa có Android, account, cloud sync, remote backend hoặc lyrics online. `PlaybackEngine` tạo ranh giới để có thể nghiên cứu native engine sau này mà không buộc UI đổi theo.
+Dự án chưa có Android, account, cloud sync, remote backend hoặc lyrics online. `PlaybackEngine` là ranh giới giữa UI và các backend Native/Chromium.
 
 ## Tài liệu liên quan
 
 - [Desktop integration contracts](docs/PHASE1_INTEGRATION_CONTRACTS.md)
 - [Phase 3.1 visual refinement](docs/PHASE3_1_VISUAL_REFINEMENT.md)
+- [Lộ trình Audio Engine](docs/AUDIO_ENGINE_PLAN.md) và [nghiệm thu Giai đoạn 3](docs/AUDIO_ENGINE_PHASE3_CLOSEOUT.md)
+- [Native Audio Host](native/audio-host/README.md)
 - [Gateway interfaces](src/app/core/contracts/)
 - [Desktop API](src/app/core/desktop/desktop-api.ts)
 - [Scripts và dependencies](package.json)

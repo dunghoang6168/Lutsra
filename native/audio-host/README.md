@@ -1,8 +1,12 @@
-# Lutsra Native Audio Host (Beta)
+# Lutsra Native Audio Host
 
 Windows 10/11 x64 only. This executable is a separate process and implements WASAPI
-Shared playback. Electron owns the private named pipe and authenticates the host with
-a per-launch nonce. Frames are little-endian uint32 length-prefixed JSON and are
+Shared playback. It is the default playback backend; Chromium Shared remains as a
+fallback when the host is missing or fails twice. Phase status and the acceptance
+record live in `docs/AUDIO_ENGINE_PLAN.md` and `docs/AUDIO_ENGINE_PHASE3_CLOSEOUT.md`.
+
+Electron owns the private named pipe and authenticates the host with a per-launch
+nonce. Frames are little-endian uint32 length-prefixed JSON and are
 rejected above 1 MiB. Media paths exist only between Main and the host.
 
 The render thread is event-driven and registered with MMCSS `Pro Audio`. Decode and
@@ -19,10 +23,23 @@ is authoritative; changing it reopens both decoders at their current positions.
 Shared Mode is always reported as processed and never as bit-perfect. Spectrum
 telemetry contains 128 post-mixer time-domain peak bins and is capped near 30 FPS.
 
+A prepared track is spliced gaplessly: when the active decoder has drained, render
+fills the rest of the same WASAPI buffer from the prepared decoder and promotes it
+without an `ended` round trip. The renderer follows through `trackAutoAdvanced$`.
+Only prepare a track the queue really advances to; the renderer prepares nothing for
+Repeat One or when no automatic successor exists.
+
+Path status reports the engine mix (`outputFormat`, `outputSampleType`; always 32-bit
+float in Shared Mode) and the hardware format Windows sends to the device
+(`deviceFormat`, read live from `PKEY_AudioEngine_DeviceFormat`).
+
 The MMDevice callback only signals a monitor thread. The monitor handles endpoint
 changes and invalidation recovery. A new endpoint is created before replacing the old
 one. `AUDCLNT_E_DEVICE_INVALIDATED`, service stops, and resource invalidation pause
-playback and trigger retries. Only recovery on the same endpoint may resume playback.
+playback and trigger retries. Only recovery on the same endpoint may resume playback,
+and a late invalidation is ignored once an endpoint swap (for example to fallback) has
+already replaced the failed client. `play` retries an invalidated endpoint and returns
+an error instead of silently doing nothing.
 The shared buffer is 100 ms; playback waits up to 1.5 s for 250 ms of decoded data and
 primes the WASAPI buffer with silence before Start.
 
@@ -40,13 +57,18 @@ critical events in order; `time` and `spectrum` keep only their newest pending f
    copies the host, unchanged DLL names, notice, manifest, license, and source archive
    into `dist-electron/audio-host`.
 
-The ordinary Chromium backend remains the default and does not require these files.
+Without these files the app falls back to the Chromium backend with a notice.
 Do not replace the manifest URLs with `latest`.
 
-Tests are opt-in: `npm run test:audio-host` runs native unit tests. Set
+Tests are opt-in: `npm run test:audio-host` runs native unit tests,
+`npm run test:audio-host:smoke` checks the handshake and endpoints, and
+`npm run test:audio-host:codecs` (muted) covers codecs, crossfade, gapless advance and
+seeks. Set
 `LUTSRA_STRESS_MUSIC_DIR` to a directory with at least three supported audio files,
 then run `npm run test:audio-host:stress` for rapid load, seek, transition, and device
-switching. The stress script uses local media paths only in requests to the host.
+switching, including unawaited command bursts. It stays muted unless
+`LUTSRA_STRESS_AUDIBLE=1`. The stress script uses local media paths only in requests
+to the host.
 
 ## Manual acceptance matrix
 

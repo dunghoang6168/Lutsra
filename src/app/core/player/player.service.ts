@@ -589,7 +589,7 @@ export class PlayerService implements OnDestroy {
         this.playbackState.set('paused');
       }
       if (persist) await this.persistSettings({ audioEngineBackend: backend });
-      this.playbackNotice.set(backend === 'native-shared' ? 'Native Shared Beta is active. Playback remains paused.' : 'Chromium Shared is active. Playback remains paused.');
+      this.playbackNotice.set(backend === 'native-shared' ? 'Native Shared is active. Playback remains paused.' : 'Chromium Shared is active. Playback remains paused.');
     } catch (error) {
       if (backend === 'native-shared') {
         await this.engine.setBackend('chromium');
