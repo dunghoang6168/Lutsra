@@ -22,6 +22,7 @@
     "test:audio": "vitest run tests/audio-engine.spec.ts",
     "test:audio-host": "node scripts/test-audio-host.mjs",
     "test:audio-host:smoke": "node scripts/smoke-audio-host.mjs",
+    "test:audio-host:stress": "node scripts/stress-audio-host.mjs",
     "test:audio-host:codecs": "node scripts/integration-audio-host-codecs.mjs",
     "watch": "ng build --watch --configuration development"
   },
