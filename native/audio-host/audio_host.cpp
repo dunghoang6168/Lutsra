@@ -329,6 +329,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   }
   renderStopping_ = false;
   deviceInvalidated_ = false;
+  wasPlayingBeforeInvalidation_ = false;
   renderThread_ = std::thread(&WasapiHost::renderLoopSafe, this);
   return error.empty();
 }
@@ -666,11 +667,17 @@ void WasapiHost::deviceMonitorLoop() {
 }
 
 void WasapiHost::recoverInvalidated() {
-  const bool resume = wasPlayingBeforeInvalidation_.exchange(false);
+  bool resume = false;
   std::wstring selectedId, endpointId;
   uint64_t generation = 0;
   {
     std::lock_guard lock(controlMutex_);
+    resume = wasPlayingBeforeInvalidation_.exchange(false);
+    // The device monitor may already have swapped endpoints (unplug -> fallback)
+    // before handling this signal. The failed client is gone, so recovering or
+    // resuming now would restart playback on the fallback endpoint.
+    if (!deviceInvalidated_)
+      return;
     selectedId = activeId_;
     endpointId = activeEndpointId_;
     generation = endpointGeneration_.load();
