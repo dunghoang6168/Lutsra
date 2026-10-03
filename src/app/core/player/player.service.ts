@@ -262,6 +262,8 @@ export class PlayerService implements OnDestroy {
         if (evt.error) {
           this.playRequested.set(false);
           this.error.set(evt.error.message);
+          if (evt.error.code === 'OUTPUT_DEVICE_UNAVAILABLE' || evt.error.code === 'OUTPUT_DEVICE_BUSY')
+            this.outputInterrupted = false;
           if (evt.error.code === 'AUDIO_HOST_UNAVAILABLE' || evt.error.code === 'AUDIO_HOST_PROTOCOL_ERROR') void this.recoverFromNativeHostFailure(evt.error);
           else void this.handlePlaybackFailure(evt.error);
         } else if (evt.state === 'playing') {

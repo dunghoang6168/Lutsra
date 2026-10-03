@@ -664,6 +664,14 @@ void WasapiHost::recoverInvalidated() {
           }
         }
         sendEvent("{\"kind\":\"devices-changed\"}");
+        if (!sameEndpoint) {
+          const auto found = trackIds_.find(desiredActiveToken_);
+          const std::string trackId = found == trackIds_.end() ? "" : found->second;
+          sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
+                    jsonEscape(trackId) +
+                    "\",\"error\":{\"code\":\"OUTPUT_DEVICE_UNAVAILABLE\",\"message\":\"The audio endpoint changed. Press Play to continue.\",\"trackId\":\"" +
+                    jsonEscape(trackId) + "\"}}}");
+        }
         return;
       }
     }
@@ -674,7 +682,15 @@ void WasapiHost::recoverInvalidated() {
   std::lock_guard lock(controlMutex_);
   if (activeId_ != selectedId || activeEndpointId_ != endpointId)
     return;
-  connected_ = failure == "OUTPUT_DEVICE_BUSY";
+  ComPtr<IMMDevice> availableDevice;
+  DWORD state = 0;
+  const HRESULT lookup = selectedId == L"system-default"
+      ? enumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia,
+                                             &availableDevice)
+      : enumerator_->GetDevice(selectedId.c_str(), &availableDevice);
+  connected_ = SUCCEEDED(lookup) && availableDevice &&
+               SUCCEEDED(availableDevice->GetState(&state)) &&
+               (state & DEVICE_STATE_ACTIVE);
   const auto found = trackIds_.find(desiredActiveToken_);
   const std::string trackId = found == trackIds_.end() ? "" : found->second;
   sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
