@@ -90,6 +90,8 @@ try {
   });
   await Promise.race([hello, sleep(8_000).then(() => { throw new Error('Host handshake timed out.'); })]);
   const devices = await request('list-devices');
+  // Stress audio is noise; stay muted unless LUTSRA_STRESS_AUDIBLE=1.
+  await request('set-mute', { isMuted: process.env.LUTSRA_STRESS_AUDIBLE !== '1' });
 
   for (let i = 0; i < 50; i++) {
     await request('load', track(i));
