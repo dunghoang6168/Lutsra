@@ -38,7 +38,7 @@ private:
 
 class WasapiHost {
 public:
-  using EventSink = std::function<void(const std::string&)>;
+  using EventSink = std::function<void(const std::string&, bool lossy, bool spectrum)>;
   explicit WasapiHost(EventSink sink); ~WasapiHost();
   std::vector<DeviceInfo> listDevices();
   bool selectDevice(const std::wstring& id, std::string& error);
@@ -50,6 +50,7 @@ public:
   void setSpectrum(bool enabled) { spectrumEnabled_ = enabled; }
   std::string statusJson();
 private:
+  void sendEvent(const std::string& payload, bool lossy = false, bool spectrum = false) { sink_(payload, lossy, spectrum); }
   bool initializeEndpoint(const std::wstring& id, std::string& error);
   bool promotePrepared(bool startPlayback);
   void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();

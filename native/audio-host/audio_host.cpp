@@ -257,7 +257,7 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
   currentTrackId_ = trackId;
   source_ = current_->sourceFormat();
   position_ = 0;
-  sink_("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
         jsonEscape(trackId) + "\"}}");
   return true;
 }
@@ -278,7 +278,7 @@ void WasapiHost::play() {
   if (current_ && client_) {
     playing_ = true;
     client_->Start();
-    sink_(
+    sendEvent(
         "{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
         jsonEscape(currentTrackId_) + "\"}}");
   }
@@ -287,7 +287,7 @@ void WasapiHost::pause() {
   playing_ = false;
   if (client_)
     client_->Stop();
-  sink_("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
         jsonEscape(currentTrackId_) + "\"}}");
 }
 void WasapiHost::seek(double seconds) {
@@ -300,13 +300,13 @@ void WasapiHost::seek(double seconds) {
 }
 void WasapiHost::setVolume(float volume) {
   volume_ = std::clamp(volume, 0.0f, 1.0f);
-  sink_("{\"kind\":\"volume\",\"value\":{\"volume\":" +
+  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
         std::to_string(volume_.load()) +
         ",\"isMuted\":" + (muted_ ? "true" : "false") + "}}");
 }
 void WasapiHost::setMute(bool muted) {
   muted_ = muted;
-  sink_("{\"kind\":\"volume\",\"value\":{\"volume\":" +
+  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
         std::to_string(volume_.load()) +
         ",\"isMuted\":" + (muted ? "true" : "false") + "}}");
 }
@@ -427,7 +427,7 @@ void WasapiHost::onDevicesChanged() {
     playing_ = false;
     connected_ = error.empty();
   }
-  sink_("{\"kind\":\"devices-changed\"}");
+  sendEvent("{\"kind\":\"devices-changed\"}");
 }
 void WasapiHost::shutdownAudio() {
   if (client_)
@@ -550,27 +550,27 @@ void WasapiHost::telemetryLoopSafe() {
   while (!stopping_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(34));
     if (transitionCompleted_.exchange(false, std::memory_order_acq_rel))
-      sink_("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":"
+      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":"
             "\"" +
             jsonEscape(completedTrackId_) + "\"}}");
     if (endedPending_.exchange(false, std::memory_order_acq_rel)) {
       if (current_ && current_->failed())
-        sink_("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":"
+        sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":"
               "\"" +
               jsonEscape(currentTrackId_) +
               "\",\"error\":{\"code\":\"MEDIA_DECODE\",\"message\":\"The audio "
               "stream could not be decoded.\",\"trackId\":\"" +
               jsonEscape(currentTrackId_) + "\"}}}");
       else
-        sink_("{\"kind\":\"state\",\"value\":{\"state\":\"ended\",\"trackId\":"
+        sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"ended\",\"trackId\":"
               "\"" +
               jsonEscape(currentTrackId_) + "\"}}");
     }
     if (playing_ && ++timeDivider >= 3) {
       timeDivider = 0;
-      sink_("{\"kind\":\"time\",\"value\":{\"currentTime\":" +
+      sendEvent("{\"kind\":\"time\",\"value\":{\"currentTime\":" +
             std::to_string(position_.load()) + ",\"duration\":" +
-            std::to_string(current_ ? current_->duration() : 0) + "}}");
+            std::to_string(current_ ? current_->duration() : 0) + "}}", true);
     }
     if (spectrumEnabled_) {
       std::ostringstream out;
@@ -581,7 +581,7 @@ void WasapiHost::telemetryLoopSafe() {
         out << (int)spectrum_[i].load();
       }
       out << "]}";
-      sink_(out.str());
+      sendEvent(out.str(), true, true);
     }
   }
 }

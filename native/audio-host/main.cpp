@@ -1,19 +1,25 @@
 #include "audio_host.h"
+#include <atomic>
 #include <condition_variable>
 #include <cstdlib>
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <windows.h>
 
 static constexpr uint32_t kProtocol = 1, kMaxFrame = 1024 * 1024;
-static constexpr size_t kMaxQueuedFrames = 1024;
-static HANDLE pipeHandle = INVALID_HANDLE_VALUE;
+static constexpr size_t kMaxCriticalFrames = 8192;
+enum class FrameClass { Critical, Time, Spectrum };
+static std::atomic<HANDLE> pipeHandle{INVALID_HANDLE_VALUE};
 static std::mutex writeMutex;
 static std::condition_variable writeCondition;
-static std::deque<std::string> writeQueue;
+static std::deque<std::string> criticalQueue;
+static std::optional<std::string> latestTime;
+static std::optional<std::string> latestSpectrum;
 static bool writerStopping = false;
+static bool queueOverflow = false;
 static std::thread writerThread;
 static std::string escapeJson(const std::string &v) {
   std::string o;
@@ -83,31 +89,60 @@ static void writerLoop() {
     std::string j;
     {
       std::unique_lock lock(writeMutex);
-      writeCondition.wait(lock,
-                          [] { return writerStopping || !writeQueue.empty(); });
-      if (writeQueue.empty()) {
-        if (writerStopping)
-          return;
-        continue;
+      writeCondition.wait(lock, [] {
+        return writerStopping || queueOverflow || !criticalQueue.empty() ||
+               latestTime || latestSpectrum;
+      });
+      if (queueOverflow)
+        return;
+      if (!criticalQueue.empty()) {
+        j = std::move(criticalQueue.front());
+        criticalQueue.pop_front();
+      } else if (latestTime) {
+        j = std::move(*latestTime);
+        latestTime.reset();
+      } else if (latestSpectrum) {
+        j = std::move(*latestSpectrum);
+        latestSpectrum.reset();
+      } else if (writerStopping) {
+        return;
       }
-      j = std::move(writeQueue.front());
-      writeQueue.pop_front();
     }
     uint32_t n = (uint32_t)j.size();
     if (!writeAll(&n, 4) || !writeAll(j.data(), n))
       return;
   }
 }
-static bool sendJson(const std::string &j) {
+static bool sendJson(const std::string &j,
+                     FrameClass frameClass = FrameClass::Critical) {
   if (j.empty() || j.size() > kMaxFrame)
     return false;
+  bool overflow = false;
   {
     std::lock_guard lock(writeMutex);
-    if (writerStopping || writeQueue.size() >= kMaxQueuedFrames)
+    if (writerStopping || queueOverflow)
       return false;
-    writeQueue.push_back(j);
+    if (frameClass == FrameClass::Time)
+      latestTime = j;
+    else if (frameClass == FrameClass::Spectrum)
+      latestSpectrum = j;
+    else if (criticalQueue.size() < kMaxCriticalFrames)
+      criticalQueue.push_back(j);
+    else {
+      queueOverflow = true;
+      overflow = true;
+    }
   }
-  writeCondition.notify_one();
+  writeCondition.notify_all();
+  if (overflow) {
+    // Closing the pipe makes Electron handle this as a host crash.
+    HANDLE handle = pipeHandle.exchange(INVALID_HANDLE_VALUE);
+    if (handle != INVALID_HANDLE_VALUE) {
+      CancelIoEx(handle, nullptr);
+      CloseHandle(handle);
+    }
+    return false;
+  }
   return true;
 }
 static void stopWriter() {
@@ -237,9 +272,10 @@ int wmain(int argc, wchar_t **argv) {
   sendJson(
       "{\"protocolVersion\":1,\"type\":\"hello\",\"payload\":{\"nonce\":\"" +
       escapeJson(narrow(nonce)) + "\"}}");
-  WasapiHost host([](const std::string &p) {
+  WasapiHost host([](const std::string &p, bool lossy, bool spectrum) {
     sendJson("{\"protocolVersion\":1,\"type\":\"event\",\"payload\":" + p +
-             "}");
+             "}", lossy ? (spectrum ? FrameClass::Spectrum : FrameClass::Time)
+                         : FrameClass::Critical);
   });
   std::string j;
   while (readFrame(j)) {
@@ -308,6 +344,8 @@ int wmain(int argc, wchar_t **argv) {
       failure(id, "AUDIO_HOST_PROTOCOL_ERROR");
   }
   stopWriter();
-  CloseHandle(pipeHandle);
+  HANDLE handle = pipeHandle.exchange(INVALID_HANDLE_VALUE);
+  if (handle != INVALID_HANDLE_VALUE)
+    CloseHandle(handle);
   return 0;
 }
