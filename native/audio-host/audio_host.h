@@ -80,6 +80,7 @@ private:
   void promoteIncoming() noexcept;
   std::string trackIdFor(uint64_t token);
   void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
+  void deviceMonitorLoop();
   void onDevicesChanged();
   EventSink sink_; std::wstring preferredId_{L"system-default"}, activeId_{L"system-default"}, activeEndpointId_, deviceName_{L"System Default"};
   std::atomic<bool> connected_{true};
@@ -105,7 +106,9 @@ private:
   size_t deferredCount_{};
   std::array<RenderEvent, 4096> renderEvents_{};
   std::atomic<size_t> eventHead_{0}, eventTail_{0};
-  std::thread renderThread_, telemetryThread_; std::atomic<bool> stopping_{false}, renderStopping_{false}, playing_{false}, muted_{false}, fallback_{false}, spectrumEnabled_{false};
+  HANDLE deviceEvent_{};
+  std::atomic<bool> deviceDirty_{false};
+  std::thread renderThread_, telemetryThread_, deviceMonitorThread_; std::atomic<bool> stopping_{false}, renderStopping_{false}, playing_{false}, muted_{false}, fallback_{false}, spectrumEnabled_{false};
   std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0}, activeDurationSnapshot_{0};
   std::atomic<int> sourceRate_{0}, sourceBits_{0}, sourceChannels_{0};
   std::atomic<uint64_t> activeTokenSnapshot_{0}, underruns_{0};

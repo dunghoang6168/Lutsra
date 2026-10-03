@@ -1,3 +1,4 @@
+#include <initguid.h>
 #include "audio_host.h"
 #include <algorithm>
 #include <avrt.h>
@@ -43,14 +44,16 @@ public:
     changed_();
     return S_OK;
   }
-  HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole,
+  HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role,
                                                    LPCWSTR) override {
-    if (flow == eRender)
+    if (flow == eRender && role == eMultimedia)
       changed_();
     return S_OK;
   }
   HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR,
-                                                   const PROPERTYKEY) override {
+                                                   const PROPERTYKEY key) override {
+    if (IsEqualPropertyKey(key, PKEY_AudioEngine_DeviceFormat))
+      changed_();
     return S_OK;
   }
 
@@ -107,22 +110,31 @@ static bool isFloatMixFormat(const WAVEFORMATEX *format) {
 
 WasapiHost::WasapiHost(EventSink sink) : sink_(std::move(sink)) {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  deviceEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                    IID_PPV_ARGS(&enumerator_));
   if (enumerator_) {
-    notification_.Attach(
-        new DeviceNotificationClient([this] { onDevicesChanged(); }));
+    notification_.Attach(new DeviceNotificationClient([this] {
+      deviceDirty_.store(true, std::memory_order_release);
+      if (deviceEvent_)
+        SetEvent(deviceEvent_);
+    }));
     enumerator_->RegisterEndpointNotificationCallback(notification_.Get());
   }
   std::string error;
   initializeEndpoint(L"system-default", error);
   telemetryThread_ = std::thread(&WasapiHost::telemetryLoopSafe, this);
+  deviceMonitorThread_ = std::thread(&WasapiHost::deviceMonitorLoop, this);
 }
 WasapiHost::~WasapiHost() {
   if (enumerator_ && notification_)
     enumerator_->UnregisterEndpointNotificationCallback(notification_.Get());
   notification_.Reset();
   stopping_ = true;
+  if (deviceEvent_)
+    SetEvent(deviceEvent_);
+  if (deviceMonitorThread_.joinable())
+    deviceMonitorThread_.join();
   renderStopping_ = true;
   if (audioEvent_)
     SetEvent(audioEvent_);
@@ -142,6 +154,8 @@ WasapiHost::~WasapiHost() {
       delete command.decoder;
   }
   reap();
+  if (deviceEvent_)
+    CloseHandle(deviceEvent_);
   CoUninitialize();
 }
 
@@ -189,7 +203,6 @@ std::vector<DeviceInfo> WasapiHost::listDevices() {
 
 bool WasapiHost::initializeEndpoint(const std::wstring &id,
                                     std::string &error) {
-  std::lock_guard lock(controlMutex_);
   playing_ = false;
   shutdownAudio();
   HRESULT hr;
@@ -237,12 +250,10 @@ bool WasapiHost::initializeEndpoint(const std::wstring &id,
   return true;
 }
 bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
+  std::lock_guard lock(controlMutex_);
   if (!initializeEndpoint(id, error))
     return false;
-  {
-    std::lock_guard lock(controlMutex_);
-    preferredId_ = id;
-  }
+  preferredId_ = id;
   return true;
 }
 bool WasapiHost::enqueue(RenderCommand command) {
@@ -456,14 +467,44 @@ std::string WasapiHost::statusJson() {
          (resample ? ",\"Sample-rate conversion\"" : "") +
          (channels ? ",\"Channel conversion\"" : "") + "]}";
 }
+void WasapiHost::deviceMonitorLoop() {
+  CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  while (!stopping_) {
+    if (deviceEvent_)
+      WaitForSingleObject(deviceEvent_, INFINITE);
+    else
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    if (stopping_)
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    if (!deviceDirty_.exchange(false, std::memory_order_acq_rel))
+      continue;
+    std::lock_guard lock(controlMutex_);
+    onDevicesChanged();
+  }
+  CoUninitialize();
+}
+
 void WasapiHost::onDevicesChanged() {
+  // Called only by the monitor while it owns controlMutex_.
+  if (!enumerator_)
+    return;
+  const auto pauseForChange = [this] {
+    playing_ = false;
+    if (client_)
+      client_->Stop();
+    const auto found = trackIds_.find(desiredActiveToken_);
+    const std::string trackId = found == trackIds_.end() ? "" : found->second;
+    sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+              jsonEscape(trackId) + "\"}}");
+  };
   bool available = true;
   if (preferredId_ != L"system-default") {
     ComPtr<IMMDevice> preferred;
     DWORD state = 0;
-    available =
-        SUCCEEDED(enumerator_->GetDevice(preferredId_.c_str(), &preferred)) &&
-        SUCCEEDED(preferred->GetState(&state)) && (state & DEVICE_STATE_ACTIVE);
+    available = SUCCEEDED(enumerator_->GetDevice(preferredId_.c_str(), &preferred)) &&
+                SUCCEEDED(preferred->GetState(&state)) &&
+                (state & DEVICE_STATE_ACTIVE);
   } else {
     ComPtr<IMMDevice> nextDefault;
     LPWSTR id = nullptr;
@@ -471,21 +512,23 @@ void WasapiHost::onDevicesChanged() {
                                                        &nextDefault)) &&
         SUCCEEDED(nextDefault->GetId(&id))) {
       if (activeEndpointId_ != id) {
-        pause();
+        pauseForChange();
         std::string error;
-        initializeEndpoint(L"system-default", error);
-        playing_ = false;
+        if (!initializeEndpoint(L"system-default", error))
+          connected_ = false;
       }
       CoTaskMemFree(id);
+    } else {
+      available = false;
     }
   }
   if (!available) {
-    pause();
+    pauseForChange();
     connected_ = false;
     activeId_.clear();
     if (fallback_) {
-      auto savedId = preferredId_;
-      auto savedName = deviceName_;
+      const auto savedId = preferredId_;
+      const auto savedName = deviceName_;
       std::string error;
       if (initializeEndpoint(L"system-default", error))
         activeId_ = L"system-default";
@@ -495,9 +538,8 @@ void WasapiHost::onDevicesChanged() {
     }
   } else if (!connected_) {
     std::string error;
-    initializeEndpoint(preferredId_, error);
-    playing_ = false;
-    connected_ = error.empty();
+    if (initializeEndpoint(preferredId_, error))
+      connected_ = true;
   }
   sendEvent("{\"kind\":\"devices-changed\"}");
 }
