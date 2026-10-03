@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include "spsc_ring_buffer.h"
 
@@ -36,6 +37,10 @@ private:
   std::wstring path_; int outputRate_{}, outputChannels_{}; AudioFormatInfo source_{}; double duration_{};
 };
 
+// The render thread exclusively owns active_ and incoming_ after mailbox transfer.
+// Control creates decoders and transfers raw pointers; only the reaper deletes them.
+// Render publishes POD events and atomic snapshots, never strings or sink calls.
+// Endpoint resources are changed only while the render thread is stopped.
 class WasapiHost {
 public:
   using EventSink = std::function<void(const std::string&, bool lossy, bool spectrum)>;
@@ -46,29 +51,67 @@ public:
   bool prepare(const std::string& trackId, const std::wstring& path, std::string& error);
   void play(); void pause(); void seek(double seconds); void setVolume(float volume); void setMute(bool muted);
   void cancelPrepared(); bool transition(double seconds);
-  void setFallback(bool enabled) { fallback_ = enabled; }
-  void setSpectrum(bool enabled) { spectrumEnabled_ = enabled; }
+  void setFallback(bool enabled);
+  void setSpectrum(bool enabled);
   std::string statusJson();
 private:
   void sendEvent(const std::string& payload, bool lossy = false, bool spectrum = false) { sink_(payload, lossy, spectrum); }
   bool initializeEndpoint(const std::wstring& id, std::string& error);
-  bool promotePrepared(bool startPlayback);
+  enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, Stop, SeekActive };
+  struct RenderCommand {
+    CommandKind kind{};
+    DecoderPipeline* decoder{};
+    uint64_t token{};
+    int frames{};
+    double seconds{};
+    AudioFormatInfo source{};
+    double duration{};
+  };
+  enum class RenderEventKind { Promoted, Ended, DecodeFailed, Underrun };
+  struct RenderEvent { RenderEventKind kind{}; uint64_t token{}; uint64_t value{}; };
+  bool enqueue(RenderCommand command);
+  void processMailbox() noexcept;
+  void retire(DecoderPipeline* decoder) noexcept;
+  void flushRetired() noexcept;
+  void reap();
+  void pushRenderEvent(RenderEvent event) noexcept;
+  void drainRenderEvents();
+  void publishActive() noexcept;
+  void promoteIncoming() noexcept;
+  std::string trackIdFor(uint64_t token);
   void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
   void onDevicesChanged();
   EventSink sink_; std::wstring preferredId_{L"system-default"}, activeId_{L"system-default"}, activeEndpointId_, deviceName_{L"System Default"};
   std::atomic<bool> connected_{true};
-  std::string currentTrackId_, preparedTrackId_, completedTrackId_;
+  std::unordered_map<uint64_t, std::string> trackIds_;
+  uint64_t nextToken_{1}, desiredActiveToken_{}, desiredIncomingToken_{}, expectedPromotionToken_{};
   Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_; Microsoft::WRL::ComPtr<IMMDevice> device_;
   Microsoft::WRL::ComPtr<IMMNotificationClient> notification_;
   Microsoft::WRL::ComPtr<IAudioClient3> client_; Microsoft::WRL::ComPtr<IAudioRenderClient> renderClient_;
   WAVEFORMATEX* mixFormat_{}; HANDLE audioEvent_{}; UINT32 bufferFrames_{};
-  std::unique_ptr<DecoderPipeline> current_, prepared_;
-  std::unique_ptr<DecoderPipeline> retired_;
+  DecoderPipeline* active_{};
+  DecoderPipeline* incoming_{};
+  uint64_t activeToken_{}, incomingToken_{};
+  AudioFormatInfo activeSource_{}, incomingSource_{};
+  double activeDuration_{}, incomingDuration_{};
+  std::array<RenderCommand, 16> mailbox_{};
+  size_t mailboxHead_{}, mailboxCount_{};
+  std::mutex mailboxMutex_;
+  std::condition_variable mailboxAvailable_;
+  std::array<DecoderPipeline*, 16> graveyard_{};
+  size_t graveyardCount_{};
+  std::mutex graveyardMutex_;
+  std::array<DecoderPipeline*, 8> deferredRetired_{};
+  size_t deferredCount_{};
+  std::array<RenderEvent, 4096> renderEvents_{};
+  std::atomic<size_t> eventHead_{0}, eventTail_{0};
   std::thread renderThread_, telemetryThread_; std::atomic<bool> stopping_{false}, renderStopping_{false}, playing_{false}, muted_{false}, fallback_{false}, spectrumEnabled_{false};
-  std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0};
+  std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0}, activeDurationSnapshot_{0};
+  std::atomic<int> sourceRate_{0}, sourceBits_{0}, sourceChannels_{0};
+  std::atomic<uint64_t> activeTokenSnapshot_{0}, underruns_{0};
   std::atomic<double> preparedPosition_{0};
   std::atomic<int> fadeFramesRemaining_{0}, fadeFramesTotal_{0};
-  std::atomic<bool> transitionCompleted_{false}, endedPending_{false}, currentExhausted_{false};
+  std::atomic<bool> currentExhausted_{false};
   std::array<std::atomic<unsigned char>, 128> spectrum_{};
-  std::mutex controlMutex_; AudioFormatInfo source_{};
+  std::mutex controlMutex_;
 };

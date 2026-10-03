@@ -131,12 +131,22 @@ WasapiHost::~WasapiHost() {
   if (telemetryThread_.joinable())
     telemetryThread_.join();
   shutdownAudio();
-  current_.reset();
-  prepared_.reset();
+  delete active_;
+  delete incoming_;
+  for (size_t i = 0; i < deferredCount_; ++i)
+    delete deferredRetired_[i];
+  for (size_t i = 0; i < mailboxCount_; ++i) {
+    const auto &command = mailbox_[(mailboxHead_ + i) % mailbox_.size()];
+    if (command.kind == CommandKind::SetActive ||
+        command.kind == CommandKind::SetIncoming)
+      delete command.decoder;
+  }
+  reap();
   CoUninitialize();
 }
 
 std::vector<DeviceInfo> WasapiHost::listDevices() {
+  std::lock_guard lock(controlMutex_);
   std::vector<DeviceInfo> result;
   if (!enumerator_)
     return result;
@@ -180,7 +190,7 @@ std::vector<DeviceInfo> WasapiHost::listDevices() {
 bool WasapiHost::initializeEndpoint(const std::wstring &id,
                                     std::string &error) {
   std::lock_guard lock(controlMutex_);
-  const bool resume = playing_.exchange(false);
+  playing_ = false;
   shutdownAudio();
   HRESULT hr;
   if (id == L"system-default")
@@ -224,158 +234,212 @@ bool WasapiHost::initializeEndpoint(const std::wstring &id,
   connected_ = true;
   renderStopping_ = false;
   renderThread_ = std::thread(&WasapiHost::renderLoopSafe, this);
-  if (resume)
-    play();
   return true;
 }
 bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
   if (!initializeEndpoint(id, error))
     return false;
-  preferredId_ = id;
+  {
+    std::lock_guard lock(controlMutex_);
+    preferredId_ = id;
+  }
   return true;
 }
-bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
-                      std::string &error) {
-  std::lock_guard lock(controlMutex_);
-  playing_ = false;
-  if (client_)
-    client_->Stop();
-  retired_.reset();
-  auto decoder = std::make_unique<DecoderPipeline>();
-  if (!mixFormat_) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
+bool WasapiHost::enqueue(RenderCommand command) {
+  std::unique_lock lock(mailboxMutex_);
+  mailboxAvailable_.wait(lock, [this] {
+    return mailboxCount_ < mailbox_.size() || stopping_ || renderStopping_;
+  });
+  if (stopping_ || renderStopping_)
     return false;
-  }
-  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
-                     mixFormat_->nChannels, error))
-    return false;
-  current_ = std::move(decoder);
-  prepared_.reset();
-  preparedTrackId_.clear();
-  preparedPosition_ = 0;
-  fadeFramesRemaining_ = 0;
-  fadeFramesTotal_ = 0;
-  transitionCompleted_ = false;
-  endedPending_ = false;
-  currentExhausted_ = false;
-  currentTrackId_ = trackId;
-  source_ = current_->sourceFormat();
-  position_ = 0;
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-        jsonEscape(trackId) + "\"}}");
-  return true;
-}
-bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
-                         std::string &error) {
-  std::lock_guard lock(controlMutex_);
-  retired_.reset();
-  auto decoder = std::make_unique<DecoderPipeline>();
-  if (!mixFormat_) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return false;
-  }
-  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
-                     mixFormat_->nChannels, error))
-    return false;
-  prepared_ = std::move(decoder);
-  preparedTrackId_ = trackId;
-  preparedPosition_ = 0;
-  return true;
-}
-void WasapiHost::play() {
-  if (current_ && client_) {
-    playing_ = true;
-    client_->Start();
-    sendEvent(
-        "{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
-        jsonEscape(currentTrackId_) + "\"}}");
-  }
-}
-void WasapiHost::pause() {
-  playing_ = false;
-  if (client_)
-    client_->Stop();
-  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
-        jsonEscape(currentTrackId_) + "\"}}");
-}
-void WasapiHost::seek(double seconds) {
-  if (current_) {
-    currentExhausted_ = false;
-    endedPending_ = false;
-    current_->seek(seconds);
-    position_ = seconds;
-  }
-}
-void WasapiHost::setVolume(float volume) {
-  volume_ = std::clamp(volume, 0.0f, 1.0f);
-  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
-        std::to_string(volume_.load()) +
-        ",\"isMuted\":" + (muted_ ? "true" : "false") + "}}");
-}
-void WasapiHost::setMute(bool muted) {
-  muted_ = muted;
-  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
-        std::to_string(volume_.load()) +
-        ",\"isMuted\":" + (muted ? "true" : "false") + "}}");
-}
-void WasapiHost::cancelPrepared() {
-  std::lock_guard lock(controlMutex_);
-  prepared_.reset();
-  preparedTrackId_.clear();
-  preparedPosition_ = 0;
-  fadeFramesRemaining_ = 0;
-  fadeFramesTotal_ = 0;
-}
-bool WasapiHost::promotePrepared(bool startPlayback) {
-  if (!prepared_ || !mixFormat_)
-    return false;
-  if (startPlayback && client_) {
-    const HRESULT result = client_->Start();
-    if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
-      return false;
-  }
-  retired_ = std::move(current_);
-  current_ = std::move(prepared_);
-  currentTrackId_ = preparedTrackId_;
-  completedTrackId_ = currentTrackId_;
-  preparedTrackId_.clear();
-  source_ = current_->sourceFormat();
-  position_ = preparedPosition_.exchange(0);
-  fadeFramesRemaining_ = 0;
-  fadeFramesTotal_ = 0;
-  endedPending_ = false;
-  currentExhausted_ = false;
-  transitionCompleted_.store(true, std::memory_order_release);
-  if (startPlayback)
-    playing_ = true;
-  return true;
-}
-bool WasapiHost::transition(double seconds) {
-  std::lock_guard lock(controlMutex_);
-  if (!prepared_ || !mixFormat_)
-    return false;
-  preparedPosition_ = 0;
-  if (!playing_)
-    return currentExhausted_ && promotePrepared(true);
-  int frames = std::max(1, (int)(seconds * mixFormat_->nSamplesPerSec));
-  fadeFramesTotal_ = frames;
-  fadeFramesRemaining_ = frames;
+  mailbox_[(mailboxHead_ + mailboxCount_) % mailbox_.size()] = command;
+  ++mailboxCount_;
+  if (audioEvent_)
+    SetEvent(audioEvent_);
   return true;
 }
 
+bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
+                      std::string &error) {
+  std::lock_guard lock(controlMutex_);
+  if (!mixFormat_) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  auto decoder = std::make_unique<DecoderPipeline>();
+  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
+                     mixFormat_->nChannels, error))
+    return false;
+  playing_ = false;
+  if (client_)
+    client_->Stop();
+  const uint64_t token = nextToken_++;
+  trackIds_[token] = trackId;
+  desiredActiveToken_ = token;
+  desiredIncomingToken_ = 0;
+  expectedPromotionToken_ = 0;
+  currentExhausted_ = false;
+  const AudioFormatInfo source = decoder->sourceFormat();
+  const double duration = decoder->duration();
+  if (!enqueue({CommandKind::ClearIncoming}) ||
+      !enqueue({CommandKind::SetActive, decoder.get(), token, 0, 0,
+                source, duration})) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  decoder.release();
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+            jsonEscape(trackId) + "\"}}");
+  return true;
+}
+
+bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
+                         std::string &error) {
+  std::lock_guard lock(controlMutex_);
+  if (!mixFormat_) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  auto decoder = std::make_unique<DecoderPipeline>();
+  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
+                     mixFormat_->nChannels, error))
+    return false;
+  const uint64_t token = nextToken_++;
+  trackIds_[token] = trackId;
+  desiredIncomingToken_ = token;
+  expectedPromotionToken_ = 0;
+  const AudioFormatInfo source = decoder->sourceFormat();
+  const double duration = decoder->duration();
+  if (!enqueue({CommandKind::SetIncoming, decoder.get(), token, 0, 0,
+                source, duration})) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  decoder.release();
+  return true;
+}
+
+void WasapiHost::play() {
+  std::unique_lock lock(controlMutex_);
+  const uint64_t token = desiredActiveToken_;
+  if (!token || !client_)
+    return;
+  lock.unlock();
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(500);
+  while (activeTokenSnapshot_.load() != token &&
+         std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  lock.lock();
+  if (desiredActiveToken_ != token || activeTokenSnapshot_.load() != token ||
+      !client_)
+    return;
+  const HRESULT result = client_->Start();
+  if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
+    return;
+  playing_ = true;
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
+            jsonEscape(trackIds_[desiredActiveToken_]) + "\"}}");
+}
+
+void WasapiHost::pause() {
+  std::lock_guard lock(controlMutex_);
+  playing_ = false;
+  if (client_)
+    client_->Stop();
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+            jsonEscape(trackIds_[desiredActiveToken_]) + "\"}}");
+}
+
+void WasapiHost::seek(double seconds) {
+  std::lock_guard lock(controlMutex_);
+  if (!desiredActiveToken_)
+    return;
+  currentExhausted_ = false;
+  enqueue({CommandKind::SeekActive, nullptr, 0, 0, std::max(0.0, seconds)});
+}
+
+void WasapiHost::setVolume(float volume) {
+  std::lock_guard lock(controlMutex_);
+  volume_ = std::clamp(volume, 0.0f, 1.0f);
+  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
+            std::to_string(volume_.load()) + ",\"isMuted\":" +
+            (muted_ ? "true" : "false") + "}}");
+}
+
+void WasapiHost::setMute(bool muted) {
+  std::lock_guard lock(controlMutex_);
+  muted_ = muted;
+  sendEvent("{\"kind\":\"volume\",\"value\":{\"volume\":" +
+            std::to_string(volume_.load()) + ",\"isMuted\":" +
+            (muted ? "true" : "false") + "}}");
+}
+
+void WasapiHost::setFallback(bool enabled) {
+  std::lock_guard lock(controlMutex_);
+  fallback_ = enabled;
+}
+
+void WasapiHost::setSpectrum(bool enabled) {
+  std::lock_guard lock(controlMutex_);
+  spectrumEnabled_ = enabled;
+}
+
+void WasapiHost::cancelPrepared() {
+  std::lock_guard lock(controlMutex_);
+  desiredIncomingToken_ = 0;
+  expectedPromotionToken_ = 0;
+  enqueue({CommandKind::ClearIncoming});
+}
+
+bool WasapiHost::transition(double seconds) {
+  std::unique_lock lock(controlMutex_);
+  if (!desiredIncomingToken_ || !mixFormat_)
+    return false;
+  if (!playing_) {
+    if (!currentExhausted_)
+      return false;
+    const uint64_t token = desiredIncomingToken_;
+    desiredIncomingToken_ = 0;
+    if (!enqueue({CommandKind::Promote}))
+      return false;
+    lock.unlock();
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(500);
+    while (activeTokenSnapshot_.load() != token &&
+           std::chrono::steady_clock::now() < deadline)
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    lock.lock();
+    if (activeTokenSnapshot_.load() != token || !client_)
+      return false;
+    desiredActiveToken_ = token;
+    const HRESULT result = client_->Start();
+    if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
+      return false;
+    playing_ = true;
+    return true;
+  }
+  const int frames = std::max(1, static_cast<int>(seconds * mixFormat_->nSamplesPerSec));
+  expectedPromotionToken_ = desiredIncomingToken_;
+  desiredIncomingToken_ = 0;
+  return enqueue({CommandKind::BeginFade, nullptr, 0, frames});
+}
 std::string WasapiHost::statusJson() {
+  std::lock_guard lock(controlMutex_);
+  const AudioFormatInfo source{sourceRate_.load(), sourceBits_.load(),
+                               sourceChannels_.load()};
   auto output = mixFormat_ ? formatInfo(mixFormat_) : AudioFormatInfo{};
-  bool resample = source_.sampleRate && source_.sampleRate != output.sampleRate,
-       channels = source_.channels && source_.channels != output.channels;
+  bool resample = source.sampleRate && source.sampleRate != output.sampleRate,
+       channels = source.channels && source.channels != output.channels;
   auto active =
       activeId_.empty() ? "null" : "\"" + jsonEscape(narrow(activeId_)) + "\"";
   return "{\"preferredDeviceId\":\"" + jsonEscape(narrow(preferredId_)) +
          "\",\"activeDeviceId\":" + active + ",\"deviceName\":\"" +
          jsonEscape(narrow(deviceName_)) +
          "\",\"mode\":\"shared\",\"sourceFormat\":{" +
-         "\"sampleRate\":" + std::to_string(source_.sampleRate) +
-         ",\"bitDepth\":" + std::to_string(source_.bitDepth) +
-         ",\"channels\":" + std::to_string(source_.channels) +
+         "\"sampleRate\":" + std::to_string(source.sampleRate) +
+         ",\"bitDepth\":" + std::to_string(source.bitDepth) +
+         ",\"channels\":" + std::to_string(source.channels) +
          "},\"outputFormat\":{\"sampleRate\":" +
          std::to_string(output.sampleRate) +
          ",\"bitDepth\":" + std::to_string(output.bitDepth) +
@@ -459,63 +523,255 @@ void WasapiHost::shutdownAudio() {
   }
 }
 
+void WasapiHost::flushRetired() noexcept {
+  if (!deferredCount_ || !graveyardMutex_.try_lock())
+    return;
+  while (deferredCount_ && graveyardCount_ < graveyard_.size()) {
+    graveyard_[graveyardCount_++] = deferredRetired_[0];
+    for (size_t i = 1; i < deferredCount_; ++i)
+      deferredRetired_[i - 1] = deferredRetired_[i];
+    --deferredCount_;
+  }
+  graveyardMutex_.unlock();
+}
+
+void WasapiHost::retire(DecoderPipeline *decoder) noexcept {
+  if (!decoder)
+    return;
+  if (deferredCount_ == deferredRetired_.size())
+    flushRetired();
+  // processMailbox and promoteIncoming leave room before calling retire.
+  if (deferredCount_ < deferredRetired_.size())
+    deferredRetired_[deferredCount_++] = decoder;
+}
+
+void WasapiHost::reap() {
+  std::array<DecoderPipeline *, 16> pending{};
+  size_t count = 0;
+  {
+    std::lock_guard lock(graveyardMutex_);
+    count = graveyardCount_;
+    for (size_t i = 0; i < count; ++i)
+      pending[i] = graveyard_[i];
+    graveyardCount_ = 0;
+  }
+  for (size_t i = 0; i < count; ++i)
+    delete pending[i];
+}
+
+void WasapiHost::pushRenderEvent(RenderEvent event) noexcept {
+  const size_t head = eventHead_.load(std::memory_order_relaxed);
+  const size_t next = (head + 1) % renderEvents_.size();
+  if (next == eventTail_.load(std::memory_order_acquire))
+    return;
+  renderEvents_[head] = event;
+  eventHead_.store(next, std::memory_order_release);
+}
+
+std::string WasapiHost::trackIdFor(uint64_t token) {
+  std::lock_guard lock(controlMutex_);
+  const auto found = trackIds_.find(token);
+  return found == trackIds_.end() ? std::string{} : found->second;
+}
+
+void WasapiHost::drainRenderEvents() {
+  size_t tail = eventTail_.load(std::memory_order_relaxed);
+  const size_t head = eventHead_.load(std::memory_order_acquire);
+  while (tail != head) {
+    const RenderEvent event = renderEvents_[tail];
+    tail = (tail + 1) % renderEvents_.size();
+    if (event.kind == RenderEventKind::Underrun)
+      continue;
+    if (event.token != activeTokenSnapshot_.load())
+      continue;
+    const std::string trackId = trackIdFor(event.token);
+    if (event.kind == RenderEventKind::Promoted) {
+      {
+        std::lock_guard lock(controlMutex_);
+        if (expectedPromotionToken_ == event.token) {
+          desiredActiveToken_ = event.token;
+          expectedPromotionToken_ = 0;
+        }
+      }
+      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
+                jsonEscape(trackId) + "\"}}");
+    } else if (event.kind == RenderEventKind::DecodeFailed) {
+      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
+                jsonEscape(trackId) +
+                "\",\"error\":{\"code\":\"MEDIA_DECODE\",\"message\":\"The audio stream could not be decoded.\",\"trackId\":\"" +
+                jsonEscape(trackId) + "\"}}}");
+    } else {
+      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"ended\",\"trackId\":\"" +
+                jsonEscape(trackId) + "\"}}");
+    }
+  }
+  eventTail_.store(tail, std::memory_order_release);
+}
+
+void WasapiHost::publishActive() noexcept {
+  activeTokenSnapshot_.store(activeToken_, std::memory_order_release);
+  sourceRate_ = activeSource_.sampleRate;
+  sourceBits_ = activeSource_.bitDepth;
+  sourceChannels_ = activeSource_.channels;
+  activeDurationSnapshot_ = activeDuration_;
+}
+
+void WasapiHost::promoteIncoming() noexcept {
+  if (!incoming_ || deferredCount_ == deferredRetired_.size())
+    return;
+  retire(active_);
+  active_ = incoming_;
+  activeToken_ = incomingToken_;
+  activeSource_ = incomingSource_;
+  activeDuration_ = incomingDuration_;
+  incoming_ = nullptr;
+  incomingToken_ = 0;
+  position_ = preparedPosition_.exchange(0);
+  fadeFramesRemaining_ = 0;
+  fadeFramesTotal_ = 0;
+  currentExhausted_ = false;
+  publishActive();
+  pushRenderEvent({RenderEventKind::Promoted, activeToken_, 0});
+}
+
+void WasapiHost::processMailbox() noexcept {
+  flushRetired();
+  if (deferredCount_ == deferredRetired_.size() || !mailboxMutex_.try_lock())
+    return;
+  if (!mailboxCount_) {
+    mailboxMutex_.unlock();
+    return;
+  }
+  const RenderCommand command = mailbox_[mailboxHead_];
+  if (command.kind == CommandKind::Stop &&
+      deferredCount_ > deferredRetired_.size() - 2) {
+    mailboxMutex_.unlock();
+    return;
+  }
+  mailboxHead_ = (mailboxHead_ + 1) % mailbox_.size();
+  --mailboxCount_;
+  mailboxMutex_.unlock();
+  mailboxAvailable_.notify_one();
+  switch (command.kind) {
+  case CommandKind::SetActive:
+    retire(active_);
+    active_ = command.decoder;
+    activeToken_ = command.token;
+    activeSource_ = command.source;
+    activeDuration_ = command.duration;
+    position_ = 0;
+    currentExhausted_ = false;
+    fadeFramesRemaining_ = 0;
+    fadeFramesTotal_ = 0;
+    publishActive();
+    break;
+  case CommandKind::SetIncoming:
+    retire(incoming_);
+    incoming_ = command.decoder;
+    incomingToken_ = command.token;
+    incomingSource_ = command.source;
+    incomingDuration_ = command.duration;
+    preparedPosition_ = 0;
+    fadeFramesRemaining_ = 0;
+    break;
+  case CommandKind::ClearIncoming:
+    retire(incoming_);
+    incoming_ = nullptr;
+    incomingToken_ = 0;
+    fadeFramesRemaining_ = 0;
+    fadeFramesTotal_ = 0;
+    break;
+  case CommandKind::BeginFade:
+    if (incoming_) {
+      fadeFramesRemaining_ = command.frames;
+      fadeFramesTotal_ = command.frames;
+    }
+    break;
+  case CommandKind::Promote:
+    promoteIncoming();
+    break;
+  case CommandKind::Stop:
+    retire(active_);
+    retire(incoming_);
+    active_ = incoming_ = nullptr;
+    activeToken_ = incomingToken_ = 0;
+    publishActive();
+    break;
+  case CommandKind::SeekActive:
+    if (active_) {
+      active_->seek(command.seconds);
+      position_ = command.seconds;
+    }
+    break;
+  }
+}
+
 void WasapiHost::renderLoopSafe() {
+  const UINT32 channels = mixFormat_->nChannels;
+  std::vector<float> outgoing(static_cast<size_t>(bufferFrames_) * channels);
+  std::vector<float> incoming(outgoing.size());
   DWORD task = 0;
   HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Pro Audio", &task);
-  const UINT32 channels = mixFormat_->nChannels;
-  std::vector<float> outgoing((size_t)bufferFrames_ * channels),
-      incoming(outgoing.size());
   float smoothedGain = 0;
   while (!renderStopping_) {
-    if (WaitForSingleObject(audioEvent_, 250) != WAIT_OBJECT_0 || !playing_ ||
-        !renderClient_)
+    processMailbox();
+    const DWORD wait = WaitForSingleObject(audioEvent_, playing_ ? 50 : 15);
+    processMailbox();
+    if (renderStopping_ || wait != WAIT_OBJECT_0 || !playing_ || !renderClient_)
       continue;
     UINT32 padding = 0;
     if (FAILED(client_->GetCurrentPadding(&padding)))
       continue;
-    UINT32 frames = bufferFrames_ - padding;
+    const UINT32 frames = bufferFrames_ - padding;
     if (!frames)
       continue;
     BYTE *bytes = nullptr;
     if (FAILED(renderClient_->GetBuffer(frames, &bytes)))
       continue;
-    const size_t samples = (size_t)frames * channels;
+    const size_t samples = static_cast<size_t>(frames) * channels;
     std::fill_n(outgoing.data(), samples, 0.0f);
     std::fill_n(incoming.data(), samples, 0.0f);
-    const size_t read = current_ ? current_->read(outgoing.data(), samples) : 0;
-    const bool outgoingEnded = current_ && current_->ended() && read == 0;
+    const size_t read = active_ ? active_->read(outgoing.data(), samples) : 0;
+    if (active_ && read < samples && !active_->ended()) {
+      ++underruns_;
+      pushRenderEvent({RenderEventKind::Underrun, activeToken_, 1});
+    }
+    const bool outgoingEnded = active_ && active_->ended() && read == 0;
     bool promoted = false;
-    int remaining = fadeFramesRemaining_.load(std::memory_order_acquire);
-    if (remaining > 0 && prepared_) {
-      const size_t incomingRead = prepared_->read(incoming.data(), samples);
-      preparedPosition_ =
-          preparedPosition_.load() +
-          (double)incomingRead / channels / mixFormat_->nSamplesPerSec;
-      if (outgoingEnded) {
+    int remaining = fadeFramesRemaining_;
+    if (remaining > 0 && incoming_) {
+      const size_t incomingRead = incoming_->read(incoming.data(), samples);
+      preparedPosition_ = preparedPosition_.load() +
+          static_cast<double>(incomingRead) / channels / mixFormat_->nSamplesPerSec;
+      if (outgoingEnded && deferredCount_ < deferredRetired_.size()) {
         std::copy_n(incoming.data(), samples, outgoing.data());
-        promoted = promotePrepared(false);
+        promoteIncoming();
+        promoted = true;
       } else {
-        const int total = fadeFramesTotal_.load();
-        for (UINT32 frame = 0; frame < frames; frame++) {
-          const float t =
-              1.0f - (float)std::max(0, remaining - (int)frame) / (float)total;
-          for (UINT32 channel = 0; channel < channels; channel++) {
-            const size_t i = (size_t)frame * channels + channel;
+        const int total = fadeFramesTotal_;
+        for (UINT32 frame = 0; frame < frames; ++frame) {
+          const float t = 1.0f - static_cast<float>(std::max(0, remaining -
+              static_cast<int>(frame))) / total;
+          for (UINT32 channel = 0; channel < channels; ++channel) {
+            const size_t i = static_cast<size_t>(frame) * channels + channel;
             outgoing[i] = outgoing[i] * (1.0f - t) + incoming[i] * t;
           }
         }
-        remaining = std::max(0, remaining - (int)frames);
-        fadeFramesRemaining_.store(remaining);
-        if (remaining == 0)
-          promoted = promotePrepared(false);
+        remaining = std::max(0, remaining - static_cast<int>(frames));
+        fadeFramesRemaining_ = remaining;
+        if (remaining == 0 && deferredCount_ < deferredRetired_.size()) {
+          promoteIncoming();
+          promoted = true;
+        } else if (remaining == 0) {
+          fadeFramesRemaining_ = 1;
+        }
       }
     }
     const float target = muted_ ? 0.0f : volume_.load();
-    const size_t ramp = std::max<size_t>(
-        1,
-        std::min(samples, (size_t)mixFormat_->nSamplesPerSec * channels / 200));
-    const float step = (target - smoothedGain) / (float)ramp;
-    for (size_t i = 0; i < samples; i++) {
+    const size_t ramp = std::max<size_t>(1, std::min(samples,
+        static_cast<size_t>(mixFormat_->nSamplesPerSec) * channels / 200));
+    const float step = (target - smoothedGain) / static_cast<float>(ramp);
+    for (size_t i = 0; i < samples; ++i) {
       smoothedGain = i < ramp ? smoothedGain + step : target;
       outgoing[i] *= smoothedGain;
     }
@@ -523,73 +779,62 @@ void WasapiHost::renderLoopSafe() {
       std::copy_n(outgoing.data(), samples, reinterpret_cast<float *>(bytes));
     } else if (mixFormat_->wBitsPerSample == 16) {
       auto *out = reinterpret_cast<int16_t *>(bytes);
-      for (size_t i = 0; i < samples; i++)
-        out[i] = (int16_t)(std::clamp(outgoing[i], -1.0f, 1.0f) * 32767);
+      for (size_t i = 0; i < samples; ++i)
+        out[i] = static_cast<int16_t>(std::clamp(outgoing[i], -1.0f, 1.0f) * 32767);
     } else {
       auto *out = reinterpret_cast<int32_t *>(bytes);
-      for (size_t i = 0; i < samples; i++)
-        out[i] =
-            (int32_t)(std::clamp(outgoing[i], -1.0f, 1.0f) * 2147483647.0f);
+      for (size_t i = 0; i < samples; ++i)
+        out[i] = static_cast<int32_t>(std::clamp(outgoing[i], -1.0f, 1.0f) * 2147483647.0f);
     }
     if (spectrumEnabled_) {
-      for (size_t bin = 0; bin < 128; bin++) {
+      for (size_t bin = 0; bin < 128; ++bin) {
         float peak = 0;
-        for (size_t i = bin * samples / 128; i < (bin + 1) * samples / 128; i++)
+        for (size_t i = bin * samples / 128; i < (bin + 1) * samples / 128; ++i)
           peak = std::max(peak, std::abs(outgoing[i]));
-        spectrum_[bin] = (unsigned char)std::min(255.0f, peak * 255.0f);
+        spectrum_[bin] = static_cast<unsigned char>(std::min(255.0f, peak * 255.0f));
       }
     }
     renderClient_->ReleaseBuffer(frames, 0);
     if (!promoted)
-      position_ =
-          position_.load() + (double)frames / mixFormat_->nSamplesPerSec;
+      position_ = position_.load() + static_cast<double>(read) /
+          channels / mixFormat_->nSamplesPerSec;
     if (outgoingEnded && !promoted) {
       currentExhausted_ = true;
       playing_ = false;
-      endedPending_.store(true, std::memory_order_release);
+      pushRenderEvent({active_->failed() ? RenderEventKind::DecodeFailed
+                                         : RenderEventKind::Ended,
+                       activeToken_, 0});
     }
   }
   if (mmcss)
     AvRevertMmThreadCharacteristics(mmcss);
+  flushRetired();
 }
 
 void WasapiHost::telemetryLoopSafe() {
   int timeDivider = 0;
   while (!stopping_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(34));
-    if (transitionCompleted_.exchange(false, std::memory_order_acq_rel))
-      sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":"
-            "\"" +
-            jsonEscape(completedTrackId_) + "\"}}");
-    if (endedPending_.exchange(false, std::memory_order_acq_rel)) {
-      if (current_ && current_->failed())
-        sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":"
-              "\"" +
-              jsonEscape(currentTrackId_) +
-              "\",\"error\":{\"code\":\"MEDIA_DECODE\",\"message\":\"The audio "
-              "stream could not be decoded.\",\"trackId\":\"" +
-              jsonEscape(currentTrackId_) + "\"}}}");
-      else
-        sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"ended\",\"trackId\":"
-              "\"" +
-              jsonEscape(currentTrackId_) + "\"}}");
-    }
+    drainRenderEvents();
+    reap();
     if (playing_ && ++timeDivider >= 3) {
       timeDivider = 0;
       sendEvent("{\"kind\":\"time\",\"value\":{\"currentTime\":" +
-            std::to_string(position_.load()) + ",\"duration\":" +
-            std::to_string(current_ ? current_->duration() : 0) + "}}", true);
+                std::to_string(position_.load()) + ",\"duration\":" +
+                std::to_string(activeDurationSnapshot_.load()) + "}}", true);
     }
     if (spectrumEnabled_) {
       std::ostringstream out;
       out << "{\"kind\":\"spectrum\",\"bins\":[";
-      for (int i = 0; i < 128; i++) {
+      for (int i = 0; i < 128; ++i) {
         if (i)
           out << ',';
-        out << (int)spectrum_[i].load();
+        out << static_cast<int>(spectrum_[i].load());
       }
       out << "]}";
       sendEvent(out.str(), true, true);
     }
   }
+  drainRenderEvents();
+  reap();
 }
