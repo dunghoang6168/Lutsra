@@ -6,6 +6,7 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
   private backend: AudioEngineBackend = 'chromium';
   private volume = 0.8;
   private muted = false;
+  private fallbackEnabled = false;
   private analysisRequested = false;
   private subscriptions = new Subscription();
   private readonly stateSubject = new BehaviorSubject<PlaybackStateEvent>({ state: 'idle', track: null });
@@ -34,6 +35,8 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
     this.bindActiveEngine();
     this.active.setVolume(this.volume);
     this.active.setMute(this.muted);
+    // Settings restore runs before the saved backend is activated; re-apply here.
+    this.active.setOutputFallbackEnabled(this.fallbackEnabled);
     if (this.analysisRequested) await this.activeAnalysis.prepareFrequencyAnalysis();
   }
   load(track: Track): Promise<void> { return this.active.load(track); }
@@ -47,7 +50,7 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
   transitionTo(track: Track, seconds: number): Promise<boolean> { return this.active.transitionTo(track, seconds); }
   listOutputDevices(): Promise<AudioOutputDevice[]> { return this.active.listOutputDevices(); }
   selectOutputDevice(deviceId: string): Promise<void> { return this.active.selectOutputDevice(deviceId); }
-  setOutputFallbackEnabled(enabled: boolean): void { this.active.setOutputFallbackEnabled(enabled); }
+  setOutputFallbackEnabled(enabled: boolean): void { this.fallbackEnabled = enabled; this.active.setOutputFallbackEnabled(enabled); }
   setOutputMode(mode: OutputMode): Promise<void> { return this.active.setOutputMode(mode); }
   getAudioPathStatus(): Promise<AudioPathStatus> { return this.active.getAudioPathStatus(); }
   subscribeDeviceChanges(listener: () => void): () => void {
