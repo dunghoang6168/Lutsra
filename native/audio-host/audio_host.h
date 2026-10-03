@@ -52,7 +52,7 @@ public:
 private:
   bool initializeEndpoint(const std::wstring& id, std::string& error);
   bool promotePrepared(bool startPlayback);
-  void renderLoop(); void telemetryLoop(); void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
+  void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
   void onDevicesChanged();
   EventSink sink_; std::wstring preferredId_{L"system-default"}, activeId_{L"system-default"}, activeEndpointId_, deviceName_{L"System Default"};
   std::atomic<bool> connected_{true};
