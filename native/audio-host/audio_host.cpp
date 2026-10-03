@@ -446,7 +446,9 @@ void WasapiHost::seek(double seconds) {
   if (!desiredActiveToken_)
     return;
   currentExhausted_ = false;
-  enqueue({CommandKind::SeekActive, nullptr, 0, 0, std::max(0.0, seconds)});
+  const double target = std::max(0.0, seconds);
+  position_ = target;
+  enqueue({CommandKind::SeekActive, nullptr, 0, 0, target});
 }
 
 void WasapiHost::setVolume(float volume) {
@@ -544,7 +546,8 @@ std::string WasapiHost::statusJson() {
          ",\"bitPerfectEligible\":false,\"processingReasons\":[\"WASAPI Shared "
          "engine processing\"" +
          (resample ? ",\"Sample-rate conversion\"" : "") +
-         (channels ? ",\"Channel conversion\"" : "") + "]}";
+         (channels ? ",\"Channel conversion\"" : "") +
+         "],\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
 void WasapiHost::deviceMonitorLoop() {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -747,7 +750,8 @@ void WasapiHost::promoteIncoming() noexcept {
   activeDuration_ = incomingDuration_;
   incoming_ = nullptr;
   incomingToken_ = 0;
-  position_ = preparedPosition_.exchange(0);
+  position_ = active_->position();
+  preparedPosition_ = 0;
   fadeFramesRemaining_ = 0;
   fadeFramesTotal_ = 0;
   currentExhausted_ = false;
@@ -821,7 +825,6 @@ void WasapiHost::processMailbox() noexcept {
   case CommandKind::SeekActive:
     if (active_) {
       active_->seek(command.seconds);
-      position_ = command.seconds;
     }
     break;
   }
@@ -836,8 +839,22 @@ void WasapiHost::renderLoopSafe() {
   float smoothedGain = 0;
   while (!renderStopping_) {
     processMailbox();
+    if (active_) {
+      active_->acknowledgeSeek();
+      if (!active_->seekPending())
+        position_ = active_->position();
+    }
+    if (incoming_)
+      incoming_->acknowledgeSeek();
     const DWORD wait = WaitForSingleObject(audioEvent_, playing_ ? 50 : 15);
     processMailbox();
+    if (active_) {
+      active_->acknowledgeSeek();
+      if (!active_->seekPending())
+        position_ = active_->position();
+    }
+    if (incoming_)
+      incoming_->acknowledgeSeek();
     if (renderStopping_ || wait != WAIT_OBJECT_0 || !playing_ || !renderClient_)
       continue;
     UINT32 padding = 0;
@@ -861,9 +878,8 @@ void WasapiHost::renderLoopSafe() {
     bool promoted = false;
     int remaining = fadeFramesRemaining_;
     if (remaining > 0 && incoming_) {
-      const size_t incomingRead = incoming_->read(incoming.data(), samples);
-      preparedPosition_ = preparedPosition_.load() +
-          static_cast<double>(incomingRead) / channels / mixFormat_->nSamplesPerSec;
+      incoming_->read(incoming.data(), samples);
+      preparedPosition_ = incoming_->position();
       if (outgoingEnded && deferredCount_ < deferredRetired_.size()) {
         std::copy_n(incoming.data(), samples, outgoing.data());
         promoteIncoming();
@@ -916,9 +932,8 @@ void WasapiHost::renderLoopSafe() {
       }
     }
     renderClient_->ReleaseBuffer(frames, 0);
-    if (!promoted)
-      position_ = position_.load() + static_cast<double>(read) /
-          channels / mixFormat_->nSamplesPerSec;
+    if (!promoted && active_ && !active_->seekPending())
+      position_ = active_->position();
     if (outgoingEnded && !promoted) {
       currentExhausted_ = true;
       playing_ = false;

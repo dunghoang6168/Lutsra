@@ -24,7 +24,23 @@ public:
   bool open(const std::wstring& path, int outputRate, int outputChannels, std::string& error);
   bool open(const std::wstring& path, int outputRate, int outputChannels, double startSeconds, std::string& error);
   void seek(double seconds); void stop();
-  size_t read(float* output, size_t sampleCount) noexcept { return ring_.read(output, sampleCount); }
+  size_t read(float* output, size_t sampleCount) noexcept {
+    acknowledgeSeek();
+    if (seekPending())
+      return 0;
+    const size_t count = ring_.readAligned(output, sampleCount, outputChannels_);
+    framesConsumed_.fetch_add(count / outputChannels_, std::memory_order_relaxed);
+    return count;
+  }
+  void acknowledgeSeek() noexcept;
+  bool seekPending() const noexcept {
+    return seekGeneration_.load(std::memory_order_acquire) !=
+           settledSeekGeneration_.load(std::memory_order_acquire);
+  }
+  double position() const noexcept {
+    return outputRate_ ? static_cast<double>(framesConsumed_.load()) / outputRate_ : 0;
+  }
+  size_t bufferedSamples() const noexcept { return ring_.availableSamples(); }
   AudioFormatInfo sourceFormat() const noexcept { return source_; }
   double duration() const noexcept { return duration_; }
   const std::wstring& path() const noexcept { return path_; }
@@ -35,6 +51,9 @@ private:
   SpscFloatRingBuffer ring_{4 * 1024 * 1024};
   std::thread worker_; std::atomic<bool> stopping_{false}, ended_{false}, failed_{false};
   std::atomic<double> pendingSeek_{-1};
+  std::atomic<uint64_t> seekEpoch_{0}, consumerEpoch_{0};
+  std::atomic<uint64_t> seekGeneration_{0}, settledSeekGeneration_{0};
+  std::atomic<uint64_t> seekBaseFrames_{0}, framesConsumed_{0};
   std::mutex wakeMutex_; std::condition_variable wakeCondition_;
   std::wstring path_; int outputRate_{}, outputChannels_{}; AudioFormatInfo source_{}; double duration_{};
 };

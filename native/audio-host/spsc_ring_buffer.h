@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <vector>
@@ -28,7 +29,28 @@ public:
     tail_.store(tail, std::memory_order_release);
     return readCount;
   }
-  void clear() noexcept { tail_.store(head_.load(std::memory_order_acquire), std::memory_order_release); }
+  size_t writeAligned(const float* source, size_t count,
+                      size_t channels) noexcept {
+    const size_t free = data_.size() - 1 - availableSamples();
+    const size_t aligned = std::min(count, free) / channels * channels;
+    return write(source, aligned);
+  }
+  size_t readAligned(float* target, size_t count,
+                     size_t channels) noexcept {
+    const size_t aligned = std::min(count, availableSamples()) / channels * channels;
+    return read(target, aligned);
+  }
+  // Only the consumer may move tail_. The producer must publish a seek epoch
+  // and wait for the consumer to discard old samples.
+  void discardAll() noexcept {
+    tail_.store(head_.load(std::memory_order_acquire),
+                std::memory_order_release);
+  }
+  size_t availableSamples() const noexcept {
+    const auto head = head_.load(std::memory_order_acquire);
+    const auto tail = tail_.load(std::memory_order_acquire);
+    return head >= tail ? head - tail : data_.size() - tail + head;
+  }
 private:
   std::vector<float> data_;
   alignas(64) std::atomic<size_t> head_{0};

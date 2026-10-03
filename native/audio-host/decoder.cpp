@@ -1,6 +1,7 @@
 #include "audio_host.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <vector>
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -41,6 +42,12 @@ bool DecoderPipeline::open(const std::wstring &path, int outputRate,
   ended_ = false;
   failed_ = false;
   pendingSeek_ = std::max(0.0, startSeconds);
+  seekEpoch_ = 0;
+  consumerEpoch_ = 0;
+  seekGeneration_ = 1;
+  settledSeekGeneration_ = 0;
+  seekBaseFrames_ = 0;
+  framesConsumed_ = 0;
   // TODO: retain the probed input to avoid reopening the same file in decodeLoop.
   AVFormatContext *format = nullptr;
   const auto input = utf8(path);
@@ -75,14 +82,23 @@ void DecoderPipeline::stop() {
   wakeCondition_.notify_all();
   if (worker_.joinable())
     worker_.join();
-  ring_.clear();
 }
 void DecoderPipeline::seek(double seconds) {
+  seekGeneration_.fetch_add(1, std::memory_order_release);
   pendingSeek_ = std::max(0.0, seconds);
   ended_ = false;
   failed_ = false;
-  ring_.clear();
   wakeCondition_.notify_all();
+}
+
+void DecoderPipeline::acknowledgeSeek() noexcept {
+  const auto epoch = seekEpoch_.load(std::memory_order_acquire);
+  if (consumerEpoch_.load(std::memory_order_relaxed) == epoch)
+    return;
+  ring_.discardAll();
+  framesConsumed_.store(seekBaseFrames_.load(std::memory_order_relaxed),
+                        std::memory_order_relaxed);
+  consumerEpoch_.store(epoch, std::memory_order_release);
 }
 
 void DecoderPipeline::decodeLoop() {
@@ -125,10 +141,11 @@ void DecoderPipeline::decodeLoop() {
     if (!packet || !frame)
       goto cleanup;
     std::vector<float> converted;
-    const auto writeConverted = [&](size_t count) {
+    const auto writeConverted = [&](const float *samples, size_t count) {
       size_t offset = 0;
       while (!stopping_ && pendingSeek_.load() < 0 && offset < count) {
-        offset += ring_.write(converted.data() + offset, count - offset);
+        offset += ring_.writeAligned(samples + offset, count - offset,
+                                     outputChannels_);
         if (offset < count) {
           std::unique_lock wakeLock(wakeMutex_);
           wakeCondition_.wait_for(wakeLock, std::chrono::milliseconds(2), [this] {
@@ -138,9 +155,12 @@ void DecoderPipeline::decodeLoop() {
       }
     };
     bool draining = false;
+    double trimSeekSeconds = -1;
     while (!stopping_) {
       const double requested = pendingSeek_.exchange(-1);
       if (requested >= 0) {
+        const uint64_t generation = seekGeneration_.load(std::memory_order_acquire);
+        trimSeekSeconds = requested;
         const int64_t timestamp = av_rescale_q(
             static_cast<int64_t>(requested * AV_TIME_BASE), AV_TIME_BASE_Q,
             format->streams[streamIndex]->time_base);
@@ -157,7 +177,18 @@ void DecoderPipeline::decodeLoop() {
           ended_ = true;
           continue;
         }
-        ring_.clear();
+        seekBaseFrames_.store(static_cast<uint64_t>(std::llround(
+                                  requested * outputRate_)),
+                              std::memory_order_relaxed);
+        const auto epoch = seekEpoch_.fetch_add(1, std::memory_order_release) + 1;
+        while (!stopping_ && pendingSeek_.load() < 0 &&
+               consumerEpoch_.load(std::memory_order_acquire) != epoch) {
+          std::unique_lock wakeLock(wakeMutex_);
+          wakeCondition_.wait_for(wakeLock, std::chrono::milliseconds(2));
+        }
+        if (stopping_ || pendingSeek_.load() >= 0)
+          continue;
+        settledSeekGeneration_.store(generation, std::memory_order_release);
         draining = false;
         ended_ = false;
         failed_ = false;
@@ -200,8 +231,21 @@ void DecoderPipeline::decodeLoop() {
             swr_convert(swr, output, maximum,
                         const_cast<const uint8_t **>(frame->extended_data),
                         frame->nb_samples);
-        writeConverted(static_cast<size_t>(std::max(0, frames)) *
-                       outputChannels_);
+        int skipped = 0;
+        if (trimSeekSeconds >= 0 &&
+            frame->best_effort_timestamp != AV_NOPTS_VALUE) {
+          const double frameSeconds = frame->best_effort_timestamp *
+              av_q2d(format->streams[streamIndex]->time_base);
+          skipped = std::clamp(static_cast<int>(std::llround(
+              (trimSeekSeconds - frameSeconds) * outputRate_)), 0,
+              std::max(0, frames));
+          if (skipped < frames)
+            trimSeekSeconds = -1;
+        }
+        writeConverted(converted.data() +
+                           static_cast<size_t>(skipped) * outputChannels_,
+                       static_cast<size_t>(std::max(0, frames - skipped)) *
+                           outputChannels_);
         av_frame_unref(frame);
       }
       if (draining && !gotFrame) {
@@ -215,7 +259,8 @@ void DecoderPipeline::decodeLoop() {
           }
           if (frames == 0)
             break;
-          writeConverted(static_cast<size_t>(frames) * outputChannels_);
+          writeConverted(converted.data(),
+                         static_cast<size_t>(frames) * outputChannels_);
         }
         ended_ = true;
         draining = false;
