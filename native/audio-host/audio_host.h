@@ -22,10 +22,12 @@ class DecoderPipeline {
 public:
   DecoderPipeline(); ~DecoderPipeline();
   bool open(const std::wstring& path, int outputRate, int outputChannels, std::string& error);
+  bool open(const std::wstring& path, int outputRate, int outputChannels, double startSeconds, std::string& error);
   void seek(double seconds); void stop();
   size_t read(float* output, size_t sampleCount) noexcept { return ring_.read(output, sampleCount); }
   AudioFormatInfo sourceFormat() const noexcept { return source_; }
   double duration() const noexcept { return duration_; }
+  const std::wstring& path() const noexcept { return path_; }
   bool ended() const noexcept { return ended_.load(); }
   bool failed() const noexcept { return failed_.load(); }
 private:
@@ -56,6 +58,18 @@ public:
   std::string statusJson();
 private:
   void sendEvent(const std::string& payload, bool lossy = false, bool spectrum = false) { sink_(payload, lossy, spectrum); }
+  struct EndpointBundle {
+    Microsoft::WRL::ComPtr<IMMDevice> device;
+    Microsoft::WRL::ComPtr<IAudioClient3> client;
+    Microsoft::WRL::ComPtr<IAudioRenderClient> renderClient;
+    WAVEFORMATEX* mixFormat{};
+    HANDLE event{};
+    UINT32 bufferFrames{};
+    std::wstring endpointId, name;
+    ~EndpointBundle();
+  };
+  std::unique_ptr<EndpointBundle> createEndpoint(const std::wstring& id, std::string& error);
+  bool swapEndpoint(std::unique_ptr<EndpointBundle> bundle, const std::wstring& id, std::string& error);
   bool initializeEndpoint(const std::wstring& id, std::string& error);
   enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, Stop, SeekActive };
   struct RenderCommand {

@@ -27,6 +27,12 @@ DecoderPipeline::~DecoderPipeline() { stop(); }
 
 bool DecoderPipeline::open(const std::wstring &path, int outputRate,
                            int outputChannels, std::string &error) {
+  return open(path, outputRate, outputChannels, 0.0, error);
+}
+
+bool DecoderPipeline::open(const std::wstring &path, int outputRate,
+                           int outputChannels, double startSeconds,
+                           std::string &error) {
   stop();
   path_ = path;
   outputRate_ = outputRate;
@@ -34,6 +40,7 @@ bool DecoderPipeline::open(const std::wstring &path, int outputRate,
   stopping_ = false;
   ended_ = false;
   failed_ = false;
+  pendingSeek_ = std::max(0.0, startSeconds);
   // TODO: retain the probed input to avoid reopening the same file in decodeLoop.
   AVFormatContext *format = nullptr;
   const auto input = utf8(path);

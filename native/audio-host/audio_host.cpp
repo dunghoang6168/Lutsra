@@ -8,6 +8,7 @@
 #include <ksmedia.h>
 #include <propvarutil.h>
 #include <sstream>
+#include <utility>
 
 using Microsoft::WRL::ComPtr;
 class DeviceNotificationClient final : public IMMNotificationClient {
@@ -201,55 +202,133 @@ std::vector<DeviceInfo> WasapiHost::listDevices() {
   return result;
 }
 
-bool WasapiHost::initializeEndpoint(const std::wstring &id,
-                                    std::string &error) {
-  playing_ = false;
-  shutdownAudio();
-  HRESULT hr;
-  if (id == L"system-default")
-    hr = enumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
-  else
-    hr = enumerator_->GetDevice(id.c_str(), &device_);
-  if (FAILED(hr)) {
+WasapiHost::EndpointBundle::~EndpointBundle() {
+  if (mixFormat)
+    CoTaskMemFree(mixFormat);
+  if (event)
+    CloseHandle(event);
+}
+
+std::unique_ptr<WasapiHost::EndpointBundle>
+WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
+  error.clear();
+  if (!enumerator_) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return false;
+    return nullptr;
   }
-  deviceName_ = friendlyName(device_.Get());
+  auto bundle = std::make_unique<EndpointBundle>();
+  const HRESULT deviceResult = id == L"system-default"
+      ? enumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &bundle->device)
+      : enumerator_->GetDevice(id.c_str(), &bundle->device);
+  if (FAILED(deviceResult)) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return nullptr;
+  }
+  bundle->name = friendlyName(bundle->device.Get());
   LPWSTR endpointId = nullptr;
-  if (SUCCEEDED(device_->GetId(&endpointId))) {
-    activeEndpointId_ = endpointId;
+  if (SUCCEEDED(bundle->device->GetId(&endpointId))) {
+    bundle->endpointId = endpointId;
     CoTaskMemFree(endpointId);
   }
-  if (FAILED(device_->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr,
-                               &client_)) ||
-      FAILED(client_->GetMixFormat(&mixFormat_))) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return false;
+  HRESULT hr = bundle->device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL,
+                                         nullptr, &bundle->client);
+  if (SUCCEEDED(hr))
+    hr = bundle->client->GetMixFormat(&bundle->mixFormat);
+  if (FAILED(hr)) {
+    error = hr == AUDCLNT_E_DEVICE_IN_USE ? "OUTPUT_DEVICE_BUSY"
+                                          : "OUTPUT_DEVICE_UNAVAILABLE";
+    return nullptr;
   }
-  UINT32 defaultPeriod = 0, fundamental = 0, minPeriod = 0, maxPeriod = 0;
-  client_->GetSharedModeEnginePeriod(mixFormat_, &defaultPeriod, &fundamental,
-                                     &minPeriod, &maxPeriod);
-  audioEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-  if (!audioEvent_) {
+  bundle->event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  if (!bundle->event) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return false;
+    return nullptr;
   }
-  hr = client_->InitializeSharedAudioStream(AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                                            defaultPeriod, mixFormat_, nullptr);
-  if (FAILED(hr) || FAILED(client_->SetEventHandle(audioEvent_)) ||
-      FAILED(client_->GetBufferSize(&bufferFrames_)) ||
-      FAILED(client_->GetService(IID_PPV_ARGS(&renderClient_)))) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
-    shutdownAudio();
-    return false;
+  UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
+  hr = bundle->client->GetSharedModeEnginePeriod(bundle->mixFormat,
+       &defaultPeriod, &fundamental, &minimum, &maximum);
+  if (SUCCEEDED(hr))
+    hr = bundle->client->InitializeSharedAudioStream(
+        AUDCLNT_STREAMFLAGS_EVENTCALLBACK, defaultPeriod, bundle->mixFormat,
+        nullptr);
+  if (SUCCEEDED(hr))
+    hr = bundle->client->SetEventHandle(bundle->event);
+  if (SUCCEEDED(hr))
+    hr = bundle->client->GetBufferSize(&bundle->bufferFrames);
+  if (SUCCEEDED(hr))
+    hr = bundle->client->GetService(IID_PPV_ARGS(&bundle->renderClient));
+  if (FAILED(hr)) {
+    error = hr == AUDCLNT_E_DEVICE_IN_USE ? "OUTPUT_DEVICE_BUSY" :
+            hr == AUDCLNT_E_UNSUPPORTED_FORMAT ? "OUTPUT_FORMAT_UNSUPPORTED" :
+            "OUTPUT_DEVICE_UNAVAILABLE";
+    return nullptr;
   }
+  return bundle;
+}
+
+bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
+                              const std::wstring &id, std::string &error) {
+  if (!bundle)
+    return false;
+  const int previousRate = mixFormat_ ? mixFormat_->nSamplesPerSec : 0;
+  const int previousChannels = mixFormat_ ? mixFormat_->nChannels : 0;
+  playing_ = false;
+  shutdownAudio();
+  // No render thread runs now. Apply queued ownership transfers before reopening.
+  while (mailboxCount_) {
+    processMailbox();
+    if (mailboxCount_)
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+  device_ = std::move(bundle->device);
+  client_ = std::move(bundle->client);
+  renderClient_ = std::move(bundle->renderClient);
+  mixFormat_ = std::exchange(bundle->mixFormat, nullptr);
+  audioEvent_ = std::exchange(bundle->event, nullptr);
+  bufferFrames_ = bundle->bufferFrames;
+  activeEndpointId_ = std::move(bundle->endpointId);
+  deviceName_ = std::move(bundle->name);
   activeId_ = id;
   connected_ = true;
+  if (previousRate && (previousRate != mixFormat_->nSamplesPerSec ||
+                       previousChannels != mixFormat_->nChannels)) {
+    fadeFramesRemaining_ = 0;
+    fadeFramesTotal_ = 0;
+    const auto reopen = [&](DecoderPipeline *&slot, AudioFormatInfo &source,
+                            double &duration, double seconds) {
+      if (!slot)
+        return true;
+      auto replacement = std::make_unique<DecoderPipeline>();
+      if (!replacement->open(slot->path(), mixFormat_->nSamplesPerSec,
+                             mixFormat_->nChannels, seconds, error))
+        return false;
+      delete slot;
+      slot = replacement.release();
+      source = slot->sourceFormat();
+      duration = slot->duration();
+      return true;
+    };
+    if (!reopen(active_, activeSource_, activeDuration_, position_.load()) ||
+        !reopen(incoming_, incomingSource_, incomingDuration_,
+                preparedPosition_.load())) {
+      delete active_;
+      delete incoming_;
+      active_ = incoming_ = nullptr;
+      activeToken_ = incomingToken_ = 0;
+      error = error.empty() ? "MEDIA_DECODE" : error;
+    }
+    publishActive();
+  }
   renderStopping_ = false;
   renderThread_ = std::thread(&WasapiHost::renderLoopSafe, this);
-  return true;
+  return error.empty();
 }
-bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
+
+bool WasapiHost::initializeEndpoint(const std::wstring &id,
+                                    std::string &error) {
+  auto bundle = createEndpoint(id, error);
+  return bundle && swapEndpoint(std::move(bundle), id, error);
+}bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
   std::lock_guard lock(controlMutex_);
   if (!initializeEndpoint(id, error))
     return false;

@@ -15,7 +15,8 @@ function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackErr
   const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
   const codes: PlaybackError['code'][] = [
     'FILE_UNAVAILABLE', 'MEDIA_ABORTED', 'MEDIA_NETWORK', 'MEDIA_DECODE', 'MEDIA_UNSUPPORTED', 'MEDIA_UNKNOWN',
-    'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_PERMISSION_DENIED', 'OUTPUT_DEVICE_UNSUPPORTED', 'OUTPUT_MODE_UNSUPPORTED',
+    'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_BUSY', 'OUTPUT_FORMAT_UNSUPPORTED',
+    'OUTPUT_DEVICE_PERMISSION_DENIED', 'OUTPUT_DEVICE_UNSUPPORTED', 'OUTPUT_MODE_UNSUPPORTED',
     'AUDIO_HOST_UNAVAILABLE', 'AUDIO_HOST_PROTOCOL_ERROR', 'PLAYBACK_FAILED',
   ];
   const code: PlaybackError['code'] = typeof rawCode === 'string' && codes.includes(rawCode as PlaybackError['code'])
@@ -27,6 +28,8 @@ function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackErr
     MEDIA_DECODE: 'The audio file is damaged or could not be decoded.',
     MEDIA_UNSUPPORTED: 'This audio format is not supported by the current engine.',
     OUTPUT_DEVICE_UNAVAILABLE: 'The selected audio output is disconnected.',
+    OUTPUT_DEVICE_BUSY: 'The selected audio output is in use. Close the other app and try again.',
+    OUTPUT_FORMAT_UNSUPPORTED: 'The selected audio output format is not supported.',
     OUTPUT_DEVICE_PERMISSION_DENIED: 'Chromium denied permission to use this audio output. Restart Lutsra and try again.',
     OUTPUT_DEVICE_UNSUPPORTED: 'This runtime cannot select a specific audio output.',
     OUTPUT_MODE_UNSUPPORTED: 'This output mode requires the Native Audio Host.',
@@ -534,7 +537,9 @@ export class PlayerService implements OnDestroy {
         await this.persistSettings({ preferredAudioOutputId: this.preferredAudioOutputId(), preferredAudioOutputName: this.preferredAudioOutputName(), outputMode: 'shared' });
       }
     } catch (error) {
-      try { await this.engine.selectOutputDevice(previousId); } catch { /* Keep playback paused if the previous output also disappeared. */ }
+      if (this.audioEngineBackend() !== 'native-shared') {
+        try { await this.engine.selectOutputDevice(previousId); } catch { /* Keep playback paused if the previous output also disappeared. */ }
+      }
       this.playbackNotice.set(normalizePlaybackFailure(error).message);
     }
     await this.refreshAudioOutputState();
@@ -1033,7 +1038,7 @@ export class PlayerService implements OnDestroy {
   }
 
   private async handlePlaybackFailure(failure: PlaybackError): Promise<void> {
-    if (failure.code === 'OUTPUT_DEVICE_UNAVAILABLE' || failure.code === 'OUTPUT_DEVICE_PERMISSION_DENIED' || failure.code === 'OUTPUT_DEVICE_UNSUPPORTED' || failure.code === 'OUTPUT_MODE_UNSUPPORTED') {
+    if (failure.code === 'OUTPUT_DEVICE_UNAVAILABLE' || failure.code === 'OUTPUT_DEVICE_BUSY' || failure.code === 'OUTPUT_FORMAT_UNSUPPORTED' || failure.code === 'OUTPUT_DEVICE_PERMISSION_DENIED' || failure.code === 'OUTPUT_DEVICE_UNSUPPORTED' || failure.code === 'OUTPUT_MODE_UNSUPPORTED') {
       this.playRequested.set(false);
       this.playbackNotice.set(failure.message);
       return;
