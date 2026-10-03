@@ -21,6 +21,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
   private readonly timeSubject = new Subject<PlaybackTimeEvent>();
   private readonly volumeSubject = new BehaviorSubject<PlaybackVolumeEvent>({ volume: 0.8, isMuted: false });
   private readonly interruptionSubject = new Subject<'device-invalidated' | 'device-busy'>();
+  private readonly autoAdvanceSubject = new Subject<Track>();
   private readonly removeEventListener: () => void;
   private readonly removeStateListener: () => void;
 
@@ -29,6 +30,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
   readonly timeUpdate$: Observable<PlaybackTimeEvent> = this.timeSubject.asObservable();
   readonly volumeChange$: Observable<PlaybackVolumeEvent> = this.volumeSubject.asObservable();
   readonly outputInterrupted$: Observable<'device-invalidated' | 'device-busy'> = this.interruptionSubject.asObservable();
+  readonly trackAutoAdvanced$: Observable<Track> = this.autoAdvanceSubject.asObservable();
 
   constructor(private readonly zone: NgZone) {
     if (!this.api) throw new Error('Native Audio Host bridge is unavailable.');
@@ -127,6 +129,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
     void this.api!.setSpectrumEnabled(false);
     this.stateSubject.complete(); this.timeSubject.complete(); this.volumeSubject.complete();
     this.interruptionSubject.complete();
+    this.autoAdvanceSubject.complete();
   }
 
   private handleEvent(event: NativeAudioHostEvent): void {
@@ -142,6 +145,13 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
           this.currentTrack = transition.track;
           this.preparedTrack = null;
           this.settlePendingTransition(true);
+        } else if (event.value.state === 'playing' && trackId && !transition &&
+                   this.preparedTrack?.id === trackId && trackId !== this.currentTrack?.id) {
+          // The host continued gaplessly into the prepared track without a transition request.
+          const track = this.preparedTrack;
+          this.currentTrack = track;
+          this.preparedTrack = null;
+          this.autoAdvanceSubject.next(track);
         }
         if (trackId && trackId !== this.currentTrack?.id) return;
         this.stateSubject.next({ state: event.value.state, track: this.currentTrack, error: event.value.error });

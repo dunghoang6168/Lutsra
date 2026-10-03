@@ -430,7 +430,9 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
     forgetTrack(desiredIncomingToken_);
   rememberTrack(token, trackId, false);
   desiredIncomingToken_ = token;
-  expectedPromotionToken_ = 0;
+  // The render thread may promote a prepared track on its own (gapless), so
+  // its promotion is expected from the moment it is prepared.
+  expectedPromotionToken_ = token;
   const AudioFormatInfo source = decoder->sourceFormat();
   const double duration = decoder->duration();
   if (!enqueue({CommandKind::SetIncoming, decoder.get(), token, 0, 0,
@@ -1140,6 +1142,9 @@ void WasapiHost::renderLoopSafe() {
     const size_t samples = static_cast<size_t>(frames) * channels;
     std::fill_n(outgoing.data(), samples, 0.0f);
     std::fill_n(incoming.data(), samples, 0.0f);
+    // Sample ended() before reading: ended_ is set only after the decoder's last
+    // write, so a short read after it means the stream is truly drained.
+    const bool activeDrained = active_ && active_->ended() && !active_->failed();
     const size_t read = active_ ? active_->read(outgoing.data(), samples) : 0;
     if (active_ && read < samples && !active_->ended() &&
         !active_->seekPending()) {
@@ -1149,7 +1154,14 @@ void WasapiHost::renderLoopSafe() {
     const bool outgoingEnded = active_ && active_->ended() && read == 0;
     bool promoted = false;
     int remaining = fadeFramesRemaining_;
-    if (remaining > 0 && incoming_) {
+    if (remaining <= 0 && incoming_ && activeDrained && read < samples &&
+        deferredCount_ < deferredRetired_.size()) {
+      // Gapless: continue the prepared track inside this same buffer instead of
+      // waiting for an ended -> transition round trip through the renderer.
+      incoming_->read(outgoing.data() + read, samples - read);
+      promoteIncoming();
+      promoted = true;
+    } else if (remaining > 0 && incoming_) {
       incoming_->read(incoming.data(), samples);
       preparedPosition_ = incoming_->position();
       if (outgoingEnded && deferredCount_ < deferredRetired_.size()) {

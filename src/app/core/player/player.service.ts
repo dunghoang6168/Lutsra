@@ -119,6 +119,8 @@ export class PlayerService implements OnDestroy {
           : 'The audio output was interrupted. Lutsra is reconnecting.');
       }));
     }
+    const advanced = this.engine.trackAutoAdvanced$;
+    if (advanced) this.subscriptions.add(advanced.subscribe((track) => this.handleTrackAutoAdvanced(track)));
     const lifecycle = getDesktopApi()?.appLifecycle;
     if (lifecycle) {
       this.subscriptions.add(lifecycle.onSuspend(() => this.handleSuspend()));
@@ -943,6 +945,23 @@ export class PlayerService implements OnDestroy {
     } else {
       void this.advanceAfterEnded();
     }
+  }
+
+  /** The engine already continued gaplessly into the prepared track; follow it in the queue. */
+  private handleTrackAutoAdvanced(track: Track): void {
+    const q = this.queue();
+    let nextIndex = this.preparedCandidateId ? q.findIndex((entry) => entry.id === this.preparedCandidateId) : -1;
+    if (nextIndex < 0 || q[nextIndex].track.id !== track.id) {
+      const current = this.currentIndex();
+      nextIndex = q.findIndex((entry, index) => index > current && entry.track.id === track.id);
+      if (nextIndex < 0) nextIndex = q.findIndex((entry) => entry.track.id === track.id);
+    }
+    this.preparedCandidateId = null;
+    this.preparationReady = false;
+    if (nextIndex >= 0) this.currentIndex.set(nextIndex);
+    this.currentTrack.set(track);
+    this.playRequested.set(true);
+    this.error.set(null);
   }
 
   private async advanceAfterEnded(): Promise<void> {
