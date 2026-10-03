@@ -20,6 +20,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
   private readonly stateSubject = new BehaviorSubject<PlaybackStateEvent>({ state: 'idle', track: null });
   private readonly timeSubject = new Subject<PlaybackTimeEvent>();
   private readonly volumeSubject = new BehaviorSubject<PlaybackVolumeEvent>({ volume: 0.8, isMuted: false });
+  private readonly interruptionSubject = new Subject<'device-invalidated' | 'device-busy'>();
   private readonly removeEventListener: () => void;
   private readonly removeStateListener: () => void;
 
@@ -27,6 +28,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
   readonly stateChange$: Observable<PlaybackStateEvent> = this.stateSubject.asObservable();
   readonly timeUpdate$: Observable<PlaybackTimeEvent> = this.timeSubject.asObservable();
   readonly volumeChange$: Observable<PlaybackVolumeEvent> = this.volumeSubject.asObservable();
+  readonly outputInterrupted$: Observable<'device-invalidated' | 'device-busy'> = this.interruptionSubject.asObservable();
 
   constructor(private readonly zone: NgZone) {
     if (!this.api) throw new Error('Native Audio Host bridge is unavailable.');
@@ -124,6 +126,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
     this.removeStateListener();
     void this.api!.setSpectrumEnabled(false);
     this.stateSubject.complete(); this.timeSubject.complete(); this.volumeSubject.complete();
+    this.interruptionSubject.complete();
   }
 
   private handleEvent(event: NativeAudioHostEvent): void {
@@ -145,6 +148,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
       }
       else if (event.kind === 'time') this.timeSubject.next(event.value);
       else if (event.kind === 'volume') this.volumeSubject.next(event.value);
+      else if (event.kind === 'output-interrupted') this.interruptionSubject.next(event.value.reason);
       else if (event.kind === 'devices-changed') for (const listener of this.deviceListeners) listener();
     });
   }

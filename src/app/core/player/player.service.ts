@@ -109,6 +109,14 @@ export class PlayerService implements OnDestroy {
   constructor() {
     this.initEngineListeners();
     this.subscriptions.add(this.engine.subscribeDeviceChanges(() => void this.handleOutputDevicesChanged()));
+    const interrupted = this.engine.outputInterrupted$;
+    if (interrupted) {
+      this.subscriptions.add(interrupted.subscribe((reason) => {
+        this.playbackNotice.set(reason === 'device-busy'
+          ? 'The selected audio output is in use. Playback has been paused.'
+          : 'The audio output was interrupted. Lutsra is reconnecting.');
+      }));
+    }
     const lifecycle = getDesktopApi()?.appLifecycle;
     if (lifecycle) {
       this.subscriptions.add(lifecycle.onSuspend(() => this.handleSuspend()));

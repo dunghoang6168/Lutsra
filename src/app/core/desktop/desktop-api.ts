@@ -6,6 +6,7 @@ export type NativeAudioHostEvent =
   | { kind: 'time'; value: PlaybackTimeEvent }
   | { kind: 'volume'; value: PlaybackVolumeEvent }
   | { kind: 'devices-changed' }
+  | { kind: 'output-interrupted'; value: { reason: 'device-invalidated' | 'device-busy' } }
   | { kind: 'spectrum'; bins: number[] };
 
 export type NativeMediaKeyAction = 'play-pause' | 'previous' | 'next' | 'stop';

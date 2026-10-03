@@ -11,9 +11,11 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
   private readonly stateSubject = new BehaviorSubject<PlaybackStateEvent>({ state: 'idle', track: null });
   private readonly timeSubject = new Subject<PlaybackTimeEvent>();
   private readonly volumeSubject = new BehaviorSubject<PlaybackVolumeEvent>({ volume: 0.8, isMuted: false });
+  private readonly interruptionSubject = new Subject<'device-invalidated' | 'device-busy'>();
   readonly stateChange$: Observable<PlaybackStateEvent> = this.stateSubject.asObservable();
   readonly timeUpdate$: Observable<PlaybackTimeEvent> = this.timeSubject.asObservable();
   readonly volumeChange$: Observable<PlaybackVolumeEvent> = this.volumeSubject.asObservable();
+  readonly outputInterrupted$: Observable<'device-invalidated' | 'device-busy'> = this.interruptionSubject.asObservable();
 
   constructor(
     private readonly chromium: PlaybackEngine & AudioAnalysisEngine,
@@ -63,5 +65,8 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
     this.subscriptions.add(this.active.stateChange$.subscribe((value) => this.stateSubject.next(value)));
     this.subscriptions.add(this.active.timeUpdate$.subscribe((value) => this.timeSubject.next(value)));
     this.subscriptions.add(this.active.volumeChange$.subscribe((value) => this.volumeSubject.next(value)));
+    const interrupted = this.active.outputInterrupted$;
+    if (interrupted)
+      this.subscriptions.add(interrupted.subscribe((reason) => this.interruptionSubject.next(reason)));
   }
 }

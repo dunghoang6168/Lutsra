@@ -112,6 +112,7 @@ static bool isFloatMixFormat(const WAVEFORMATEX *format) {
 WasapiHost::WasapiHost(EventSink sink) : sink_(std::move(sink)) {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   deviceEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  invalidatedEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                    IID_PPV_ARGS(&enumerator_));
   if (enumerator_) {
@@ -134,6 +135,8 @@ WasapiHost::~WasapiHost() {
   stopping_ = true;
   if (deviceEvent_)
     SetEvent(deviceEvent_);
+  if (invalidatedEvent_)
+    SetEvent(invalidatedEvent_);
   if (deviceMonitorThread_.joinable())
     deviceMonitorThread_.join();
   renderStopping_ = true;
@@ -157,6 +160,8 @@ WasapiHost::~WasapiHost() {
   reap();
   if (deviceEvent_)
     CloseHandle(deviceEvent_);
+  if (invalidatedEvent_)
+    CloseHandle(invalidatedEvent_);
   CoUninitialize();
 }
 
@@ -320,6 +325,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
     publishActive();
   }
   renderStopping_ = false;
+  deviceInvalidated_ = false;
   renderThread_ = std::thread(&WasapiHost::renderLoopSafe, this);
   return error.empty();
 }
@@ -412,7 +418,7 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
 void WasapiHost::play() {
   std::unique_lock lock(controlMutex_);
   const uint64_t token = desiredActiveToken_;
-  if (!token || !client_)
+  if (!token || !client_ || deviceInvalidated_)
     return;
   lock.unlock();
   const auto deadline = std::chrono::steady_clock::now() +
@@ -422,7 +428,7 @@ void WasapiHost::play() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   lock.lock();
   if (desiredActiveToken_ != token || activeTokenSnapshot_.load() != token ||
-      !client_)
+      !client_ || deviceInvalidated_)
     return;
   const HRESULT result = client_->Start();
   if (FAILED(result) && result != AUDCLNT_E_NOT_STOPPED)
@@ -549,15 +555,35 @@ std::string WasapiHost::statusJson() {
          (channels ? ",\"Channel conversion\"" : "") +
          "],\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
+void WasapiHost::signalRenderFailure(HRESULT result) noexcept {
+  if (result != AUDCLNT_E_DEVICE_INVALIDATED &&
+      result != AUDCLNT_E_SERVICE_NOT_RUNNING &&
+      result != AUDCLNT_E_RESOURCES_INVALIDATED)
+    return;
+  if (!deviceInvalidated_.exchange(true, std::memory_order_acq_rel)) {
+    wasPlayingBeforeInvalidation_ = playing_.exchange(false);
+    if (invalidatedEvent_)
+      SetEvent(invalidatedEvent_);
+  }
+}
+
 void WasapiHost::deviceMonitorLoop() {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   while (!stopping_) {
-    if (deviceEvent_)
-      WaitForSingleObject(deviceEvent_, INFINITE);
-    else
+    if (!deviceEvent_ || !invalidatedEvent_) {
       std::this_thread::sleep_for(std::chrono::milliseconds(250));
+      continue;
+    }
+    HANDLE events[] = {invalidatedEvent_, deviceEvent_};
+    const DWORD result = WaitForMultipleObjects(2, events, FALSE, INFINITE);
     if (stopping_)
       break;
+    if (result == WAIT_OBJECT_0) {
+      recoverInvalidated();
+      continue;
+    }
+    if (result != WAIT_OBJECT_0 + 1)
+      continue;
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
     if (!deviceDirty_.exchange(false, std::memory_order_acq_rel))
       continue;
@@ -567,6 +593,66 @@ void WasapiHost::deviceMonitorLoop() {
   CoUninitialize();
 }
 
+void WasapiHost::recoverInvalidated() {
+  const bool resume = wasPlayingBeforeInvalidation_.exchange(false);
+  std::wstring selectedId, endpointId;
+  {
+    std::lock_guard lock(controlMutex_);
+    selectedId = activeId_;
+    endpointId = activeEndpointId_;
+    playing_ = false;
+    const auto found = trackIds_.find(desiredActiveToken_);
+    const std::string trackId = found == trackIds_.end() ? "" : found->second;
+    sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"paused\",\"trackId\":\"" +
+              jsonEscape(trackId) + "\"}}");
+    sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-invalidated\"}}");
+  }
+  std::string failure = "OUTPUT_DEVICE_UNAVAILABLE";
+  for (const int delay : {100, 500, 1500}) {
+    if (stopping_)
+      return;
+    std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+    if (stopping_)
+      return;
+    std::lock_guard lock(controlMutex_);
+    if (activeId_ != selectedId || activeEndpointId_ != endpointId)
+      return;
+    std::string error;
+    auto bundle = createEndpoint(selectedId, error);
+    if (bundle) {
+      const bool sameEndpoint = bundle->endpointId == endpointId;
+      if (swapEndpoint(std::move(bundle), selectedId, error)) {
+        deviceInvalidated_ = false;
+        connected_ = true;
+        if (sameEndpoint && resume && desiredActiveToken_ && client_) {
+          const HRESULT start = client_->Start();
+          if (SUCCEEDED(start) || start == AUDCLNT_E_NOT_STOPPED) {
+            playing_ = true;
+            const auto found = trackIds_.find(desiredActiveToken_);
+            const std::string trackId = found == trackIds_.end() ? "" : found->second;
+            sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"playing\",\"trackId\":\"" +
+                      jsonEscape(trackId) + "\"}}");
+          }
+        }
+        sendEvent("{\"kind\":\"devices-changed\"}");
+        return;
+      }
+    }
+    failure = error == "OUTPUT_DEVICE_BUSY" ? error : "OUTPUT_DEVICE_UNAVAILABLE";
+    if (failure == "OUTPUT_DEVICE_BUSY")
+      sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-busy\"}}");
+  }
+  std::lock_guard lock(controlMutex_);
+  if (activeId_ != selectedId || activeEndpointId_ != endpointId)
+    return;
+  connected_ = failure == "OUTPUT_DEVICE_BUSY";
+  const auto found = trackIds_.find(desiredActiveToken_);
+  const std::string trackId = found == trackIds_.end() ? "" : found->second;
+  sendEvent("{\"kind\":\"state\",\"value\":{\"state\":\"error\",\"trackId\":\"" +
+            jsonEscape(trackId) + "\",\"error\":{\"code\":\"" + failure +
+            "\",\"message\":\"The selected audio output is unavailable.\",\"trackId\":\"" +
+            jsonEscape(trackId) + "\"}}}");
+}
 void WasapiHost::onDevicesChanged() {
   // Called only by the monitor while it owns controlMutex_.
   if (!enumerator_)
@@ -858,14 +944,20 @@ void WasapiHost::renderLoopSafe() {
     if (renderStopping_ || wait != WAIT_OBJECT_0 || !playing_ || !renderClient_)
       continue;
     UINT32 padding = 0;
-    if (FAILED(client_->GetCurrentPadding(&padding)))
+    const HRESULT paddingResult = client_->GetCurrentPadding(&padding);
+    if (FAILED(paddingResult)) {
+      signalRenderFailure(paddingResult);
       continue;
+    }
     const UINT32 frames = bufferFrames_ - padding;
     if (!frames)
       continue;
     BYTE *bytes = nullptr;
-    if (FAILED(renderClient_->GetBuffer(frames, &bytes)))
+    const HRESULT bufferResult = renderClient_->GetBuffer(frames, &bytes);
+    if (FAILED(bufferResult)) {
+      signalRenderFailure(bufferResult);
       continue;
+    }
     const size_t samples = static_cast<size_t>(frames) * channels;
     std::fill_n(outgoing.data(), samples, 0.0f);
     std::fill_n(incoming.data(), samples, 0.0f);
@@ -931,7 +1023,11 @@ void WasapiHost::renderLoopSafe() {
         spectrum_[bin] = static_cast<unsigned char>(std::min(255.0f, peak * 255.0f));
       }
     }
-    renderClient_->ReleaseBuffer(frames, 0);
+    const HRESULT releaseResult = renderClient_->ReleaseBuffer(frames, 0);
+    if (FAILED(releaseResult)) {
+      signalRenderFailure(releaseResult);
+      continue;
+    }
     if (!promoted && active_ && !active_->seekPending())
       position_ = active_->position();
     if (outgoingEnded && !promoted) {

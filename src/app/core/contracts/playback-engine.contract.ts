@@ -25,6 +25,7 @@ export interface PlaybackEngine {
   readonly stateChange$: Observable<PlaybackStateEvent>;
   readonly timeUpdate$: Observable<PlaybackTimeEvent>;
   readonly volumeChange$: Observable<PlaybackVolumeEvent>;
+  readonly outputInterrupted$?: Observable<'device-invalidated' | 'device-busy'>;
 }
 
 export const PLAYBACK_ENGINE = new InjectionToken<PlaybackEngine>('PLAYBACK_ENGINE');
