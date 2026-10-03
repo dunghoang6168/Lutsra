@@ -242,8 +242,12 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
     client_->Stop();
   retired_.reset();
   auto decoder = std::make_unique<DecoderPipeline>();
-  if (!mixFormat_ || !decoder->open(path, mixFormat_->nSamplesPerSec,
-                                    mixFormat_->nChannels, error))
+  if (!mixFormat_) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
+                     mixFormat_->nChannels, error))
     return false;
   current_ = std::move(decoder);
   prepared_.reset();
@@ -266,8 +270,12 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
   std::lock_guard lock(controlMutex_);
   retired_.reset();
   auto decoder = std::make_unique<DecoderPipeline>();
-  if (!mixFormat_ || !decoder->open(path, mixFormat_->nSamplesPerSec,
-                                    mixFormat_->nChannels, error))
+  if (!mixFormat_) {
+    error = "OUTPUT_DEVICE_UNAVAILABLE";
+    return false;
+  }
+  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
+                     mixFormat_->nChannels, error))
     return false;
   prepared_ = std::move(decoder);
   preparedTrackId_ = trackId;

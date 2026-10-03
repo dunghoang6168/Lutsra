@@ -34,6 +34,7 @@ bool DecoderPipeline::open(const std::wstring &path, int outputRate,
   stopping_ = false;
   ended_ = false;
   failed_ = false;
+  // TODO: retain the probed input to avoid reopening the same file in decodeLoop.
   AVFormatContext *format = nullptr;
   const auto input = utf8(path);
   if (avformat_open_input(&format, input.c_str(), nullptr, nullptr) < 0 ||
@@ -117,6 +118,18 @@ void DecoderPipeline::decodeLoop() {
     if (!packet || !frame)
       goto cleanup;
     std::vector<float> converted;
+    const auto writeConverted = [&](size_t count) {
+      size_t offset = 0;
+      while (!stopping_ && pendingSeek_.load() < 0 && offset < count) {
+        offset += ring_.write(converted.data() + offset, count - offset);
+        if (offset < count) {
+          std::unique_lock wakeLock(wakeMutex_);
+          wakeCondition_.wait_for(wakeLock, std::chrono::milliseconds(2), [this] {
+            return stopping_.load() || pendingSeek_.load() >= 0;
+          });
+        }
+      }
+    };
     bool draining = false;
     while (!stopping_) {
       const double requested = pendingSeek_.exchange(-1);
@@ -180,27 +193,31 @@ void DecoderPipeline::decodeLoop() {
             swr_convert(swr, output, maximum,
                         const_cast<const uint8_t **>(frame->extended_data),
                         frame->nb_samples);
-        size_t offset = 0, count = static_cast<size_t>(std::max(0, frames)) *
-                                   outputChannels_;
-        while (!stopping_ && pendingSeek_.load() < 0 && offset < count) {
-          offset += ring_.write(converted.data() + offset, count - offset);
-          if (offset < count) {
-            std::unique_lock wakeLock(wakeMutex_);
-            wakeCondition_.wait_for(
-                wakeLock, std::chrono::milliseconds(2), [this] {
-                  return stopping_.load() || pendingSeek_.load() >= 0;
-                });
-          }
-        }
+        writeConverted(static_cast<size_t>(std::max(0, frames)) *
+                       outputChannels_);
         av_frame_unref(frame);
       }
       if (draining && !gotFrame) {
+        converted.resize(static_cast<size_t>(4096) * outputChannels_);
+        uint8_t *output[] = {reinterpret_cast<uint8_t *>(converted.data())};
+        while (!stopping_ && pendingSeek_.load() < 0) {
+          const int frames = swr_convert(swr, output, 4096, nullptr, 0);
+          if (frames < 0) {
+            failed_ = true;
+            break;
+          }
+          if (frames == 0)
+            break;
+          writeConverted(static_cast<size_t>(frames) * outputChannels_);
+        }
         ended_ = true;
         draining = false;
       }
     }
   }
 cleanup:
+  if (!stopping_)
+    failed_ = true;
   ended_ = !stopping_;
   if (frame)
     av_frame_free(&frame);
