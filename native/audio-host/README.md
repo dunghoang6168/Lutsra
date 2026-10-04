@@ -40,12 +40,17 @@ playback and trigger retries. Only recovery on the same endpoint may resume play
 and a late invalidation is ignored once an endpoint swap (for example to fallback) has
 already replaced the failed client. `play` retries an invalidated endpoint and returns
 an error instead of silently doing nothing.
-The shared buffer allocation is 100 ms; render queues at most 30 ms so a 10 ms
-stop fade can reach the output within the 50 ms control deadline. Playback waits up
-to 1.5 s for 250 ms of decoded data and primes up to 30 ms with silence before Start.
-Pause, load and endpoint swaps fade on render, then acknowledge after padding shows
-the ramp was consumed. Control stops immediately on invalidation or after the bounded
-deadline. Every successful Start resets gain for a fade-in; gapless splices keep gain.
+The shared buffer is 100 ms; normal rendering fills all space available from padding.
+Playback waits up to 1.5 s for 250 ms of decoded data and primes the full WASAPI buffer
+with silence before Start. Pause, load and endpoint swaps append a 10 ms fade after
+queued music, consuming decoder samples only for the fade, then keep writing silence.
+Render acknowledges when padding is no greater than the silence submitted after the
+fade. Control waits at most the endpoint buffer duration + fade duration + 20 ms
+(about 130 ms in Shared), then stops even if render/driver is unresponsive.
+After a completed drain, the consumed decoder position matches the resume point and
+Reset discards only silence. Pause publishes the final time before paused. Timeout or
+invalidation can interrupt the drain. Every successful Start resets gain for a fade-in;
+gapless splices keep gain.
 
 Protocol version remains 1. `output-interrupted` is an event with reason
 `device-invalidated` or `device-busy`. `OUTPUT_DEVICE_UNAVAILABLE`,

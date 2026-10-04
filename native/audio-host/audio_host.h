@@ -124,6 +124,7 @@ private:
   void rememberTrack(uint64_t token, const std::string& trackId, bool resetAll);
   void forgetTrack(uint64_t token);
   void sendState(const char* state);
+  void sendTime(bool lossy);
   void sendError(const std::string& trackId, const std::string& code, const std::string& message);
   bool startPlayback(std::unique_lock<std::mutex>& lock, std::string& error);
   bool enterFallback();
@@ -139,6 +140,8 @@ private:
   // trackIds_ has its own lock so telemetry never waits on controlMutex_.
   std::unordered_map<uint64_t, std::string> trackIds_;
   std::mutex trackIdsMutex_;
+  // Serialize the final pause snapshot with telemetry without controlMutex_.
+  std::mutex timeMutex_;
   uint64_t nextToken_{1}, desiredIncomingToken_{};
   std::atomic<uint64_t> desiredActiveToken_{0}, expectedPromotionToken_{0};
   Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_; Microsoft::WRL::ComPtr<IMMDevice> device_;

@@ -114,7 +114,8 @@ static void writerLoop() {
   }
 }
 static bool sendJson(const std::string &j,
-                     FrameClass frameClass = FrameClass::Critical) {
+                     FrameClass frameClass = FrameClass::Critical,
+                     bool discardPendingTime = false) {
   if (j.empty() || j.size() > kMaxFrame)
     return false;
   bool overflow = false;
@@ -126,9 +127,13 @@ static bool sendJson(const std::string &j,
       latestTime = j;
     else if (frameClass == FrameClass::Spectrum)
       latestSpectrum = j;
-    else if (criticalQueue.size() < kMaxCriticalFrames)
+    else if (criticalQueue.size() < kMaxCriticalFrames) {
+      // A reliable pause snapshot supersedes older lossy time frames; sending
+      // one after paused would move Electron/renderer back from the resume point.
+      if (discardPendingTime)
+        latestTime.reset();
       criticalQueue.push_back(j);
-    else {
+    } else {
       queueOverflow = true;
       overflow = true;
     }
@@ -287,7 +292,8 @@ int wmain(int argc, wchar_t **argv) {
   WasapiHost host([](const std::string &p, bool lossy, bool spectrum) {
     sendJson("{\"protocolVersion\":1,\"type\":\"event\",\"payload\":" + p +
              "}", lossy ? (spectrum ? FrameClass::Spectrum : FrameClass::Time)
-                         : FrameClass::Critical);
+                         : FrameClass::Critical,
+             !lossy && p.starts_with("{\"kind\":\"time\""));
   });
   std::string j;
   while (readFrame(j)) {

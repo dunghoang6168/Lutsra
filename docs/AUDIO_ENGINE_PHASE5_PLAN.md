@@ -115,13 +115,15 @@ Build Audio Host và biên dịch/link executable unit test thành công; không
 
 ### M4 — Dừng không click (1–2 ngày)
 
-**Trạng thái (04/10/2026):** Đã triển khai `FadeOutThenSignal` tuyến tính 10 ms theo stream rate, chờ tối đa 50 ms (kể cả mailbox đầy), áp dụng pause/load/đổi endpoint. Mỗi `Start()` reset gain để fade-in; splice không reset. Lệnh fade quá hạn không tác động tới lần Start sau. Chưa chạy kiểm thử/nghe xác nhận click.
+**Trạng thái (04/10/2026):** Đã triển khai `FadeOutThenSignal` tuyến tính 10 ms theo stream rate, chờ tối đa thời lượng buffer endpoint + fade + 20 ms (kể cả mailbox đầy), áp dụng pause/load/đổi endpoint. Mỗi `Start()` reset gain để fade-in; splice không reset. Lệnh fade quá hạn không tác động tới lần Start sau. Chưa chạy kiểm thử/nghe xác nhận click hay vị trí resume.
 
-**Điều chỉnh khi triển khai:** Shared vẫn cấp buffer 100 ms, nhưng prime/render chỉ xếp trước tối đa 30 ms PCM. Render xác nhận fade hoàn tất khi padding cho thấy đoạn fade đã tiêu thụ, chỉ còn đuôi zero-gain. Nếu tiếp tục xếp đầy 100 ms và xác nhận ngay sau `ReleaseBuffer`, `Stop()` trong 50 ms sẽ cắt âm thanh cũ trước khi nghe được fade. Lượng PCM dự phòng ngắn hơn cần được nghiệm thu underrun trên thiết bị thật; deadline 50 ms vẫn ưu tiên không treo khi driver/render ngừng đáp ứng.
+**Cách dừng sau hiệu chỉnh:** Shared giữ nguyên buffer/prime 100 ms; phát bình thường ghi `bufferFrames_ - padding` frame như Giai đoạn 3. Khi nhận lệnh dừng, đoạn fade 10 ms nối ngay sau PCM đã xếp, có thể trải qua nhiều lần ghi nếu chỗ trống nhỏ hơn đoạn fade. Chỉ đọc decoder đủ số frame còn lại của fade; phần còn lại của buffer và các lần ghi sau chỉ là silence, không đọc thêm active/incoming. Sau `ReleaseBuffer` thành công, cộng số frame silence đã ghi sau fade. Render chỉ báo hoàn tất khi `GetCurrentPadding <= số frame silence đã ghi`, tức toàn bộ nhạc đã xếp và đoạn fade đã tiêu thụ. Control chờ tối đa buffer + fade + 20 ms (Shared ≈ 130 ms; endpoint Exclusive 20 ms ≈ 50 ms), rồi vẫn `Stop()` khi quá hạn/invalidation.
 
-Build Audio Host thành công (0 lỗi; warning hiện có về alignment/signedness). Đã tới điểm dừng 1: M2/M3/M5/M6 chưa triển khai. Chủ dự án chạy `npm run test:audio-host` và `npm run test:audio-host:smoke`, điền mục 8 rồi xác nhận trước đợt 2.
+Vị trí decoder và `position_` dừng tại cuối đoạn fade, không tăng trong lúc ghi silence. Khi drain hoàn tất, nhạc đã tiêu thụ khớp với vị trí resume; `startClientWithSilence()` giữ `Reset()`, chỉ bỏ đuôi silence. Pause gửi snapshot thời gian cuối trước trạng thái paused để renderer/Electron lưu đúng vị trí; snapshot được đồng bộ với telemetry và thay thế các bản tin time lossy cũ đang chờ. Nếu driver/render quá hạn hoặc thiết bị bị invalidated thì không thể bảo đảm toàn bộ PCM đã phát hết.
 
-- Thêm lệnh render `FadeOutThenSignal`: render thread giảm gain về 0 trong khoảng 10 ms, đánh dấu cờ, rồi thread điều khiển mới gọi `Stop()`. Thread điều khiển chờ tối đa 50 ms để không bao giờ treo.
+Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện có về alignment/signedness và header FFmpeg). Chưa chạy kiểm thử. Đã tới điểm dừng 1: M2/M3/M5/M6 chưa triển khai. Chủ dự án chạy `npm run test:audio-host` và `npm run test:audio-host:smoke`, điền mục 8 rồi xác nhận trước đợt 2.
+
+- Thêm lệnh render `FadeOutThenSignal`: render thread giảm gain về 0 trong khoảng 10 ms, sau đó chỉ ghi silence và chờ padding xác nhận fade đã phát hết trước khi đánh dấu cờ. Thread điều khiển chờ tối đa thời lượng buffer + fade + 20 ms rồi gọi `Stop()` để không bao giờ treo.
 - Áp dụng cho: pause, `load` khi đang phát, đổi format, đổi mode, đổi thiết bị.
 - Sau mỗi lần `Start()`, đặt lại `smoothedGain = 0` để có fade-in. Hiện tại resume sau pause không có fade-in.
 - Áp dụng cho cả Shared. Mục này xóa TODO còn lại từ Giai đoạn 3.
@@ -190,6 +192,8 @@ Build Audio Host thành công (0 lỗi; warning hiện có về alignment/signed
 - [ ] foobar2000 giữ TE-C ở Exclusive: Lutsra báo thiết bị bận và vẫn ở trạng thái paused; đóng foobar rồi bấm Play thì phát được.
 - [ ] Tắt quyền Exclusive trong Windows: hiện thông báo `OUTPUT_EXCLUSIVE_NOT_ALLOWED`, không tự phát qua Shared.
 - [ ] Không có pop/click khi pause/resume, chuyển bài cùng rate, chuyển bài khác rate, đổi Shared ↔ Exclusive.
+- [ ] Pause/resume không nhảy vị trí.
+- [ ] Quét thư viện khi đang phát ở Shared: underruns vẫn = 0.
 - [ ] Album cùng rate với crossfade tắt: gapless như ở Shared.
 - [ ] Rút TE-C khi đang Exclusive: nhạc dừng. Nếu fallback bật thì System Default ở Shared và vẫn paused. Cắm lại thì TE-C quay về Exclusive, không tự phát.
 - [ ] Kill host khi đang Exclusive: host khởi động lại ở Exclusive, paused đúng vị trí.
