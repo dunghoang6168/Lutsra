@@ -11,6 +11,13 @@ export interface QueueAddResult {
   skippedCount: number;
 }
 
+export interface QueueSnapshot {
+  queue: QueueEntry[];
+  originalQueue: QueueEntry[];
+  currentIndex: number;
+  isShuffle: boolean;
+}
+
 function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackError {
   const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
   const codes: PlaybackError['code'][] = [
@@ -849,6 +856,30 @@ export class PlayerService implements OnDestroy {
     return true;
   }
 
+  snapshotQueue(): QueueSnapshot {
+    return {
+      queue: [...this.queue()],
+      originalQueue: [...this.originalQueue],
+      currentIndex: this.currentIndex(),
+      isShuffle: this.isShuffle(),
+    };
+  }
+
+  async restoreQueue(snapshot: QueueSnapshot): Promise<void> {
+    this.clearQueue();
+    this.queue.set([...snapshot.queue]);
+    this.originalQueue = [...snapshot.originalQueue];
+    if (this.isShuffle() !== snapshot.isShuffle) {
+      this.isShuffle.set(snapshot.isShuffle);
+      if (!this.restoringSettings) void this.persistSettings({ shuffle: snapshot.isShuffle });
+    }
+    const index = snapshot.currentIndex;
+    if (index >= 0 && index < snapshot.queue.length) {
+      this.currentIndex.set(index);
+      await this.loadCurrentPaused(false);
+    }
+  }
+
   clearQueue(): void {
     this.loadSequence++;
     this.clearPreparedCandidate();
@@ -908,7 +939,7 @@ export class PlayerService implements OnDestroy {
     }
   }
 
-  private async loadCurrentPaused(): Promise<void> {
+  private async loadCurrentPaused(recoverOnFailure = true): Promise<void> {
     this.clearPreparedCandidate();
     const entry = this.currentQueueEntry();
     if (!entry) {
@@ -933,7 +964,7 @@ export class PlayerService implements OnDestroy {
         this.playbackState.set('error');
         const failure = normalizePlaybackFailure(err, track.id);
         this.error.set(failure.message);
-        await this.handlePlaybackFailure(failure);
+        if (recoverOnFailure) await this.handlePlaybackFailure(failure);
       }
     }
   }

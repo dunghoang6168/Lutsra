@@ -1,6 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PlayerService } from '../../../core/player/player.service';
+import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
 import { IconComponent } from '../icon/icon.component';
 
@@ -13,6 +14,7 @@ import { IconComponent } from '../icon/icon.component';
 })
 export class QueueDrawerComponent {
   readonly player = inject(PlayerService);
+  readonly queueActions = inject(QueueActionsService);
   readonly isOpen = input<boolean>(false);
   readonly close = output<void>();
   readonly draggingEntryId = signal<string | null>(null);

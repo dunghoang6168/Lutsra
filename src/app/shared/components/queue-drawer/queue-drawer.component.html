@@ -5,11 +5,12 @@
       [class.open]="isOpen()"
       role="dialog"
       aria-label="Playback Queue"
-      [attr.aria-hidden]="!isOpen()">
+      [attr.aria-hidden]="!isOpen()"
+      [attr.inert]="isOpen() ? null : ''">
       <!-- Drawer Header -->
       <div class="drawer-header">
         <div class="drawer-title-group">
-          <h2>Play Queue</h2>
+          <h2>Queue</h2>
           <span class="queue-count">{{ player.queue().length }} tracks</span>
         </div>
 
@@ -17,7 +18,7 @@
           <button
             type="button"
             class="clear-btn"
-            (click)="player.clearQueue()"
+            (click)="queueActions.clearWithUndo()"
             [disabled]="player.queue().length === 0"
             title="Clear all tracks from queue"
             aria-label="Clear Queue">
@@ -121,7 +122,7 @@
                   class="remove-btn"
                   (click)="onRemove($event, entry.id)"
                   title="Remove from queue"
-                  aria-label="Remove track from queue">
+                  [attr.aria-label]="'Remove from queue: ' + entry.track.title">
                   <app-icon name="x" [size]="14" />
                 </button>
               </div>
