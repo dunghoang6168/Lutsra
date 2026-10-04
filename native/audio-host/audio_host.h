@@ -96,7 +96,7 @@ private:
   std::unique_ptr<EndpointBundle> createEndpoint(const std::wstring& id, std::string& error);
   bool swapEndpoint(std::unique_ptr<EndpointBundle> bundle, const std::wstring& id, std::string& error);
   bool initializeEndpoint(const std::wstring& id, std::string& error);
-  enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, SeekActive };
+  enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, SeekActive, FadeOutThenSignal };
   struct RenderCommand {
     CommandKind kind{};
     DecoderPipeline* decoder{};
@@ -108,7 +108,9 @@ private:
   };
   enum class RenderEventKind { Promoted, Ended, DecodeFailed, Underrun };
   struct RenderEvent { RenderEventKind kind{}; uint64_t token{}; uint64_t value{}; };
-  bool enqueue(RenderCommand command);
+  bool enqueue(RenderCommand command, bool waitForSpace = true);
+  void stopPlaybackWithFade();
+  void resetPlaybackGain() noexcept;
   void processMailbox() noexcept;
   void drainMailboxWhileStopped();
   void retire(DecoderPipeline* decoder) noexcept;
@@ -172,6 +174,13 @@ private:
   std::atomic<uint64_t> endpointGeneration_{0};
   std::atomic<double> preparedPosition_{0};
   std::atomic<int> fadeFramesRemaining_{0}, fadeFramesTotal_{0};
+  std::atomic<bool> fadeOutComplete_{false};
+  std::atomic<uint64_t> playbackGeneration_{0};
+  // Render-owned gain state, separate from the prepared-track crossfade.
+  uint64_t renderPlaybackGeneration_{};
+  float smoothedGain_{}, stopFadeStartGain_{};
+  int stopFadeFramesRemaining_{}, stopFadeFramesTotal_{};
+  UINT32 stopFadeSilentFrames_{};
   std::atomic<bool> currentExhausted_{false};
   std::array<std::atomic<unsigned char>, 128> spectrum_{};
   std::mutex controlMutex_;

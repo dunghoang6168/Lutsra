@@ -115,6 +115,12 @@ Build Audio Host và biên dịch/link executable unit test thành công; không
 
 ### M4 — Dừng không click (1–2 ngày)
 
+**Trạng thái (04/10/2026):** Đã triển khai `FadeOutThenSignal` tuyến tính 10 ms theo stream rate, chờ tối đa 50 ms (kể cả mailbox đầy), áp dụng pause/load/đổi endpoint. Mỗi `Start()` reset gain để fade-in; splice không reset. Lệnh fade quá hạn không tác động tới lần Start sau. Chưa chạy kiểm thử/nghe xác nhận click.
+
+**Điều chỉnh khi triển khai:** Shared vẫn cấp buffer 100 ms, nhưng prime/render chỉ xếp trước tối đa 30 ms PCM. Render xác nhận fade hoàn tất khi padding cho thấy đoạn fade đã tiêu thụ, chỉ còn đuôi zero-gain. Nếu tiếp tục xếp đầy 100 ms và xác nhận ngay sau `ReleaseBuffer`, `Stop()` trong 50 ms sẽ cắt âm thanh cũ trước khi nghe được fade. Lượng PCM dự phòng ngắn hơn cần được nghiệm thu underrun trên thiết bị thật; deadline 50 ms vẫn ưu tiên không treo khi driver/render ngừng đáp ứng.
+
+Build Audio Host thành công (0 lỗi; warning hiện có về alignment/signedness). Đã tới điểm dừng 1: M2/M3/M5/M6 chưa triển khai. Chủ dự án chạy `npm run test:audio-host` và `npm run test:audio-host:smoke`, điền mục 8 rồi xác nhận trước đợt 2.
+
 - Thêm lệnh render `FadeOutThenSignal`: render thread giảm gain về 0 trong khoảng 10 ms, đánh dấu cờ, rồi thread điều khiển mới gọi `Stop()`. Thread điều khiển chờ tối đa 50 ms để không bao giờ treo.
 - Áp dụng cho: pause, `load` khi đang phát, đổi format, đổi mode, đổi thiết bị.
 - Sau mỗi lần `Start()`, đặt lại `smoothedGain = 0` để có fade-in. Hiện tại resume sau pause không có fade-in.

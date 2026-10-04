@@ -136,6 +136,14 @@ static bool isFloatMixFormat(const WAVEFORMATEX *format) {
       KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
 }
 
+static UINT32 sharedQueuedFrames(const WAVEFORMATEX *format, UINT32 capacity) {
+  // Keep the 100 ms allocation, but queue at most 30 ms. Otherwise a 10 ms
+  // pause ramp sits behind 100 ms of old PCM and cannot drain within 50 ms.
+  constexpr UINT32 kSharedQueuedMs = 30;
+  return std::min(capacity, std::max<UINT32>(1,
+      format->nSamplesPerSec * kSharedQueuedMs / 1000));
+}
+
 WasapiHost::WasapiHost(EventSink sink) : sink_(std::move(sink)) {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   deviceEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
@@ -354,7 +362,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
     return false;
   const int previousRate = mixFormat_ ? mixFormat_->nSamplesPerSec : 0;
   const int previousChannels = mixFormat_ ? mixFormat_->nChannels : 0;
-  playing_ = false;
+  stopPlaybackWithFade();
   shutdownAudio();
   // No render thread runs now. Apply queued ownership transfers before reopening.
   drainMailboxWhileStopped();
@@ -440,15 +448,21 @@ bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
   return true;
 }
 
-bool WasapiHost::enqueue(RenderCommand command) {
+bool WasapiHost::enqueue(RenderCommand command, bool waitForSpace) {
   // Callers hold controlMutex_, so renderThread_ cannot change underneath.
   if (!renderThread_.joinable())
     return false;
-  std::unique_lock lock(mailboxMutex_);
-  if (!mailboxAvailable_.wait_for(lock, std::chrono::seconds(2), [this] {
+  std::unique_lock lock(mailboxMutex_, std::defer_lock);
+  if (!waitForSpace) {
+    if (!lock.try_lock() || mailboxCount_ == mailbox_.size())
+      return false;
+  } else {
+    lock.lock();
+    if (!mailboxAvailable_.wait_for(lock, std::chrono::seconds(2), [this] {
         return mailboxCount_ < mailbox_.size() || stopping_ || renderStopping_;
       }))
-    return false;
+      return false;
+  }
   if (stopping_ || renderStopping_)
     return false;
   mailbox_[(mailboxHead_ + mailboxCount_) % mailbox_.size()] = command;
@@ -458,12 +472,49 @@ bool WasapiHost::enqueue(RenderCommand command) {
   return true;
 }
 
-bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
-                      std::string &error) {
-  std::lock_guard lock(controlMutex_);
+void WasapiHost::stopPlaybackWithFade() {
+  // Requires controlMutex_. Telemetry and render never take that lock.
+  if (playing_ && client_ && mixFormat_ && renderThread_.joinable() &&
+      !renderStopping_ && !deviceInvalidated_) {
+    fadeOutComplete_.store(false, std::memory_order_release);
+    const int frames = std::max(1, static_cast<int>(mixFormat_->nSamplesPerSec / 100));
+    const RenderCommand command{CommandKind::FadeOutThenSignal, nullptr,
+                                playbackGeneration_.load(), frames};
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(50);
+    bool requested = false;
+    while (std::chrono::steady_clock::now() < deadline && playing_ &&
+           !stopping_ && !renderStopping_ && !deviceInvalidated_) {
+      // The ordinary mailbox wait is 2 s; pause must include mailbox contention
+      // in its 50 ms budget and must also work when render has stopped.
+      if (!requested)
+        requested = enqueue(command, false);
+      if (requested && fadeOutComplete_.load(std::memory_order_acquire))
+        break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
   playing_ = false;
   if (client_)
     client_->Stop();
+}
+
+void WasapiHost::resetPlaybackGain() noexcept {
+  const uint64_t generation = playbackGeneration_.load(std::memory_order_acquire);
+  if (generation == renderPlaybackGeneration_)
+    return;
+  renderPlaybackGeneration_ = generation;
+  smoothedGain_ = 0;
+  stopFadeStartGain_ = 0;
+  stopFadeFramesRemaining_ = stopFadeFramesTotal_ = 0;
+  stopFadeSilentFrames_ = 0;
+  fadeOutComplete_.store(false, std::memory_order_release);
+}
+
+bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
+                      std::string &error) {
+  std::lock_guard lock(controlMutex_);
+  stopPlaybackWithFade();
   if (!mixFormat_) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
     return false;
@@ -529,13 +580,19 @@ bool WasapiHost::startClientWithSilence() {
   client_->Stop();
   if (FAILED(client_->Reset()))
     return false;
+  const UINT32 frames = sharedQueuedFrames(mixFormat_, bufferFrames_);
   BYTE *bytes = nullptr;
-  if (FAILED(renderClient_->GetBuffer(bufferFrames_, &bytes)))
+  if (FAILED(renderClient_->GetBuffer(frames, &bytes)))
     return false;
-  if (FAILED(renderClient_->ReleaseBuffer(bufferFrames_,
+  if (FAILED(renderClient_->ReleaseBuffer(frames,
                                            AUDCLNT_BUFFERFLAGS_SILENT)))
     return false;
-  return SUCCEEDED(client_->Start());
+  if (FAILED(client_->Start()))
+    return false;
+  // Render observes this only after playing_ is published. Splices never Start,
+  // so a prepared track keeps the current gain and remains gapless.
+  playbackGeneration_.fetch_add(1, std::memory_order_release);
+  return true;
 }
 
 bool WasapiHost::play(std::string &error) {
@@ -591,10 +648,7 @@ bool WasapiHost::startPlayback(std::unique_lock<std::mutex> &lock,
 
 void WasapiHost::pause() {
   std::lock_guard lock(controlMutex_);
-  playing_ = false;
-  if (client_)
-    client_->Stop();
-  // TODO: ramp the last 5-10 ms before Stop to avoid a possible pause click.
+  stopPlaybackWithFade();
   sendState("paused");
 }
 
@@ -859,9 +913,7 @@ void WasapiHost::onDevicesChanged() {
   if (!enumerator_)
     return;
   const auto pauseForChange = [this] {
-    playing_ = false;
-    if (client_)
-      client_->Stop();
+    stopPlaybackWithFade();
     sendState("paused");
   };
   const auto reinitIfFormatChanged = [&] {
@@ -1123,6 +1175,7 @@ void WasapiHost::promoteIncoming() noexcept {
 }
 
 void WasapiHost::processMailbox() noexcept {
+  resetPlaybackGain();
   flushRetired();
   if (deferredCount_ == deferredRetired_.size() || !mailboxMutex_.try_lock())
     return;
@@ -1180,6 +1233,14 @@ void WasapiHost::processMailbox() noexcept {
         position_ = command.seconds;
     }
     break;
+  case CommandKind::FadeOutThenSignal:
+    // A command left queued after a timeout must not fade a later Start.
+    if (command.token == playbackGeneration_.load(std::memory_order_acquire) && playing_) {
+      stopFadeFramesRemaining_ = stopFadeFramesTotal_ = command.frames;
+      stopFadeStartGain_ = smoothedGain_;
+      stopFadeSilentFrames_ = 0;
+    }
+    break;
   }
 }
 
@@ -1189,7 +1250,6 @@ void WasapiHost::renderLoopSafe() {
   std::vector<float> incoming(outgoing.size());
   DWORD task = 0;
   HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Pro Audio", &task);
-  float smoothedGain = 0;
   while (!renderStopping_) {
     processMailbox();
     if (active_) {
@@ -1220,13 +1280,24 @@ void WasapiHost::renderLoopSafe() {
       incoming_->acknowledgeSeek();
     if (renderStopping_ || wait != WAIT_OBJECT_0 || !playing_ || !renderClient_)
       continue;
+    resetPlaybackGain();
+    if (fadeOutComplete_.load(std::memory_order_acquire))
+      continue; // Freeze consumption until control calls Stop.
     UINT32 padding = 0;
     const HRESULT paddingResult = client_->GetCurrentPadding(&padding);
     if (FAILED(paddingResult)) {
       signalRenderFailure(paddingResult);
       continue;
     }
-    const UINT32 frames = bufferFrames_ - padding;
+    if (stopFadeFramesTotal_ > 0 && stopFadeFramesRemaining_ == 0) {
+      // ReleaseBuffer submits PCM; it does not mean the DAC has heard it yet.
+      // Wait until only the zero-gain tail remains before acknowledging Stop.
+      if (padding <= stopFadeSilentFrames_)
+        fadeOutComplete_.store(true, std::memory_order_release);
+      continue;
+    }
+    const UINT32 queued = sharedQueuedFrames(mixFormat_, bufferFrames_);
+    const UINT32 frames = padding < queued ? queued - padding : 0;
     if (!frames)
       continue;
     BYTE *bytes = nullptr;
@@ -1248,9 +1319,10 @@ void WasapiHost::renderLoopSafe() {
       pushRenderEvent({RenderEventKind::Underrun, activeToken_, 1});
     }
     const bool outgoingEnded = active_ && active_->ended() && read == 0;
+    const bool stoppingPlayback = stopFadeFramesTotal_ > 0;
     bool promoted = false;
     int remaining = fadeFramesRemaining_;
-    if (remaining <= 0 && incoming_ && activeDrained && read < samples &&
+    if (!stoppingPlayback && remaining <= 0 && incoming_ && activeDrained && read < samples &&
         deferredCount_ < deferredRetired_.size()) {
       // Gapless: continue the prepared track inside this same buffer instead of
       // waiting for an ended -> transition round trip through the renderer.
@@ -1260,7 +1332,7 @@ void WasapiHost::renderLoopSafe() {
     } else if (remaining > 0 && incoming_) {
       incoming_->read(incoming.data(), samples);
       preparedPosition_ = incoming_->position();
-      if (outgoingEnded && deferredCount_ < deferredRetired_.size()) {
+      if (!stoppingPlayback && outgoingEnded && deferredCount_ < deferredRetired_.size()) {
         std::copy_n(incoming.data(), samples, outgoing.data());
         promoteIncoming();
         promoted = true;
@@ -1276,7 +1348,7 @@ void WasapiHost::renderLoopSafe() {
         }
         remaining = std::max(0, remaining - static_cast<int>(frames));
         fadeFramesRemaining_ = remaining;
-        if (remaining == 0 && deferredCount_ < deferredRetired_.size()) {
+        if (!stoppingPlayback && remaining == 0 && deferredCount_ < deferredRetired_.size()) {
           promoteIncoming();
           promoted = true;
         } else if (remaining == 0) {
@@ -1285,12 +1357,20 @@ void WasapiHost::renderLoopSafe() {
       }
     }
     const float target = muted_ ? 0.0f : volume_.load();
-    const size_t ramp = std::max<size_t>(1, std::min(samples,
-        static_cast<size_t>(mixFormat_->nSamplesPerSec) * channels / 200));
-    const float step = (target - smoothedGain) / static_cast<float>(ramp);
-    for (size_t i = 0; i < samples; ++i) {
-      smoothedGain = i < ramp ? smoothedGain + step : target;
-      outgoing[i] *= smoothedGain;
+    const UINT32 ramp = std::max<UINT32>(1, std::min<UINT32>(frames, mixFormat_->nSamplesPerSec / 200));
+    const float step = (target - smoothedGain_) / static_cast<float>(ramp);
+    for (UINT32 frame = 0; frame < frames; ++frame) {
+      if (stoppingPlayback) {
+        stopFadeFramesRemaining_ = std::max(0, stopFadeFramesRemaining_ - 1);
+        smoothedGain_ = stopFadeStartGain_ *
+            static_cast<float>(stopFadeFramesRemaining_) / stopFadeFramesTotal_;
+        if (stopFadeFramesRemaining_ == 0)
+          ++stopFadeSilentFrames_;
+      } else {
+        smoothedGain_ = frame + 1 < ramp ? smoothedGain_ + step : target;
+      }
+      for (UINT32 channel = 0; channel < channels; ++channel)
+        outgoing[static_cast<size_t>(frame) * channels + channel] *= smoothedGain_;
     }
     writeSamples(outgoing.data(), samples, mixFormat_, bytes);
     if (spectrumEnabled_) {
@@ -1308,7 +1388,7 @@ void WasapiHost::renderLoopSafe() {
     }
     if (!promoted && active_ && !active_->seekPending())
       position_ = active_->position();
-    if (outgoingEnded && !promoted) {
+    if (outgoingEnded && !promoted && !stoppingPlayback) {
       currentExhausted_ = true;
       playing_ = false;
       pushRenderEvent({active_->failed() ? RenderEventKind::DecodeFailed
