@@ -50,3 +50,11 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Agent skills / tooling (local installs)
+/.agent/
+/.agents/
+/.claude/
+/.codex/
+/.gemini/
+/.impeccable/
