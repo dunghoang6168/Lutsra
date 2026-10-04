@@ -42,6 +42,8 @@ export class AlbumsComponent implements OnInit {
   readonly allTracks = signal<Track[]>([]);
   readonly isLoading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
+  readonly addingFolder = signal(false);
+  readonly addFolderError = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
   readonly sortBy = signal<AlbumSort>('title');
   readonly sortDirection = signal<SortDirection>('asc');
@@ -110,6 +112,20 @@ export class AlbumsComponent implements OnInit {
     });
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadAlbums());
     await this.loadAlbums();
+  }
+
+  async onAddFolder(): Promise<void> {
+    if (this.addingFolder()) return;
+    this.addingFolder.set(true);
+    this.addFolderError.set(null);
+    try {
+      const added = await this.libraryGateway.selectAndAddMusicFolders();
+      if (added.length) await this.loadAlbums();
+    } catch (error) {
+      this.addFolderError.set(error instanceof Error ? error.message : 'Failed to add music folder');
+    } finally {
+      this.addingFolder.set(false);
+    }
   }
 
   async loadAlbums(): Promise<void> {

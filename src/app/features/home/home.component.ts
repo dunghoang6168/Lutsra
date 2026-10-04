@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
@@ -8,9 +8,8 @@ import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { compareAlbumsByTitle } from '../library-browse';
-import { getDesktopApi } from '../../core/desktop/desktop-api';
 
-export function featuredAlbumColumns(width: number, minCardWidth = 160, gap = 16): number {
+export function albumColumns(width: number, minCardWidth = 160, gap = 16): number {
   return Math.max(1, Math.floor((width + gap) / (minCardWidth + gap)));
 }
 
@@ -21,39 +20,50 @@ export function featuredAlbumColumns(width: number, minCardWidth = 160, gap = 16
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss'
 })
-export class HomeComponent implements OnInit, AfterViewInit {
+export class HomeComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   readonly player = inject(PlayerService);
   private readonly queueActions = inject(QueueActionsService);
-  readonly isDesktop = Boolean(getDesktopApi());
   readonly errorMessage = signal<string | null>(null);
+  readonly addingFolder = signal(false);
+  readonly isLoading = signal(true);
+  readonly libraryLoadError = signal<string | null>(null);
 
   readonly tracksCount = signal<number>(0);
   readonly albumsCount = signal<number>(0);
   readonly artistsCount = signal<number>(0);
   readonly foldersCount = signal<number>(0);
   readonly allAlbums = signal<Album[]>([]);
-  readonly featuredColumnCount = signal(1);
-  readonly featuredAlbums = computed(() => [...this.allAlbums()].sort(compareAlbumsByTitle).slice(0, this.featuredColumnCount()));
+  readonly albumColumnCount = signal(1);
+  readonly albumsAZ = computed(() => [...this.allAlbums()].sort(compareAlbumsByTitle).slice(0, this.albumColumnCount()));
   readonly playlists = signal<Playlist[]>([]);
   private allTracks: Track[] = [];
-  @ViewChild('albumsGrid', { static: true }) private albumsGrid!: ElementRef<HTMLElement>;
+  private albumsGridElement: HTMLElement | null = null;
+  private albumsObserver: ResizeObserver | null = null;
 
-  ngAfterViewInit(): void {
-    const grid = this.albumsGrid.nativeElement;
+  constructor() {
+    this.destroyRef.onDestroy(() => this.albumsObserver?.disconnect());
+  }
+
+  @ViewChild('albumsGrid') private set albumsGrid(element: ElementRef<HTMLElement> | undefined) {
+    this.albumsObserver?.disconnect();
+    this.albumsObserver = null;
+    this.albumsGridElement = element?.nativeElement ?? null;
+    const grid = this.albumsGridElement;
+    if (!grid) return;
     const updateColumns = () => {
+      if (this.albumsGridElement !== grid) return;
       const style = getComputedStyle(grid);
-      const minWidth = Number.parseFloat(style.getPropertyValue('--featured-album-min-width')) || 160;
+      const minWidth = Number.parseFloat(style.getPropertyValue('--album-min-width')) || 160;
       const gap = Number.parseFloat(style.columnGap) || 0;
-      this.featuredColumnCount.set(featuredAlbumColumns(grid.clientWidth, minWidth, gap));
+      this.albumColumnCount.set(albumColumns(grid.clientWidth, minWidth, gap));
     };
-    updateColumns();
+    queueMicrotask(updateColumns);
     if (typeof ResizeObserver === 'function') {
-      const observer = new ResizeObserver(updateColumns);
-      observer.observe(grid);
-      this.destroyRef.onDestroy(() => observer.disconnect());
+      this.albumsObserver = new ResizeObserver(updateColumns);
+      this.albumsObserver.observe(grid);
     }
   }
 
@@ -69,27 +79,40 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   async onAddFolder(): Promise<void> {
+    if (this.addingFolder()) return;
+    this.addingFolder.set(true);
     this.errorMessage.set(null);
     try {
-      await this.libraryGateway.selectAndAddMusicFolders();
+      const added = await this.libraryGateway.selectAndAddMusicFolders();
+      if (added.length) await this.loadHome();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to add music folder');
+    } finally {
+      this.addingFolder.set(false);
     }
   }
 
-  private async loadHome(): Promise<void> {
-    const [lib, pls] = await Promise.all([
-      this.libraryGateway.getLibrary(),
-      this.playlistGateway.getPlaylists(),
-    ]);
+  async loadHome(): Promise<void> {
+    this.isLoading.set(true);
+    this.libraryLoadError.set(null);
+    try {
+      const [lib, pls] = await Promise.all([
+        this.libraryGateway.getLibrary(),
+        this.playlistGateway.getPlaylists(),
+      ]);
 
-    this.allTracks = lib.tracks;
-    this.tracksCount.set(lib.tracks.length);
-    this.albumsCount.set(lib.albums.length);
-    this.artistsCount.set(lib.artists.length);
-    this.foldersCount.set(lib.folders.length);
-    this.allAlbums.set(lib.albums);
-    this.playlists.set(pls);
+      this.allTracks = lib.tracks;
+      this.tracksCount.set(lib.tracks.length);
+      this.albumsCount.set(lib.albums.length);
+      this.artistsCount.set(lib.artists.length);
+      this.foldersCount.set(lib.folders.length);
+      this.allAlbums.set(lib.albums);
+      this.playlists.set(pls);
+    } catch (error) {
+      this.libraryLoadError.set(error instanceof Error ? error.message : 'Failed to load music library');
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   onPlayAlbum(event: MouseEvent, album: Album): void {

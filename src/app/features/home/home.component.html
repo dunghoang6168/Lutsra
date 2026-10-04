@@ -1,14 +1,21 @@
 
     <div class="home-page">
-      <!-- Welcome Hero -->
-      <!-- <section class="welcome-hero">
-        <div class="hero-text">
-          <h1>Welcome to Lutsra</h1>
-          <p class="subtitle">Your high-fidelity offline desktop music player. Browse by tags, artist discographies, or filesystem hierarchy.</p>
-        </div>
-      </section> -->
-
       <!-- Library Statistics Counter Cards -->
+      @if (isLoading()) {
+        <div class="state-loading">Loading your music library...</div>
+      } @else if (libraryLoadError()) {
+        <div class="state-error" role="alert">
+          <p>{{ libraryLoadError() }}</p>
+          <button type="button" class="btn-retry" (click)="loadHome()">Retry</button>
+        </div>
+      } @else if (tracksCount() === 0) {
+        <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
+          <h2 id="emptyLibraryTitle">Add music to your library</h2>
+          <p>Choose a folder to find your songs, albums, and artists.</p>
+          <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+          @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
+        </section>
+      } @else {
       <section class="stats-row">
         <a routerLink="/songs" class="stat-card">
           <div class="stat-icon-box songs">
@@ -51,24 +58,16 @@
         </a>
       </section>
 
-      @if (isDesktop && foldersCount() === 0) {
-        <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
-          <h2 id="emptyLibraryTitle">Add music to your library</h2>
-          <p>Choose a folder to find your songs, albums, and artists.</p>
-          <button type="button" (click)="onAddFolder()">Add Music Folder</button>
-          @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
-        </section>
-      }
-
-      <!-- Featured Albums Section -->
+      <!-- Albums A–Z Section -->
+      @if (albumsAZ().length > 0) {
       <section class="home-section">
         <div class="section-header">
-          <h2>Featured Albums</h2>
+          <h2>Albums A–Z</h2>
           <a routerLink="/albums" class="see-all-link">See All &rarr;</a>
         </div>
 
         <div class="albums-grid" #albumsGrid>
-          @for (album of featuredAlbums(); track album.id) {
+          @for (album of albumsAZ(); track album.id) {
             <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
               <div class="cover-wrapper">
                 @if (album.artwork) {
@@ -102,8 +101,10 @@
           }
         </div>
       </section>
+      }
 
       <!-- Quick Playlists Section -->
+      @if (playlists().length > 0) {
       <section class="home-section">
         <div class="section-header">
           <h2>Playlists</h2>
@@ -120,4 +121,6 @@
           }
         </div>
       </section>
+      }
+      }
     </div>

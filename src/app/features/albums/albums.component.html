@@ -64,6 +64,12 @@
           <app-icon name="disc" [size]="48" class="empty-icon" />
           <p class="empty-title">No albums found</p>
           <p class="empty-desc">{{ hasFilters() ? 'No albums match your search or filters.' : 'Your music library is empty.' }}</p>
+          @if (hasFilters()) {
+            <button type="button" class="btn btn-secondary" (click)="searchQuery.set(''); clearFilters()">Clear filters</button>
+          } @else if (allTracks().length === 0) {
+            <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+            @if (addFolderError()) { <p class="error-desc" role="alert">{{ addFolderError() }}</p> }
+          }
         </div>
       } @else {
         <div class="albums-grid">

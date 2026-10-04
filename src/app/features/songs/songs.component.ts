@@ -168,6 +168,22 @@ export class SongsComponent implements OnInit {
   }
 
   readonly errorMessage = signal<string | null>(null);
+  readonly addingFolder = signal(false);
+  readonly addFolderError = signal<string | null>(null);
+
+  async onAddFolder(): Promise<void> {
+    if (this.addingFolder()) return;
+    this.addingFolder.set(true);
+    this.addFolderError.set(null);
+    try {
+      const added = await this.libraryGateway.selectAndAddMusicFolders();
+      if (added.length) await this.loadSongs();
+    } catch (error) {
+      this.addFolderError.set(error instanceof Error ? error.message : 'Failed to add music folder');
+    } finally {
+      this.addingFolder.set(false);
+    }
+  }
 
   async ngOnInit(): Promise<void> {
     let wasScanning = false;
