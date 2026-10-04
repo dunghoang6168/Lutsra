@@ -259,6 +259,7 @@ WasapiHost::probeFormatsLocked(const std::wstring &endpointId) {
                               &client)))
     return {}; // A transient activation failure must not poison the cache.
   std::vector<SupportedFormatInfo> formats;
+  bool cacheable = true;
   constexpr int rates[] = {44100, 48000, 88200, 96000, 176400, 192000};
   constexpr int containers[][2] = {{32, 24}, {24, 24}, {32, 32}, {16, 16}};
   for (const int rate : rates) {
@@ -276,12 +277,16 @@ WasapiHost::probeFormatsLocked(const std::wstring &endpointId) {
       format.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
       // IsFormatSupported is only a hint; Initialize is the final authority,
       // especially with USB drivers that over-report Exclusive support.
-      if (client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE,
-                                     &format.Format, nullptr) == S_OK)
+      const HRESULT supported = client->IsFormatSupported(
+          AUDCLNT_SHAREMODE_EXCLUSIVE, &format.Format, nullptr);
+      if (supported == S_OK)
         formats.push_back({rate, container[1], 2, container[0]});
+      else if (supported != S_FALSE && supported != AUDCLNT_E_UNSUPPORTED_FORMAT)
+        cacheable = false; // Transient (e.g. invalidated); probe again next time.
     }
   }
-  formatCache_[id] = formats;
+  if (cacheable)
+    formatCache_[id] = formats;
   return formats;
 }
 
