@@ -10,7 +10,7 @@
     <ClCompile><LanguageStandard>stdcpp20</LanguageStandard><WarningLevel>Level4</WarningLevel><TreatWarningAsError>false</TreatWarningAsError><PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>$(FfmpegRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary></ClCompile>
     <Link><SubSystem>Windows</SubSystem><EntryPointSymbol>wmainCRTStartup</EntryPointSymbol><AdditionalLibraryDirectories>$(FfmpegRoot)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories><AdditionalDependencies>ole32.lib;uuid.lib;avrt.lib;propsys.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
-  <ItemGroup><ClCompile Include="main.cpp" /><ClCompile Include="audio_host.cpp" /><ClCompile Include="decoder.cpp" /></ItemGroup>
-  <ItemGroup><ClInclude Include="audio_host.h" /><ClInclude Include="spsc_ring_buffer.h" /></ItemGroup>
+  <ItemGroup><ClCompile Include="main.cpp" /><ClCompile Include="audio_host.cpp" /><ClCompile Include="decoder.cpp" /><ClCompile Include="sample_writer.cpp" /></ItemGroup>
+  <ItemGroup><ClInclude Include="audio_host.h" /><ClInclude Include="spsc_ring_buffer.h" /><ClInclude Include="sample_writer.h" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

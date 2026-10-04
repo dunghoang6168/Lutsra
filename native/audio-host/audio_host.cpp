@@ -1,5 +1,6 @@
 #include <initguid.h>
 #include "audio_host.h"
+#include "sample_writer.h"
 #include <algorithm>
 #include <avrt.h>
 #include <chrono>
@@ -1291,17 +1292,7 @@ void WasapiHost::renderLoopSafe() {
       smoothedGain = i < ramp ? smoothedGain + step : target;
       outgoing[i] *= smoothedGain;
     }
-    if (isFloatMixFormat(mixFormat_)) {
-      std::copy_n(outgoing.data(), samples, reinterpret_cast<float *>(bytes));
-    } else if (mixFormat_->wBitsPerSample == 16) {
-      auto *out = reinterpret_cast<int16_t *>(bytes);
-      for (size_t i = 0; i < samples; ++i)
-        out[i] = static_cast<int16_t>(std::clamp(outgoing[i], -1.0f, 1.0f) * 32767);
-    } else {
-      auto *out = reinterpret_cast<int32_t *>(bytes);
-      for (size_t i = 0; i < samples; ++i)
-        out[i] = static_cast<int32_t>(std::clamp(outgoing[i], -1.0f, 1.0f) * 2147483647.0f);
-    }
+    writeSamples(outgoing.data(), samples, mixFormat_, bytes);
     if (spectrumEnabled_) {
       for (size_t bin = 0; bin < 128; ++bin) {
         float peak = 0;

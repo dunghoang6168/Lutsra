@@ -71,6 +71,10 @@ Build Electron → Audio Host và Angular thành công. `supportedFormats.bitDep
 
 ### M1 — Bộ ghi mẫu integer chính xác (0,5 ngày)
 
+**Trạng thái (04/10/2026):** Đã tách `writeSamples`, hỗ trợ float32/int16/int24 packed/int32 (valid 24 hoặc 32). Đã viết test round-trip `swr` với biên, ±1 LSB và 4096 mẫu có seed cố định, cùng test clamp/padding/float copy. Chưa chạy test.
+
+Build Audio Host và biên dịch/link executable unit test thành công; không chạy executable. Script unit test chuẩn bị DLL FFmpeg khi chủ dự án tự chạy.
+
 - Tách việc chuyển float sang định dạng thiết bị thành hàm thuần `writeSamples(const float*, size_t, const WAVEFORMATEX*, BYTE*)`. Hỗ trợ:
   - float32
   - int16 (×32768, clamp)
