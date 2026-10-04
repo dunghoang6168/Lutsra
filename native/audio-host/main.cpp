@@ -240,15 +240,27 @@ static void failure(const std::string &id, const std::string &code) {
            escapeJson(code) +
            "\",\"message\":\"Native audio operation failed.\"}}");
 }
-static std::string deviceJson(const DeviceInfo &d) {
+static std::string deviceJson(const DeviceInfo &d, bool systemDefault = false) {
+  std::string formats = "[";
+  for (const auto &format : d.supportedFormats) {
+    if (formats.size() > 1)
+      formats += ',';
+    formats += "{\"sampleRate\":" + std::to_string(format.sampleRate) +
+               ",\"bitDepth\":" + std::to_string(format.bitDepth) +
+               ",\"channels\":" + std::to_string(format.channels) +
+               ",\"containerBits\":" + std::to_string(format.containerBits) + "}";
+  }
+  formats += ']';
+  const std::string mix = systemDefault ? "null" :
+      "{\"sampleRate\":" + std::to_string(d.mix.sampleRate) +
+      ",\"bitDepth\":" + std::to_string(d.mix.bitDepth) +
+      ",\"channels\":" + std::to_string(d.mix.channels) + "}";
   return "{\"id\":\"" + escapeJson(narrow(d.id)) + "\",\"name\":\"" +
          escapeJson(narrow(d.name)) +
          "\",\"isDefault\":" + (d.isDefault ? "true" : "false") +
-         ",\"isConnected\":true,\"supportedModes\":[\"shared\"],"
-         "\"supportedFormats\":null,\"mixFormat\":{\"sampleRate\":" +
-         std::to_string(d.mix.sampleRate) +
-         ",\"bitDepth\":" + std::to_string(d.mix.bitDepth) +
-         ",\"channels\":" + std::to_string(d.mix.channels) + "}}";
+         ",\"isConnected\":true,\"supportedModes\":[\"shared\"" +
+         (d.supportedFormats.empty() ? "" : ",\"exclusive-dsp\"") +
+         "],\"supportedFormats\":" + formats + ",\"mixFormat\":" + mix + "}";
 }
 
 int wmain(int argc, wchar_t **argv) {
@@ -319,10 +331,14 @@ int wmain(int argc, wchar_t **argv) {
                        : "false");
     else if (type == "list-devices") {
       auto devices = host.listDevices();
-      std::string out = "[{\"id\":\"system-default\",\"name\":\"System "
-                        "Default\",\"isDefault\":true,\"isConnected\":true,"
-                        "\"supportedModes\":[\"shared\"],\"supportedFormats\":"
-                        "null,\"mixFormat\":null}";
+      DeviceInfo systemDefault{L"system-default", L"System Default", true};
+      for (const auto &d : devices) {
+        if (d.isDefault) {
+          systemDefault.supportedFormats = d.supportedFormats;
+          break;
+        }
+      }
+      std::string out = "[" + deviceJson(systemDefault, true);
       for (auto &d : devices)
         out += "," + deviceJson(d);
       response(id, out + "]");

@@ -16,7 +16,9 @@
 #include "spsc_ring_buffer.h"
 
 struct AudioFormatInfo { int sampleRate{}; int bitDepth{}; int channels{}; };
-struct DeviceInfo { std::wstring id; std::wstring name; bool isDefault{}; AudioFormatInfo mix; };
+// bitDepth is the valid PCM precision; containerBits distinguishes 32/24 from packed 24.
+struct SupportedFormatInfo { int sampleRate{}; int bitDepth{}; int channels{}; int containerBits{}; };
+struct DeviceInfo { std::wstring id; std::wstring name; bool isDefault{}; AudioFormatInfo mix; std::vector<SupportedFormatInfo> supportedFormats; };
 
 class DecoderPipeline {
 public:
@@ -68,6 +70,7 @@ public:
   using EventSink = std::function<void(const std::string&, bool lossy, bool spectrum)>;
   explicit WasapiHost(EventSink sink); ~WasapiHost();
   std::vector<DeviceInfo> listDevices();
+  std::vector<SupportedFormatInfo> probeFormats(const std::wstring& endpointId);
   bool selectDevice(const std::wstring& id, std::string& error);
   bool load(const std::string& trackId, const std::wstring& path, std::string& error);
   bool prepare(const std::string& trackId, const std::wstring& path, std::string& error);
@@ -77,6 +80,8 @@ public:
   void setSpectrum(bool enabled);
   std::string statusJson();
 private:
+  std::vector<SupportedFormatInfo> probeFormatsLocked(const std::wstring& endpointId);
+  std::unordered_map<std::wstring, std::vector<SupportedFormatInfo>> formatCache_;
   void sendEvent(const std::string& payload, bool lossy = false, bool spectrum = false) { sink_(payload, lossy, spectrum); }
   struct EndpointBundle {
     Microsoft::WRL::ComPtr<IMMDevice> device;

@@ -225,12 +225,63 @@ std::vector<DeviceInfo> WasapiHost::listDevices() {
       CoTaskMemFree(mix);
     }
     result.push_back({id, friendlyName(device.Get()),
-                      defaultId && wcscmp(id, defaultId) == 0, info});
+                      defaultId && wcscmp(id, defaultId) == 0, info,
+                      probeFormatsLocked(id)});
     CoTaskMemFree(id);
   }
   if (defaultId)
     CoTaskMemFree(defaultId);
   return result;
+}
+
+std::vector<SupportedFormatInfo>
+WasapiHost::probeFormats(const std::wstring &endpointId) {
+  std::lock_guard lock(controlMutex_);
+  return probeFormatsLocked(endpointId);
+}
+
+std::vector<SupportedFormatInfo>
+WasapiHost::probeFormatsLocked(const std::wstring &endpointId) {
+  // Resolve the alias before caching so a default-device change cannot reuse
+  // the previous default's capabilities.
+  const std::wstring id = endpointId == L"system-default"
+      ? defaultEndpointId() : endpointId;
+  if (!enumerator_ || id.empty())
+    return {};
+  const auto cached = formatCache_.find(id);
+  if (cached != formatCache_.end())
+    return cached->second;
+  ComPtr<IMMDevice> device;
+  ComPtr<IAudioClient> client;
+  if (FAILED(enumerator_->GetDevice(id.c_str(), &device)) ||
+      FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                              &client)))
+    return {}; // A transient activation failure must not poison the cache.
+  std::vector<SupportedFormatInfo> formats;
+  constexpr int rates[] = {44100, 48000, 88200, 96000, 176400, 192000};
+  constexpr int containers[][2] = {{32, 24}, {24, 24}, {32, 32}, {16, 16}};
+  for (const int rate : rates) {
+    for (const auto &container : containers) {
+      WAVEFORMATEXTENSIBLE format{};
+      format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+      format.Format.nChannels = 2;
+      format.Format.nSamplesPerSec = rate;
+      format.Format.wBitsPerSample = static_cast<WORD>(container[0]);
+      format.Format.nBlockAlign = 2 * format.Format.wBitsPerSample / 8;
+      format.Format.nAvgBytesPerSec = rate * format.Format.nBlockAlign;
+      format.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+      format.Samples.wValidBitsPerSample = static_cast<WORD>(container[1]);
+      format.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+      format.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+      // IsFormatSupported is only a hint; Initialize is the final authority,
+      // especially with USB drivers that over-report Exclusive support.
+      if (client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE,
+                                     &format.Format, nullptr) == S_OK)
+        formats.push_back({rate, container[1], 2, container[0]});
+    }
+  }
+  formatCache_[id] = formats;
+  return formats;
 }
 
 WasapiHost::EndpointBundle::~EndpointBundle() {
@@ -803,6 +854,7 @@ bool WasapiHost::enterFallback() {
 
 void WasapiHost::onDevicesChanged() {
   // Called only by the monitor while it owns controlMutex_.
+  formatCache_.clear();
   if (!enumerator_)
     return;
   const auto pauseForChange = [this] {

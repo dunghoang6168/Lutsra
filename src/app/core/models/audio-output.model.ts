@@ -8,6 +8,8 @@ export interface AudioFormat {
   sampleRate: number | null;
   bitDepth: number | null;
   channels: number | null;
+  /** PCM container width when probing Exclusive; bitDepth is the valid precision. */
+  containerBits?: number;
 }
 
 export interface AudioOutputDevice {

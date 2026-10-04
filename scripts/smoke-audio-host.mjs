@@ -45,6 +45,9 @@ function request(type, payload) {
 }
 const devices = await request('list-devices');
 if (!Array.isArray(devices) || !devices.some((device) => device.id === 'system-default')) throw new Error('System Default endpoint was not returned.');
+for (const device of devices) {
+  console.log(JSON.stringify({ endpoint: device.name, supportedModes: device.supportedModes, supportedFormats: device.supportedFormats }, null, 2));
+}
 const status = await request('get-path-status');
 if (status?.backend !== 'native-shared' || !status.outputFormat?.sampleRate || !status.outputFormat?.channels) throw new Error('WASAPI mix format was not reported.');
 await request('shutdown');
