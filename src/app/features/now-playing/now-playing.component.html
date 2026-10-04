@@ -121,7 +121,7 @@
                     [class.active]="player.isShuffle()"
                     (click)="player.toggleShuffle()"
                     title="Toggle Shuffle"
-                    aria-label="Toggle Shuffle">
+                    aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
                     <app-icon name="shuffle" [size]="16" />
                   </button>
                 }
@@ -132,7 +132,7 @@
                   class="btn-icon"
                   (click)="player.previous()"
                   title="Previous Track"
-                  aria-label="Previous Track">
+                  aria-label="Previous Track" aria-keyshortcuts="P">
                   <app-icon name="skip-back" [size]="18" />
                 </button>
 
@@ -141,7 +141,7 @@
                   class="btn-play-large"
                   (click)="player.togglePlayPause()"
                   [title]="player.isPlaybackActive() ? 'Pause' : 'Play'"
-                  aria-label="Play or Pause">
+                  [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
                   @if (player.isPlaybackActive()) {
                     <app-icon name="pause" [size]="20" />
                   } @else {
@@ -154,7 +154,7 @@
                   class="btn-icon"
                   (click)="player.next()"
                   title="Next Track"
-                  aria-label="Next Track">
+                  aria-label="Next Track" aria-keyshortcuts="N">
                   <app-icon name="skip-forward" [size]="18" />
                 </button>
                 </div>
@@ -166,7 +166,7 @@
                     [class.active]="player.repeatMode() !== 'off'"
                     (click)="player.cycleRepeatMode()"
                     [title]="'Repeat Mode: ' + player.repeatMode()"
-                    aria-label="Toggle Repeat Mode">
+                    [attr.aria-label]="'Repeat: ' + player.repeatMode()" aria-keyshortcuts="R">
                     <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
                   </button>
                 } @else {

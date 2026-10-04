@@ -63,6 +63,9 @@
     }
 
     .queue-notice app-icon { color: var(--accent-primary); }
+    .queue-notice button { pointer-events: auto; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--text-accent); font-weight: 600; cursor: pointer; }
+    .queue-notice button:hover { background: var(--bg-surface-hover); }
+    .queue-notice button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
     .onboarding-dialog {
       width: min(100%, 440px);
@@ -81,6 +84,12 @@
     .onboarding-actions button { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface-hover); color: var(--text-primary); cursor: pointer; }
     .onboarding-actions .onboarding-primary { background: var(--accent-primary); color: #fff; border-color: transparent; }
     .onboarding-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+
+    .shortcuts-dialog { max-height: calc(100dvh - var(--space-4) * 2); overflow-y: auto; }
+    .shortcuts-list { display: grid; gap: var(--space-2); margin: var(--space-4) 0; }
+    .shortcuts-list > div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: var(--space-3); }
+    .shortcuts-list dd { margin: 0; }
+    .shortcuts-list kbd { font-family: var(--font-family-base); font-size: var(--font-size-sm); font-weight: 600; }
 
     .now-playing-backdrop {
       position: absolute;

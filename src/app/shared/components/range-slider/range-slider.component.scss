@@ -91,8 +91,12 @@ input:active::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px rgba(0, 0, 0, 0.35);
 }
 
+input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent-primary);
+}
+
 input:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent-primary);
 }
 
 :host(.vertical) .range-slider,

@@ -52,6 +52,11 @@ export class AppComponent implements AfterViewChecked {
   private readonly destroyRef = inject(DestroyRef);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   @ViewChild('onboardingDialog') private onboardingDialog?: ElementRef<HTMLElement>;
+  @ViewChild('shortcutsDialog') private shortcutsDialog?: ElementRef<HTMLElement>;
+  readonly showShortcuts = signal(false);
+  private needsShortcutsFocus = false;
+  private needsShortcutsFocusRestore = false;
+  private focusBeforeShortcuts: HTMLElement | null = null;
   readonly showOnboarding = signal(false);
   readonly onboardingBusy = signal(false);
   readonly onboardingError = signal<string | null>(null);
@@ -123,6 +128,14 @@ export class AppComponent implements AfterViewChecked {
   }
 
   ngAfterViewChecked(): void {
+    if (this.needsShortcutsFocusRestore && !this.showShortcuts()) {
+      this.needsShortcutsFocusRestore = false;
+      if (this.focusBeforeShortcuts?.isConnected) this.focusBeforeShortcuts.focus();
+    }
+    if (this.needsShortcutsFocus && this.shortcutsDialog) {
+      this.needsShortcutsFocus = false;
+      this.shortcutsDialog.nativeElement.querySelector<HTMLButtonElement>('button')?.focus();
+    }
     if (this.needsFocusRestore && !this.showOnboarding()) {
       this.needsFocusRestore = false;
       if (this.focusBeforeOnboarding?.isConnected) this.focusBeforeOnboarding.focus();
@@ -188,28 +201,85 @@ export class AppComponent implements AfterViewChecked {
     this.rightPanels.closeQueue();
   }
 
+  closeShortcuts(): void {
+    this.showShortcuts.set(false);
+    this.needsShortcutsFocusRestore = true;
+  }
+
+  onShortcutsKeyDown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeShortcuts();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      this.shortcutsDialog?.nativeElement.querySelector<HTMLButtonElement>('button')?.focus();
+    }
+  }
+
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
     if (this.showOnboarding()) {
       if (event.key === 'Escape') { event.preventDefault(); this.closeOnboarding(); }
       return;
     }
+    if (this.showShortcuts()) {
+      if (event.key === 'Escape') { event.preventDefault(); this.closeShortcuts(); }
+      return;
+    }
+    if (event.defaultPrevented || event.isComposing) return;
+    // Some existing playlist/confirmation dialogs use a backdrop without aria-modal.
+    if ([...document.querySelectorAll<HTMLElement>('[aria-modal="true"], dialog[open], .modal-backdrop, .metadata-modal-backdrop')]
+      .some((dialog) => dialog.checkVisibility())) return;
     if (event.key === 'Escape') {
       this.rightPanels.closeActive();
       return;
     }
-    if (event.code !== 'Space' || !this.hasInteractivePlayback()) return;
+    if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
 
     const activeEl = document.activeElement as HTMLElement | null;
-    const activeTag = activeEl?.tagName.toLowerCase();
-    if (
-      activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' ||
-      activeTag === 'button' || activeTag === 'a' ||
-      activeEl?.getAttribute('role') === 'button' || activeEl?.isContentEditable
-    ) return;
+    if (activeEl?.isContentEditable || activeEl?.closest(
+      'input, textarea, select, [role="textbox"], [role="combobox"], [role="searchbox"]',
+    )) return;
+
+    switch (event.code) {
+      case 'Slash':
+        if (!event.shiftKey) return;
+        this.focusBeforeShortcuts = activeEl;
+        this.showShortcuts.set(true);
+        this.needsShortcutsFocus = true;
+        break;
+      case 'Space':
+        if (!this.hasInteractivePlayback() || activeEl?.closest('button, a, [role="button"]')) return;
+        this.player.togglePlayPause();
+        break;
+      case 'KeyP':
+        if (!this.player.currentTrack()) return;
+        this.player.previous();
+        break;
+      case 'KeyN':
+        if (!this.player.currentTrack()) return;
+        this.player.next();
+        break;
+      case 'KeyS':
+        if (!this.player.queue().length) return;
+        this.player.toggleShuffle();
+        break;
+      case 'KeyR':
+        this.player.cycleRepeatMode();
+        break;
+      case 'KeyM':
+        this.player.toggleMute();
+        break;
+      case 'KeyQ':
+        if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) return;
+        this.onToggleQueue();
+        break;
+      default:
+        return;
+    }
 
     event.preventDefault();
-    this.player.togglePlayPause();
   }
 }
 

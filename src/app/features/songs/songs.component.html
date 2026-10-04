@@ -4,7 +4,7 @@
       <header class="songs-header">
         <div class="title-area">
           <h1>Songs</h1>
-          <span class="title-separator" aria-hidden="true">-</span>
+          <span class="title-separator" aria-hidden="true">·</span>
           <span class="track-count">{{ filteredTracks().length }} tracks</span>
         </div>
 
@@ -129,6 +129,12 @@
                 Your music library is currently empty.
               }
             </p>
+            @if (hasFilters()) {
+              <button type="button" class="btn btn-secondary" (click)="searchQuery.set(''); clearFilters()">Clear filters</button>
+            } @else {
+              <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+              @if (addFolderError()) { <p class="error-desc" role="alert">{{ addFolderError() }}</p> }
+            }
           </div>
         } @else {
           <table class="songs-table" role="grid" aria-label="Songs list">
@@ -254,7 +260,7 @@
                       }
                       @case ('codec') {
                         <td class="col-codec" [class.user-hidden]="isSongColumnHidden('codec')">
-                          <span class="badge-codec" [class.hi-res]="isHiRes(track)">{{ track.codec || 'UNKNOWN' }}</span>
+                          <span class="badge-codec" [class.hi-res]="isHiRes(track)">{{ track.codec || 'Unknown' }}</span>
                         </td>
                       }
                       @case ('sampleRate') {
@@ -284,7 +290,7 @@
                         class="row-action-btn"
                         (click)="onPlayNext(track)"
                         title="Play Next"
-                        aria-label="Play Next">
+                        [attr.aria-label]="'Play next: ' + track.title">
                         <app-icon name="skip-forward" [size]="14" />
                       </button>
                       <button
@@ -293,7 +299,7 @@
                         (click)="onAddToQueue(track)"
                         [disabled]="!track.isAvailable"
                         title="Add to Queue"
-                        aria-label="Add to Queue">
+                        [attr.aria-label]="'Add to queue: ' + track.title">
                         <app-icon name="plus" [size]="14" />
                       </button>
                     </div>

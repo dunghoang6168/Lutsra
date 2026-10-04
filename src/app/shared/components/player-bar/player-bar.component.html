@@ -18,15 +18,15 @@
         }
         <div class="dock-transport-buttons">
           <button type="button" class="ctrl-btn" (click)="player.previous()" [disabled]="!player.currentTrack()"
-            title="Previous (P)" aria-label="Previous Track"><app-icon name="skip-back" [size]="18" /></button>
+            title="Previous (P)" aria-label="Previous Track" aria-keyshortcuts="P"><app-icon name="skip-back" [size]="18" /></button>
           <button type="button" class="play-pause-btn" (click)="player.togglePlayPause()"
             [disabled]="!player.currentTrack() && player.queue().length === 0"
             [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
-            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'">
+            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
             <app-icon [name]="player.isPlaybackActive() ? 'pause' : 'play'" [size]="18" />
           </button>
           <button type="button" class="ctrl-btn" (click)="player.next()" [disabled]="!player.currentTrack()"
-            title="Next (N)" aria-label="Next Track"><app-icon name="skip-forward" [size]="18" /></button>
+            title="Next (N)" aria-label="Next Track" aria-keyshortcuts="N"><app-icon name="skip-forward" [size]="18" /></button>
         </div>
       </div>
 
@@ -48,7 +48,7 @@
       <div class="dock-island dock-extras">
         <div class="volume-container">
           <button type="button" class="ctrl-btn" (click)="player.toggleMute()"
-            [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'" aria-label="Mute or Unmute">
+            [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'" aria-label="Mute" [attr.aria-pressed]="player.isMuted()" aria-keyshortcuts="M">
             <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
           </button>
           <div class="volume-slider-shell" [class.adjusting]="isVolumeAdjusting()"
@@ -62,16 +62,16 @@
           </div>
         </div>
         <button type="button" class="ctrl-btn" [class.active]="player.isShuffle()" (click)="player.toggleShuffle()"
-          [disabled]="player.queue().length === 0" title="Shuffle (S)" aria-label="Toggle Shuffle">
+          [disabled]="player.queue().length === 0" title="Shuffle (S)" aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
           <app-icon name="shuffle" [size]="16" />
         </button>
         <button type="button" class="ctrl-btn" [class.active]="player.repeatMode() !== 'off'"
           (click)="player.cycleRepeatMode()" [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
-          aria-label="Toggle Repeat Mode">
+          [attr.aria-label]="'Repeat: ' + player.repeatMode()" aria-keyshortcuts="R">
           <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
         </button>
         <button type="button" class="queue-btn" [class.active]="isQueueOpen()" (click)="toggleQueue.emit()"
-          title="Toggle Queue Drawer (Q)" aria-label="Toggle Playback Queue Drawer">
+          title="Toggle Queue Drawer (Q)" aria-label="Toggle Playback Queue Drawer" aria-keyshortcuts="Q">
           <app-icon name="queue" [size]="18" />
           @if (player.queue().length > 0) { <span class="queue-badge">{{ player.queue().length }}</span> }
         </button>
@@ -121,7 +121,7 @@
             (click)="player.toggleShuffle()"
             [disabled]="player.queue().length === 0"
             title="Shuffle (S)"
-            aria-label="Toggle Shuffle">
+            aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
             <app-icon name="shuffle" [size]="16" />
           </button>
 
@@ -132,7 +132,7 @@
             (click)="player.previous()"
             [disabled]="!player.currentTrack()"
             title="Previous (P)"
-            aria-label="Previous Track">
+            aria-label="Previous Track" aria-keyshortcuts="P">
             <app-icon name="skip-back" [size]="18" />
           </button>
 
@@ -143,7 +143,7 @@
             (click)="player.togglePlayPause()"
             [disabled]="!player.currentTrack() && player.queue().length === 0"
             [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
-            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'">
+            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
             @if (player.isPlaybackActive()) {
               <app-icon name="pause" [size]="18" />
             } @else {
@@ -158,7 +158,7 @@
             (click)="player.next()"
             [disabled]="!player.currentTrack()"
             title="Next (N)"
-            aria-label="Next Track">
+            aria-label="Next Track" aria-keyshortcuts="N">
             <app-icon name="skip-forward" [size]="18" />
           </button>
 
@@ -169,7 +169,7 @@
             [class.active]="player.repeatMode() !== 'off'"
             (click)="player.cycleRepeatMode()"
             [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
-            aria-label="Toggle Repeat Mode">
+            [attr.aria-label]="'Repeat: ' + player.repeatMode()" aria-keyshortcuts="R">
             <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
           </button>
         </div>
@@ -208,7 +208,7 @@
             class="ctrl-btn"
             (click)="player.toggleMute()"
             [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'"
-            aria-label="Mute or Unmute">
+            aria-label="Mute" [attr.aria-pressed]="player.isMuted()" aria-keyshortcuts="M">
             <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
           </button>
           <div
@@ -231,7 +231,7 @@
           [class.active]="isQueueOpen()"
           (click)="toggleQueue.emit()"
           title="Toggle Queue Drawer (Q)"
-          aria-label="Toggle Playback Queue Drawer">
+          aria-label="Toggle Playback Queue Drawer" aria-keyshortcuts="Q">
           <app-icon name="queue" [size]="18" />
           @if (player.queue().length > 0) {
             <span class="queue-badge">{{ player.queue().length }}</span>

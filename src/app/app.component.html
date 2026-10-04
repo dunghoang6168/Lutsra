@@ -2,7 +2,7 @@
     <div class="app-layout"
       [class.layout-classic]="layoutPreference.mode() === 'classic'"
       [class.layout-liquid-glass]="layoutPreference.mode() === 'liquid-glass'"
-      [attr.inert]="showOnboarding() ? '' : null">
+      [attr.inert]="showOnboarding() || showShortcuts() ? '' : null">
       @if (nowPlayingArtwork(); as artwork) {
         <div class="now-playing-backdrop" aria-hidden="true">
           @if (layoutPreference.mode() === 'classic') {
@@ -65,7 +65,10 @@
     @if (queueActions.notice(); as notice) {
       <div class="queue-notice" role="status" aria-live="polite" aria-atomic="true">
         <app-icon name="queue" [size]="17" />
-        <span>{{ notice }}</span>
+        <span>{{ notice.message }}</span>
+        @if (notice.action; as action) {
+          <button type="button" (click)="action.run()">{{ action.label }}</button>
+        }
       </div>
     }
     @if (player.playbackNotice(); as notice) {
@@ -73,6 +76,31 @@
         <app-icon name="headphones" [size]="17" />
         <span>{{ notice }}</span>
         <button type="button" (click)="player.playbackNotice.set(null)" aria-label="Dismiss audio notice"><app-icon name="x" [size]="15" /></button>
+      </div>
+    }
+    @if (showShortcuts()) {
+      <div class="onboarding-backdrop">
+        <section #shortcutsDialog class="onboarding-dialog shortcuts-dialog" role="dialog" aria-modal="true"
+          aria-labelledby="shortcutsTitle" aria-describedby="shortcutsDescription"
+          (keydown)="onShortcutsKeyDown($event)">
+          <h2 id="shortcutsTitle">Keyboard shortcuts</h2>
+          <p id="shortcutsDescription">Press ? (Shift + /) to view shortcuts. Player shortcuts are inactive while typing or a modal dialog is open.</p>
+          <dl class="shortcuts-list">
+            <div><dt><kbd>Space</kbd></dt><dd>Play / Pause</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd>Previous track</dd></div>
+            <div><dt><kbd>N</kbd></dt><dd>Next track</dd></div>
+            <div><dt><kbd>S</kbd></dt><dd>Toggle shuffle</dd></div>
+            <div><dt><kbd>R</kbd></dt><dd>Cycle repeat mode</dd></div>
+            <div><dt><kbd>M</kbd></dt><dd>Mute / Unmute</dd></div>
+            <div><dt><kbd>Q</kbd></dt><dd>Toggle queue drawer</dd></div>
+            <div><dt><kbd>Ctrl K</kbd></dt><dd>Open search</dd></div>
+            <div><dt><kbd>Esc</kbd></dt><dd>Close dialog or right panel</dd></div>
+          </dl>
+          <p>Previous and next need a selected track; shuffle needs a queue. Space uses the focused button or link's default action.</p>
+          <div class="onboarding-actions">
+            <button type="button" (click)="closeShortcuts()">Close</button>
+          </div>
+        </section>
       </div>
     }
     @if (showOnboarding()) {
