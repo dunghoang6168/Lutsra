@@ -108,6 +108,7 @@
               <p>{{ summary.trackCount }} tracks <span aria-hidden="true">·</span> {{ summary.duration | duration }}</p>
             </div>
             <button type="button" class="btn-remove-root" (click)="showRemoveDialog.set(true)"
+              [disabled]="removingFolder()"
               title="Remove folder from library">Remove Root</button>
           </section>
         } @else {
@@ -240,7 +241,7 @@
                         </div>
                       </td>
                       <td class="col-codec">
-                        <span class="badge-codec" [class.hi-res]="track && isHiRes(track)">{{ track?.codec || 'UNKNOWN' }}</span>
+                        <span class="badge-codec" [class.hi-res]="track && isHiRes(track)">{{ track?.codec || 'Unknown' }}</span>
                       </td>
                       <td class="col-lyrics" [attr.aria-label]="lyricTrackIds().has(file.trackId ?? '') ? 'Lyrics available' : 'No lyrics'">
                         @if (lyricTrackIds().has(file.trackId ?? '')) {
@@ -273,25 +274,8 @@
 
       <!-- Remove Root Confirmation Dialog Modal -->
       @if (showRemoveDialog()) {
-        <div class="modal-backdrop" (click)="showRemoveDialog.set(false)">
-          <div class="modal-card danger" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="removeDialogTitle">
-            <h3 id="removeDialogTitle">Remove Music Folder</h3>
-            <p class="modal-desc">
-              Are you sure you want to remove <strong>{{ selectedRoot()?.name }}</strong> from your library?
-            </p>
-            <div class="warning-box">
-              <app-icon name="alert-triangle" [size]="16" class="warning-icon" />
-              <span>
-                <strong>Safe Operation:</strong> This only removes the folder index from Lutsra.
-                Your actual audio files on disk will <em>never</em> be deleted.
-              </span>
-            </div>
-
-            <div class="modal-actions">
-              <button type="button" class="btn-cancel" (click)="showRemoveDialog.set(false)">Cancel</button>
-              <button type="button" class="btn-danger" (click)="onConfirmRemoveRoot()">Remove Folder</button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-remove-folder-dialog [folderName]="selectedRoot()?.name ?? 'this folder'" [busy]="removingFolder()"
+          [errorMessage]="errorMessage()" (cancelled)="showRemoveDialog.set(false)"
+          (confirmed)="onConfirmRemoveRoot()" />
       }
     </div>

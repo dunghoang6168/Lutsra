@@ -1,0 +1,23 @@
+<dialog #dialog class="modal-card danger" role="dialog" aria-modal="true"
+  aria-labelledby="removeDialogTitle" aria-describedby="removeDialogDescription removeDialogSafety"
+  [attr.aria-busy]="busy()" (cancel)="onCancel($event)" (keydown)="onKeyDown($event)"
+  (click)="onBackdropClick($event)">
+  <h3 id="removeDialogTitle">Remove Music Folder</h3>
+  <p id="removeDialogDescription" class="modal-desc">
+    Are you sure you want to remove <strong>{{ folderName() }}</strong> from your library?
+  </p>
+  <div id="removeDialogSafety" class="warning-box">
+    <app-icon name="alert-triangle" [size]="16" class="warning-icon" />
+    <span>
+      <strong>Safe Operation:</strong> This only removes the folder index from Lutsra.
+      Your actual audio files on disk will <em>never</em> be deleted.
+    </span>
+  </div>
+  @if (errorMessage(); as message) {
+    <p class="remove-error" role="alert">{{ message }}</p>
+  }
+  <div class="modal-actions">
+    <button #cancelButton type="button" class="btn-cancel" (click)="cancelled.emit()">Cancel</button>
+    <button type="button" class="btn-danger" [disabled]="busy()" (click)="confirmed.emit()">Remove Folder</button>
+  </div>
+</dialog>

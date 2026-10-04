@@ -1,0 +1,32 @@
+.modal-card {
+  margin: auto;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: min(480px, calc(100vw - var(--space-4) * 2));
+  max-height: calc(100dvh - var(--space-4) * 2);
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-card::backdrop { background: rgba(0, 0, 0, 0.75); }
+.modal-card h3 { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--space-2); }
+.modal-desc { font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: var(--space-4); }
+.warning-box {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid var(--status-warning);
+  color: #fef08a;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-6);
+}
+
+.btn-cancel { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-secondary); font-weight: 500; }
+.btn-cancel:hover { color: var(--text-primary); }
+.btn-danger { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--status-error); color: #ffffff; font-weight: 600; }
+.modal-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+.modal-actions button:disabled { opacity: 0.5; cursor: default; }
+.remove-error { color: var(--status-error); margin-bottom: var(--space-4); }

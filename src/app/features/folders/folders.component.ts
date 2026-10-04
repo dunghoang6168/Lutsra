@@ -9,6 +9,7 @@ import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { ConfirmRemoveFolderDialogComponent } from '../../shared/components/confirm-remove-folder-dialog/confirm-remove-folder-dialog.component';
 
 interface FolderSummary {
   trackCount: number;
@@ -21,7 +22,7 @@ const EMPTY_FOLDER_SUMMARY: FolderSummary = { trackCount: 0, duration: 0, artwor
 @Component({
   selector: 'app-folders',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, ConfirmRemoveFolderDialogComponent],
   templateUrl: './folders.component.html',
   styleUrl: './folders.component.scss'
 })
@@ -88,6 +89,7 @@ export class FoldersComponent implements OnInit, OnDestroy {
 
   // Modal Dialogs
   readonly showRemoveDialog = signal<boolean>(false);
+  readonly removingFolder = signal(false);
 
   selectedRoot = () => this.roots().find((r) => r.id === this.selectedRootId()) || null;
   sortedRoots = () => [...this.roots()].sort((a, b) => compareFolderNames(a.name, b.name) || a.id.localeCompare(b.id));
@@ -327,8 +329,9 @@ export class FoldersComponent implements OnInit, OnDestroy {
 
   async onConfirmRemoveRoot(): Promise<void> {
     const rootId = this.selectedRootId();
-    if (!rootId) return;
+    if (!rootId || !this.showRemoveDialog() || this.removingFolder()) return;
 
+    this.removingFolder.set(true);
     try {
       await this.libraryGateway.removeMusicFolder(rootId);
       this.showRemoveDialog.set(false);
@@ -336,6 +339,8 @@ export class FoldersComponent implements OnInit, OnDestroy {
       await this.loadRoots();
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Failed to remove folder');
+    } finally {
+      this.removingFolder.set(false);
     }
   }
 

@@ -13,6 +13,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { RangeSliderComponent } from '../../shared/components/range-slider/range-slider.component';
 import { SongColumnsSettingsComponent } from './song-columns-settings.component';
 import { LayoutSettingsComponent } from './layout-settings.component';
+import { ConfirmRemoveFolderDialogComponent } from '../../shared/components/confirm-remove-folder-dialog/confirm-remove-folder-dialog.component';
 
 export interface ThemePresetOption {
   id: ThemePreset;
@@ -28,7 +29,7 @@ export interface ThemePresetOption {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, RangeSliderComponent, SongColumnsSettingsComponent, LayoutSettingsComponent, SearchableFilterSelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, RangeSliderComponent, SongColumnsSettingsComponent, LayoutSettingsComponent, SearchableFilterSelectComponent, ConfirmRemoveFolderDialogComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
@@ -84,6 +85,8 @@ export class SettingsComponent implements OnInit {
   ];
 
   readonly folders = signal<MusicFolder[]>([]);
+  readonly pendingRemoveFolder = signal<MusicFolder | null>(null);
+  readonly removingFolder = signal(false);
   readonly isLoading = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
   readonly audioOutputOptions = computed(() => this.player.outputDevices().map((device) => ({
@@ -144,13 +147,19 @@ export class SettingsComponent implements OnInit {
     }
   }
 
-  async onRemoveFolder(folderId: string): Promise<void> {
+  async onRemoveFolder(): Promise<void> {
+    const folder = this.pendingRemoveFolder();
+    if (!folder || this.removingFolder()) return;
+    this.removingFolder.set(true);
     this.errorMessage.set(null);
     try {
-      await this.libraryGateway.removeMusicFolder(folderId);
+      await this.libraryGateway.removeMusicFolder(folder.id);
+      this.pendingRemoveFolder.set(null);
       await this.loadFolders();
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Failed to remove folder');
+    } finally {
+      this.removingFolder.set(false);
     }
   }
 

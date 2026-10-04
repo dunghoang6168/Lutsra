@@ -1,10 +1,15 @@
+import '@angular/compiler';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { constantSumCrossfadeGains } from '../src/app/core/player/crossfade-gains';
 import { nextPlayableQueueIndex, stateForMediaEvent } from '../src/app/core/player/playback-policy';
 import { PLAYBACK_ENGINE } from '../src/app/core/contracts';
 import { PlayerService } from '../src/app/core/player/player.service';
+import { QueueActionsService } from '../src/app/core/player/queue-actions.service';
+import { SettingsComponent } from '../src/app/features/settings/settings.component';
+import { FoldersComponent } from '../src/app/features/folders/folders.component';
+import { ConfirmRemoveFolderDialogComponent } from '../src/app/shared/components/confirm-remove-folder-dialog/confirm-remove-folder-dialog.component';
 
 describe('playback state policy', () => {
   it('distinguishes initial loading from playback buffering', () => {
@@ -197,6 +202,215 @@ describe('Player queue transition coordination', () => {
   });
 });
 
+describe('Clear queue Undo', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('restores entry IDs, shuffle order, original order and the selected track paused at the start', async () => {
+    const { player, engine } = createPlayerHarness();
+    const tracks = Array.from({ length: 12 }, (_, index) => track(`track-${index}`));
+    await player.playCollection(tracks, 4);
+    player.toggleShuffle();
+    await player.jumpToQueueIndex(6);
+    player.currentTime.set(42);
+    const snapshot = player.snapshotQueue();
+    player.clearQueue();
+    player.setShuffle(false);
+    engine.play.mockClear();
+
+    await player.restoreQueue(snapshot);
+
+    expect(player.queue()).toEqual(snapshot.queue);
+    expect(player.queue()).not.toBe(snapshot.queue);
+    expect(player.currentIndex()).toBe(6);
+    expect(player.currentTrack()).toEqual(snapshot.queue[6].track);
+    expect(player.isShuffle()).toBe(true);
+    expect(player.currentTime()).toBe(0);
+    expect(player.playbackState()).toBe('paused');
+    expect(engine.play).not.toHaveBeenCalled();
+    player.toggleShuffle();
+    expect(player.queue()).toEqual(snapshot.originalQueue);
+    expect(player.currentTrack()).toEqual(snapshot.queue[6].track);
+    player.ngOnDestroy();
+  });
+
+  it('keeps restored playback stopped when loading fails instead of autoplaying another track', async () => {
+    const { player, engine } = createPlayerHarness();
+    await player.playCollection([track('one'), track('two')]);
+    const snapshot = player.snapshotQueue();
+    player.clearQueue();
+    engine.play.mockClear();
+    engine.load.mockRejectedValueOnce(new Error('Missing file'));
+
+    await player.restoreQueue(snapshot);
+
+    expect(player.currentTrack()?.id).toBe('one');
+    expect(player.currentIndex()).toBe(0);
+    expect(player.playbackState()).toBe('error');
+    expect(engine.play).not.toHaveBeenCalled();
+    player.ngOnDestroy();
+  });
+
+  it('offers Undo for six seconds and consumes the action only once', async () => {
+    vi.useFakeTimers();
+    const { player, engine } = createPlayerHarness();
+    await player.playCollection([track('one'), track('two')], 1);
+    const queue = [...player.queue()];
+    const actions = createQueueActions(player);
+    actions.clearWithUndo();
+    expect(player.queue()).toEqual([]);
+    expect(actions.notice()?.message).toBe('Queue cleared');
+    vi.advanceTimersByTime(5999);
+    const undo = actions.notice()?.action;
+    expect(undo?.label).toBe('Undo');
+    engine.play.mockClear();
+    undo!.run();
+    await Promise.resolve();
+    expect(player.queue()).toEqual(queue);
+    expect(player.currentTrack()?.id).toBe('two');
+    expect(player.playbackState()).toBe('paused');
+    expect(engine.play).not.toHaveBeenCalled();
+    expect(actions.notice()).toBeNull();
+    const loadCount = engine.load.mock.calls.length;
+    undo!.run();
+    expect(engine.load.mock.calls.length).toBe(loadCount);
+    actions.ngOnDestroy();
+    player.ngOnDestroy();
+  });
+
+  it('expires Undo without restoring the queue and preserves the ordinary three-second notice timeout', async () => {
+    vi.useFakeTimers();
+    const { player } = createPlayerHarness();
+    await player.playCollection([track('one')]);
+    const actions = createQueueActions(player);
+    actions.clearWithUndo();
+    const expiredUndo = actions.notice()!.action!;
+    vi.advanceTimersByTime(6000);
+    expect(actions.notice()).toBeNull();
+    expiredUndo.run();
+    expect(player.queue()).toEqual([]);
+    expect(player.currentTrack()).toBeNull();
+    actions.add([track('two')]);
+    expect(actions.notice()?.message).toContain('two');
+    expect(actions.notice()?.action).toBeUndefined();
+    vi.advanceTimersByTime(3000);
+    expect(actions.notice()).toBeNull();
+    actions.ngOnDestroy();
+    player.ngOnDestroy();
+  });
+
+  it('does not let an old Undo replace a newly started queue', async () => {
+    const { player } = createPlayerHarness();
+    await player.playCollection([track('one')]);
+    const actions = createQueueActions(player);
+    actions.clearWithUndo();
+    const undo = actions.notice()!.action!;
+    await player.playCollection([track('two')]);
+    undo.run();
+    expect(player.currentTrack()?.id).toBe('two');
+    expect(player.queue().map((entry) => entry.track.id)).toEqual(['two']);
+    actions.ngOnDestroy();
+    player.ngOnDestroy();
+  });
+});
+
+function createQueueActions(player: PlayerService): QueueActionsService {
+  const injector = Injector.create({ providers: [{ provide: PlayerService, useValue: player }] });
+  return runInInjectionContext(injector, () => new QueueActionsService());
+}
+
+describe('Remove folder confirmation', () => {
+  function settingsHarness() {
+    const context = {
+      pendingRemoveFolder: signal<{ id: string; name: string } | null>({ id: 'folder-one', name: 'Music' }),
+      removingFolder: signal(false),
+      errorMessage: signal<string | null>(null),
+      libraryGateway: { removeMusicFolder: vi.fn(async (_id: string) => undefined) },
+      loadFolders: vi.fn(async () => undefined),
+    };
+    const confirm = () => SettingsComponent.prototype.onRemoveFolder.call(context as unknown as SettingsComponent);
+    return { context, confirm };
+  }
+
+  it('does not remove anything after Cancel has cleared the pending folder', async () => {
+    const { context, confirm } = settingsHarness();
+    context.pendingRemoveFolder.set(null);
+    await confirm();
+    expect(context.libraryGateway.removeMusicFolder).not.toHaveBeenCalled();
+    expect(context.loadFolders).not.toHaveBeenCalled();
+  });
+
+  it('removes the confirmed folder once and reloads Settings', async () => {
+    const { context, confirm } = settingsHarness();
+    await Promise.all([confirm(), confirm()]);
+    expect(context.libraryGateway.removeMusicFolder).toHaveBeenCalledExactlyOnceWith('folder-one');
+    expect(context.loadFolders).toHaveBeenCalledOnce();
+    expect(context.pendingRemoveFolder()).toBeNull();
+    expect(context.removingFolder()).toBe(false);
+  });
+
+  it('keeps the pending folder for retry when removal fails', async () => {
+    const { context, confirm } = settingsHarness();
+    context.libraryGateway.removeMusicFolder.mockRejectedValueOnce(new Error('Folder is busy'));
+    await confirm();
+    expect(context.pendingRemoveFolder()?.id).toBe('folder-one');
+    expect(context.errorMessage()).toBe('Folder is busy');
+    expect(context.removingFolder()).toBe(false);
+    expect(context.loadFolders).not.toHaveBeenCalled();
+  });
+
+  it('requires an open confirmation on the Folders page and guards repeat submissions', async () => {
+    const context = {
+      selectedRootId: signal<string | null>('folder-one'),
+      showRemoveDialog: signal(false),
+      removingFolder: signal(false),
+      errorMessage: signal<string | null>(null),
+      libraryGateway: { removeMusicFolder: vi.fn(async (_id: string) => undefined) },
+      loadRoots: vi.fn(async () => undefined),
+    };
+    const confirm = () => FoldersComponent.prototype.onConfirmRemoveRoot.call(context as unknown as FoldersComponent);
+    await confirm();
+    expect(context.libraryGateway.removeMusicFolder).not.toHaveBeenCalled();
+    context.showRemoveDialog.set(true);
+    await Promise.all([confirm(), confirm()]);
+    expect(context.libraryGateway.removeMusicFolder).toHaveBeenCalledExactlyOnceWith('folder-one');
+    expect(context.showRemoveDialog()).toBe(false);
+    expect(context.selectedRootId()).toBeNull();
+    expect(context.loadRoots).toHaveBeenCalledOnce();
+  });
+
+  it('cancels on Esc and contains global keyboard events within the dialog', () => {
+    const context = {
+      cancelled: { emit: vi.fn() },
+      onCancel: ConfirmRemoveFolderDialogComponent.prototype.onCancel,
+    };
+    const escape = { key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    ConfirmRemoveFolderDialogComponent.prototype.onKeyDown.call(
+      context as unknown as ConfirmRemoveFolderDialogComponent, escape as unknown as KeyboardEvent,
+    );
+    expect(context.cancelled.emit).toHaveBeenCalledOnce();
+    expect(escape.preventDefault).toHaveBeenCalledOnce();
+    expect(escape.stopPropagation).toHaveBeenCalledOnce();
+    const tab = { key: 'Tab', preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    ConfirmRemoveFolderDialogComponent.prototype.onKeyDown.call(
+      context as unknown as ConfirmRemoveFolderDialogComponent, tab as unknown as KeyboardEvent,
+    );
+    expect(tab.preventDefault).not.toHaveBeenCalled();
+    expect(tab.stopPropagation).toHaveBeenCalledOnce();
+    expect(context.cancelled.emit).toHaveBeenCalledOnce();
+  });
+
+  it('closes the native dialog and restores focus to a connected opener', () => {
+    const opener = { isConnected: true, focus: vi.fn() };
+    const context = { dialog: { nativeElement: { close: vi.fn() } }, focusBeforeDialog: opener };
+    ConfirmRemoveFolderDialogComponent.prototype.ngOnDestroy.call(context as unknown as ConfirmRemoveFolderDialogComponent);
+    expect(context.dialog.nativeElement.close).toHaveBeenCalledOnce();
+    expect(opener.focus).toHaveBeenCalledOnce();
+    opener.isConnected = false;
+    ConfirmRemoveFolderDialogComponent.prototype.ngOnDestroy.call(context as unknown as ConfirmRemoveFolderDialogComponent);
+    expect(opener.focus).toHaveBeenCalledOnce();
+  });
+});
+
 class FakeAudio extends EventTarget {
   crossOrigin = '';
   volume = 1;
@@ -280,6 +494,7 @@ function createPlayerHarness() {
   const player = runInInjectionContext(injector, () => new PlayerService());
   return {
     player,
+    engine,
     emitState: (playbackState: string, trackId: string) => state.next({ state: playbackState, track: track(trackId) }),
     preparedTrackId: () => prepared?.id,
     loadedTrackId: () => loaded?.id,

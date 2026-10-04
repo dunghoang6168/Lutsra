@@ -251,7 +251,8 @@
                 <button
                   type="button"
                   class="btn-remove-folder"
-                  (click)="onRemoveFolder(folder.id)"
+                  (click)="errorMessage.set(null); pendingRemoveFolder.set(folder)"
+                  [disabled]="removingFolder()"
                   title="Remove folder from library">
                   Remove
                 </button>
@@ -320,6 +321,7 @@
                   type="button"
                   class="btn-toggle"
                   [class.active]="player.isShuffle()"
+                  [attr.aria-pressed]="player.isShuffle()"
                   (click)="player.toggleShuffle()">
                   {{ player.isShuffle() ? 'Shuffle ON' : 'Shuffle OFF' }}
                 </button>
@@ -463,4 +465,9 @@
           </div>
         </section>
       </div>
+      @if (pendingRemoveFolder(); as folder) {
+        <app-confirm-remove-folder-dialog [folderName]="folder.name" [busy]="removingFolder()"
+          [errorMessage]="errorMessage()" (cancelled)="pendingRemoveFolder.set(null)"
+          (confirmed)="onRemoveFolder()" />
+      }
     </div>
