@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
-import { AccentColor, AudioEngineBackend, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
+import { AccentColor, AudioEngineBackend, AudioHostState, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
@@ -15,6 +15,21 @@ import { RangeSliderComponent } from '../../shared/components/range-slider/range
 import { SongColumnsSettingsComponent } from './song-columns-settings.component';
 import { LayoutSettingsComponent } from './layout-settings.component';
 import { ConfirmRemoveFolderDialogComponent } from '../../shared/components/confirm-remove-folder-dialog/confirm-remove-folder-dialog.component';
+
+export const AUDIO_HOST_LABELS: Record<AudioHostState, string> = {
+  unavailable: 'Unavailable',
+  stopped: 'Stopped',
+  starting: 'Starting…',
+  ready: 'Ready',
+  recovering: 'Recovering…',
+  failed: 'Failed',
+};
+
+export function audioHostLabel(state: string): string {
+  return Object.prototype.hasOwnProperty.call(AUDIO_HOST_LABELS, state)
+    ? AUDIO_HOST_LABELS[state as AudioHostState]
+    : 'Unknown';
+}
 
 export interface ThemePresetOption {
   id: ThemePreset;
@@ -35,6 +50,7 @@ export interface ThemePresetOption {
   styleUrl: './settings.component.scss'
 })
 export class SettingsComponent implements OnInit {
+  readonly audioHostLabel = audioHostLabel;
   readonly repeatOptions = [
     { value: 'off', label: 'Off: stop at the end of the queue' },
     { value: 'all', label: 'All: repeat the queue' },

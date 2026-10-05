@@ -26,7 +26,7 @@
 
 .btn-cancel { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-secondary); font-weight: 500; }
 .btn-cancel:hover { color: var(--text-primary); }
-.btn-danger { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--status-error); color: #ffffff; font-weight: 600; }
+.btn-danger { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--status-error-fill); color: var(--color-on-error); font-weight: 600; }
 .modal-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
 .modal-actions button:disabled { opacity: 0.5; cursor: default; }
 .remove-error { color: var(--status-error); margin-bottom: var(--space-4); }

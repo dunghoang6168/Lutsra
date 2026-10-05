@@ -10,7 +10,7 @@
             <app-icon name="alert-triangle" [size]="18" />
           </div>
           <div class="notice-content">
-            <h3>Something went wrong</h3>
+            <h2>Something went wrong</h2>
             <p>{{ errorMessage() }}</p>
           </div>
           <button type="button" class="btn-dismiss-err" (click)="errorMessage.set(null)" aria-label="Dismiss error">
@@ -25,7 +25,7 @@
             <app-icon name="info" [size]="18" />
           </div>
           <div class="notice-content">
-            <h3>Browser preview</h3>
+            <h2>Browser preview</h2>
             <p>
               Layout and visualization choices are saved in this browser. Folders, playlists and other settings reset
               when you reload. Adding folders needs the desktop app.
@@ -332,7 +332,7 @@
               <div><span>Chosen device</span><strong>{{ player.preferredAudioOutputName() }}</strong></div>
               <div><span>Playing on</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
               <div><span>Engine</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared' : 'Chromium Shared' }}</strong></div>
-              <div><span>Audio host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
+              <div><span>Audio host</span><strong>{{ path.backend === 'native-shared' ? audioHostLabel(path.hostState) : 'Not used' }}</strong></div>
               <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
               <div><span>Source file</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
               <div><span>{{ path.backend === 'native-shared' ? 'Engine mix' : 'Output format' }}</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit{{ path.outputSampleType === 'float' ? ' float' : '' }} / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Shown with Native Shared only }</strong></div>

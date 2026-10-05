@@ -51,14 +51,14 @@
 }
 
 .btn-danger {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.3);
+  background-color: var(--status-error-fill);
+  color: var(--color-on-error);
+  border-color: var(--status-error-fill);
 
-  &:hover:not(:disabled) {
-    background-color: #ef4444;
-    color: #ffffff;
-    border-color: #ef4444;
+  &:hover:not(:disabled), &:active:not(:disabled) {
+    background-color: var(--status-error-fill);
+    color: var(--color-on-error);
+    border-color: var(--status-error-fill);
   }
 }
 

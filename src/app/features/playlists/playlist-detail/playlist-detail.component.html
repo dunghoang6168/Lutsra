@@ -81,7 +81,7 @@
               </button>
             </div>
           } @else {
-            <table class="playlist-table">
+            <table class="playlist-table" role="grid" aria-label="Playlist songs" [attr.aria-rowcount]="trackRows().length + 1" aria-multiselectable="false">
               <thead>
                 <tr>
                   <th class="col-reorder"><span class="sr-only">Order</span></th>
@@ -101,6 +101,8 @@
                     (dblclick)="onPlayRow(i)"
                     (click)="onActivateRow(row, true)"
                     (focusin)="onActivateRow(row)"
+                    [attr.aria-rowindex]="i + 2"
+                    [attr.aria-selected]="activeId() === row.entry.id"
                     [attr.data-entry-id]="row.entry.id"
                     [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                     <!-- Move Up / Down Buttons -->

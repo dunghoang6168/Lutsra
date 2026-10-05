@@ -87,7 +87,7 @@
                 </div>
               }
 
-              <table class="tracks-table">
+              <table class="tracks-table" role="grid" [attr.aria-label]="'Album songs, disc ' + group.discNumber" [attr.aria-rowcount]="group.tracks.length + 1" aria-multiselectable="false">
                 <thead>
                   <tr>
                     <th class="col-num">#</th>
@@ -106,6 +106,8 @@
                       (dblclick)="onPlayTrack(track)"
                       (click)="onActivateTrack(track, true)"
                       (focusin)="onActivateTrack(track)"
+                      [attr.aria-rowindex]="i + 2"
+                      [attr.aria-selected]="activeId() === track.id"
                       [attr.data-track-id]="track.id"
                       [attr.tabindex]="activeId() === track.id ? 0 : -1">
                       <td class="col-num">

@@ -39,7 +39,7 @@
       background: var(--status-error);
     }
 
-    .error-notice-card .notice-content h3 {
+    .error-notice-card .notice-content h2 {
       font-size: var(--font-size-sm);
       font-weight: 700;
       color: var(--status-error);
@@ -82,7 +82,7 @@
       flex-shrink: 0;
     }
 
-    .notice-content h3 {
+    .notice-content h2 {
       font-size: var(--font-size-sm);
       font-weight: 700;
       color: var(--color-text-accent);
@@ -733,7 +733,7 @@
       background: color-mix(in srgb, var(--accent-primary) 10%, var(--glass-elevated));
       border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
     }
-    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .integration-notice-card .notice-content h3 {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .integration-notice-card .notice-content h2 {
       color: var(--text-accent);
     }
     :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .preset-card.disabled,

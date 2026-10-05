@@ -123,7 +123,7 @@
         <section class="section-songs">
           <h2 class="section-title">Songs ({{ artistTracks().length }})</h2>
           <div class="tracks-card">
-            <table class="tracks-table">
+            <table class="tracks-table" role="grid" aria-label="Artist songs" [attr.aria-rowcount]="artistTracks().length + 1" aria-multiselectable="false">
               <thead>
                 <tr>
                   <th class="col-num">#</th>
@@ -142,6 +142,8 @@
                     (dblclick)="onPlayTrack(track, i)"
                     (click)="onActivateTrack(track, true)"
                     (focusin)="onActivateTrack(track)"
+                    [attr.aria-rowindex]="i + 2"
+                    [attr.aria-selected]="activeId() === track.id"
                     [attr.data-track-id]="track.id"
                     [attr.tabindex]="activeId() === track.id ? 0 : -1">
                     <td class="col-num">

@@ -4,6 +4,8 @@
 
 html[data-theme='dark'] {
   color-scheme: dark;
+  --status-error-fill: #dc2626;
+  --color-on-error: #ffffff;
   --color-canvas: #111214;
   --color-navigation: #17181b;
   --color-surface: #1c1e22;
@@ -31,6 +33,8 @@ html[data-theme='dark'] {
 
 html[data-theme='light'] {
   color-scheme: light;
+  --status-error-fill: #dc2626;
+  --color-on-error: #ffffff;
   --color-canvas: #f1f4f8;
   --color-navigation: #e5e9f0;
   --color-surface: #ffffff;

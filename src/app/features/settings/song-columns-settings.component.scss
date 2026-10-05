@@ -45,8 +45,8 @@
   color: var(--text-secondary);
   font-size: 15px;
 }
-.song-column-move-controls button:hover:not(:disabled) { border-color: var(--accent-primary); color: var(--accent-primary); }
-.song-column-move-controls button:disabled { opacity: 0.35; cursor: default; }
+.song-column-move-controls button:hover:not([aria-disabled='true']) { border-color: var(--accent-primary); color: var(--accent-primary); }
+.song-column-move-controls button[aria-disabled='true'] { opacity: 0.35; cursor: default; }
 .song-column-option input { flex: none; width: 18px; height: 18px; accent-color: var(--accent-primary); cursor: pointer; }
 .song-column-option input:disabled { cursor: default; }
 @container main-content (max-width: 500px) {
