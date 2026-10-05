@@ -1,225 +1,221 @@
+.app-layout {
+  position: relative;
+  isolation: isolate;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-canvas);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
 
-    .app-layout {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      background: var(--color-canvas);
-      color: var(--color-text);
-      transition: background-color var(--transition-normal), color var(--transition-normal);
-    }
+.app-layout:not(.layout-liquid-glass) > app-header,
+.app-layout > .workspace,
+.app-layout > app-player-bar:not(.ambient-dock) { position: relative; z-index: 2; }
+/* Header menus and search results drop over the workspace. */
+.app-layout:not(.layout-liquid-glass) > app-header { z-index: 3; }
+.layout-liquid-glass > app-header { z-index: 50; }
 
-    .layout-liquid-glass {
-      background: linear-gradient(145deg, #e8e8eb 0%, #f5f5f7 52%, #ececef 100%);
-      isolation: isolate;
-    }
+.workspace {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
 
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass {
-      background: transparent;
-    }
+.main-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-canvas);
+  container-type: inline-size;
+  container-name: main-content;
+  transition: background-color var(--transition-normal);
+}
+.workspace.has-ambient-artwork .main-content { background: transparent; transition: none; }
 
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .workspace {
-      background: transparent;
-    }
+/* ---------- Gallery: header on the room, one inset sheet, the rail beside it ---------- */
+.layout-inset { background: var(--color-navigation); }
+.layout-inset .workspace { gap: var(--shell-gap); padding: 0 var(--shell-gap) var(--shell-gap); }
+.layout-inset .main-content {
+  border-radius: var(--surface-radius);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.gallery-rail { flex: 0 0 var(--rail-width); height: 100%; min-height: 0; }
+@media (max-width: 1100px) { .gallery-rail { flex-basis: 76px; } }
 
-    .layout-liquid-glass > app-header,
-    .layout-liquid-glass > .workspace,
-    .layout-liquid-glass > app-player-bar {
-      position: relative;
-      z-index: 2;
-    }
+/* ---------- Console: flush panes split by hairlines ---------- */
+.layout-classic { --sidebar-width: 212px; }
+/* Inside Console's pages every card collapses to r0-4, flat, with no glow. */
+.layout-classic .main-content {
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --accent-glow: transparent;
+  --color-accent-glow: transparent;
+}
+.console-inspector { border-left: 1px solid var(--border-default); }
 
-    .onboarding-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      display: grid;
-      place-items: center;
-      padding: var(--space-4);
-      background: rgba(0, 0, 0, 0.68);
-    }
+/* ---------- Ambient: artwork ground, icon rail, glass sheet, one dock ---------- */
+.layout-liquid-glass {
+  --ambient-content-left: calc(var(--shell-gap) * 2 + var(--icon-rail-width));
+}
+.layout-liquid-glass.rail-hidden { --ambient-content-left: var(--shell-gap); }
+.layout-liquid-glass .workspace { gap: var(--shell-gap); padding: var(--shell-gap); }
+.layout-liquid-glass .main-content,
+.layout-liquid-glass .workspace.has-ambient-artwork .main-content {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--surface-radius);
+  background: var(--glass-content);
+  box-shadow: inset 0 1px 0 var(--glass-specular);
+  /* Pages paint the canvas; inside the glass sheet the sheet is the canvas, and cards are glass. */
+  --color-canvas: transparent;
+  --bg-app: transparent;
+  --color-surface: var(--glass-regular);
+  --bg-surface: var(--glass-regular);
+  --bg-card: var(--glass-regular);
+  --color-surface-elevated: var(--glass-clear);
+  --bg-elevated: var(--glass-clear);
+  --border-subtle: var(--glass-border);
+}
+/* Space kept clear of the floating dock by the sheet and the slide-in panels. */
+.layout-liquid-glass.has-player { --ambient-dock-clearance: 84px; }
+.layout-liquid-glass.has-player .main-content { padding-bottom: var(--ambient-dock-clearance); }
+.ambient-dock {
+  position: absolute;
+  z-index: 40;
+  left: var(--ambient-content-left);
+  right: var(--shell-gap);
+  bottom: calc(var(--shell-gap) + 10px);
+  width: min(860px, calc(100% - var(--ambient-content-left) - var(--shell-gap) - 32px));
+  margin-inline: auto;
+  animation: dock-rise var(--motion-dur) var(--motion-ease) both;
+}
+@keyframes dock-rise { from { opacity: 0; transform: translateY(18px) scale(0.98); } }
 
-    .queue-notice {
-      position: fixed;
-      z-index: 900;
-      left: 50%;
-      bottom: 104px;
-      transform: translateX(-50%);
-      max-width: min(420px, calc(100vw - 32px));
-      min-height: 40px;
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-2) var(--space-4);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-full);
-      color: var(--text-primary);
-      background: var(--bg-elevated);
-      box-shadow: var(--shadow-lg);
-      font-size: var(--font-size-sm);
-      pointer-events: none;
-    }
+.now-playing-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
-    .queue-notice app-icon { color: var(--accent-primary); }
-    .queue-notice button { pointer-events: auto; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--text-accent); font-weight: 600; cursor: pointer; }
-    .queue-notice button:hover { background: var(--bg-surface-hover); }
-    .queue-notice button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+/* Blurred artwork is the Ambient ground; a fresh cover fades in on every track change. */
+.ambient-art {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  filter: blur(80px) saturate(1.25);
+  opacity: 0.55;
+  animation: ambient-in 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+:host-context(html[data-theme='light']) .ambient-art { opacity: 0.42; }
+@keyframes ambient-in { from { opacity: 0; transform: scale(1.06); } }
 
-    .onboarding-dialog {
-      width: min(100%, 440px);
-      padding: var(--space-8);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      background: var(--bg-surface);
-      color: var(--text-primary);
-      box-shadow: var(--shadow-lg);
-    }
+.panel-glow-img, .panel-edge-glow-img {
+  position: absolute;
+  object-fit: cover;
+  opacity: 0.94;
+  filter: blur(32px) brightness(2.4);
+}
 
-    .onboarding-dialog h2 { margin: 0 0 var(--space-3); }
-    .onboarding-dialog p { color: var(--text-secondary); line-height: 1.5; }
-    .onboarding-dialog .onboarding-error { color: #f87171; }
-    .onboarding-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
-    .onboarding-actions button { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface-hover); color: var(--text-primary); cursor: pointer; }
-    .onboarding-actions .onboarding-primary { background: var(--accent-primary); color: #fff; border-color: transparent; }
-    .onboarding-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+:host-context(html[data-theme='light']) .panel-glow-img,
+:host-context(html[data-theme='light']) .panel-edge-glow-img { opacity: 0.5; }
 
-    .shortcuts-dialog { max-height: calc(100dvh - var(--space-4) * 2); overflow-y: auto; }
-    .shortcuts-list { display: grid; gap: var(--space-2); margin: var(--space-4) 0; }
-    .shortcuts-list > div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: var(--space-3); }
-    .shortcuts-list dd { margin: 0; }
-    .shortcuts-list kbd { font-family: var(--font-family-base); font-size: var(--font-size-sm); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .ambient-art, .ambient-dock { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .ambient-art { display: none; }
+}
 
-    .now-playing-backdrop {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      pointer-events: none;
-    }
+/* ---------- Dialogs and notices ---------- */
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.68);
+}
 
-    .classic-ambient-img {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 100%;
-      height: 100%;
-      transform: translate(-50%, -50%);
-      object-fit: cover;
-      filter: blur(52px) brightness(1.45) saturate(1.2);
-      opacity: 0.72;
-      -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, #000 35%, transparent 100%);
-      mask-image: radial-gradient(ellipse at center, #000 0%, #000 35%, transparent 100%);
-    }
+.onboarding-dialog {
+  width: min(100%, 440px);
+  padding: var(--space-8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+.onboarding-dialog h2 { margin: 0 0 var(--space-3); }
+.onboarding-dialog p { color: var(--text-secondary); line-height: 1.5; }
+.onboarding-dialog .onboarding-error { color: var(--status-error); }
+.onboarding-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+.onboarding-actions button { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface-hover); cursor: pointer; }
+.onboarding-actions .onboarding-primary { border-color: transparent; color: var(--color-surface); background: var(--text-primary); }
+.onboarding-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
 
-    .panel-glow-img, .panel-edge-glow-img {
-      position: absolute;
-      object-fit: cover;
-      filter: blur(32px) brightness(2.4);
-      opacity: 0.94;
-    }
+.shortcuts-dialog { max-height: calc(100dvh - var(--space-4) * 2); overflow-y: auto; }
+.shortcuts-list { display: grid; gap: var(--space-2); margin: var(--space-4) 0; }
+.shortcuts-list > div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: var(--space-3); }
+.shortcuts-list dd { margin: 0; }
+.shortcuts-list kbd { font-family: var(--font-family-base); font-size: var(--font-size-sm); font-weight: 600; }
 
-    :host-context(html[data-theme='light']) .classic-ambient-img {
-      opacity: 0.32;
-    }
+.queue-notice {
+  position: fixed;
+  z-index: 900;
+  left: 50%;
+  bottom: 104px;
+  max-width: min(420px, calc(100vw - 32px));
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.queue-notice app-icon { color: var(--text-accent); }
+.queue-notice button { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--text-accent); font-weight: 600; pointer-events: auto; cursor: pointer; }
+.queue-notice button:hover { background: var(--bg-surface-hover); }
+.queue-notice button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
-    :host-context(html[data-theme='light']) .panel-glow-img,
-    :host-context(html[data-theme='light']) .panel-edge-glow-img {
-      opacity: 0.50;
-    }
-
-    .workspace {
-      flex: 1;
-      display: flex;
-      position: relative;
-      isolation: isolate;
-      overflow: hidden;
-    }
-
-    .workspace.has-ambient-artwork .main-content {
-      background: transparent;
-      transition: none;
-    }
-
-    .layout-liquid-glass .workspace.has-ambient-artwork .main-content,
-    .layout-liquid-glass .main-content {
-      height: calc(100% - 16px);
-      margin: 8px 8px 8px 6px;
-      border: 1px solid rgba(29, 29, 31, 0.08);
-      border-radius: 18px;
-      background: var(--glass-content);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 26px rgba(32, 32, 36, 0.08);
-    }
-
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .workspace.has-ambient-artwork .main-content,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .main-content {
-      border-color: rgba(255, 255, 255, 0.24);
-      background: var(--glass-content);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 6px 22px rgba(24, 32, 38, 0.06);
-    }
-
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .onboarding-dialog {
-      background: rgba(250, 250, 252, 0.94);
-    }
-
-    .main-content {
-      flex: 1;
-      min-width: 0;
-      height: 100%;
-      overflow: hidden;
-      background: var(--color-canvas);
-      position: relative;
-      container-type: inline-size;
-      container-name: main-content;
-      transition: background-color var(--transition-normal), color var(--transition-normal);
-    }
-
-    .layout-liquid-glass + .queue-notice,
-    .layout-liquid-glass ~ .queue-notice {
-      background: var(--glass-elevated);
-      border-color: var(--glass-border);
-    }
-
-    .playback-notice {
-      position: fixed;
-      right: var(--space-5);
-      bottom: calc(var(--player-bar-height, 88px) + var(--space-4));
-      z-index: 1200;
-      max-width: min(440px, calc(100vw - 32px));
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: 10px 12px;
-      border: 1px solid var(--status-warning);
-      border-radius: var(--radius-md);
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      box-shadow: var(--shadow-lg);
-      font-size: var(--font-size-sm);
-    }
-    .playback-notice span { flex: 1; }
-    .playback-notice button { color: var(--text-muted); padding: 3px; border-radius: var(--radius-sm); }
-    .playback-notice button:hover { color: var(--text-primary); background: var(--bg-surface-hover); }
-
-    @media (max-width: 900px) {
-      .layout-liquid-glass .workspace.has-ambient-artwork .main-content,
-      .layout-liquid-glass .main-content {
-        height: calc(100% - 12px);
-        margin: 6px;
-        border-radius: 16px;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .layout-liquid-glass * { scroll-behavior: auto; }
-    }
-
-    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-      .layout-liquid-glass .main-content { background: #f8f8fa; backdrop-filter: none; -webkit-backdrop-filter: none; }
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .main-content { background: #f8f8fa; }
-    }
-
-    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-      .layout-liquid-glass .main-content { background: #f8f8fa; }
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .main-content { background: #f8f8fa; }
-    }
+.playback-notice {
+  position: fixed;
+  right: var(--space-5);
+  bottom: calc(var(--player-bar-height) + var(--space-4));
+  z-index: 1200;
+  max-width: min(440px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  border: 1px solid var(--status-warning);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+}
+.playback-notice span { flex: 1; }
+.playback-notice button { padding: 3px; border-radius: var(--radius-sm); color: var(--text-muted); }
+.playback-notice button:hover { color: var(--text-primary); background: var(--bg-surface-hover); }

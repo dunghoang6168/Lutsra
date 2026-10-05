@@ -20,6 +20,11 @@
         linear-gradient(180deg, transparent, var(--accent-muted)),
         var(--bg-surface);
     }
+    /* Ambient: the surrounding card is the glass; the panel adds no second frame. */
+    :host-context(.layout-liquid-glass) .spectrum-panel {
+      border-color: transparent;
+      background: transparent;
+    }
 
     .spectrum-label {
       position: absolute;
@@ -34,7 +39,7 @@
       pointer-events: none;
     }
 
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .spectrum-label {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .spectrum-label {
       padding: 2px 5px;
       border-radius: 5px;
       color: var(--text-secondary);

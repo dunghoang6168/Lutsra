@@ -1,22 +1,24 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
 import { IconComponent } from '../icon/icon.component';
 import { RangeSliderComponent } from '../range-slider/range-slider.component';
+import { SignalPathComponent } from '../signal-path/signal-path.component';
+
+export type PlayerVariant = 'strip' | 'rail' | 'pill';
 
 @Component({
   selector: 'app-player-bar',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, RangeSliderComponent],
+  imports: [NgTemplateOutlet, RouterModule, DurationPipe, IconComponent, RangeSliderComponent, SignalPathComponent],
   templateUrl: './player-bar.component.html',
   styleUrl: './player-bar.component.scss'
 })
 export class PlayerBarComponent {
   readonly player = inject(PlayerService);
-  readonly variant = input<'footer' | 'liquid-dock'>('footer');
-  readonly showTrackIdentity = input(true);
+  readonly variant = input<PlayerVariant>('strip');
   readonly isQueueOpen = input<boolean>(false);
   readonly toggleQueue = output<void>();
   readonly isVolumeAdjusting = signal(false);
@@ -28,6 +30,9 @@ export class PlayerBarComponent {
   readonly volumeAriaText = computed(() => this.player.isMuted()
     ? `Muted, volume ${this.volumePercent()} percent`
     : `${this.volumePercent()} percent`);
+
+  readonly timelineValueText = computed(() =>
+    `${formatClock(this.player.currentTime())} of ${formatClock(this.player.duration())}`);
 
   private isTimelineScrubbing = false;
 
@@ -88,4 +93,9 @@ export class PlayerBarComponent {
   private canSeek(): boolean {
     return Boolean(this.player.currentTrack()) && this.player.duration() > 0;
   }
+}
+
+function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }

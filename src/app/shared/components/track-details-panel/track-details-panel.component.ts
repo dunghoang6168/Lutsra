@@ -4,9 +4,12 @@ import {
 } from '@angular/core';
 import { LIBRARY_GATEWAY } from '../../../core/contracts/library.gateway';
 import { RightPanelService } from '../../../core/layout/right-panel.service';
+import { TrackSelectionService } from '../../../core/layout/track-selection.service';
 import type { TrackDetails } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { IconComponent } from '../icon/icon.component';
+import { SignalPathComponent } from '../signal-path/signal-path.component';
+import { formatTrackFormat } from '../../../features/home/library-quality';
 
 interface PropertyRow { name: string; value: string; path?: boolean; }
 interface PropertySection { title: string; rows: PropertyRow[]; }
@@ -19,12 +22,13 @@ const MIN_MAIN_WIDTH = 280;
 @Component({
   selector: 'app-track-details-panel',
   standalone: true,
-  imports: [IconComponent],
+  imports: [IconComponent, SignalPathComponent],
   host: {
-    '[class.open]': 'open()',
+    '[class.open]': 'visible()',
+    '[class.docked]': 'docked()',
     '[style.--track-details-width.px]': 'effectiveWidth()',
-    '[attr.aria-hidden]': '!open()',
-    '[attr.inert]': 'open() ? null : ""',
+    '[attr.aria-hidden]': '!visible()',
+    '[attr.inert]': 'visible() ? null : ""',
   },
   templateUrl: './track-details-panel.component.html',
   styleUrl: './track-details-panel.component.scss',
@@ -32,6 +36,17 @@ const MIN_MAIN_WIDTH = 280;
 })
 export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
   readonly open = input(false);
+  /** Console docks the panel as a permanent inspector that follows the selected track. */
+  readonly docked = input(false);
+  private readonly selection = inject(TrackSelectionService);
+  readonly visible = computed(() => this.open() || this.docked());
+  readonly subject = computed(() => this.docked()
+    ? this.selection.selected() ?? this.player.currentTrack()
+    : this.player.currentTrack());
+  readonly subjectSource = computed(() => this.docked() && this.selection.selected() ? 'Selected track' : 'Now playing');
+  readonly subjectFormat = computed(() => { const track = this.subject(); return track ? formatTrackFormat(track) : null; });
+  /** Mono is for measurements only; names and tags stay in the text face. */
+  readonly measureRows = new Set(['Duration', 'Sample Rate', 'Bits per Sample', 'Bitrate', 'Audio MD5', 'Full Path', 'File Size', 'Track Number', 'Total Tracks', 'Disc Number', 'Total Discs']);
   readonly player = inject(PlayerService);
   readonly rightPanels = inject(RightPanelService);
   readonly loading = signal(false);
@@ -88,8 +103,8 @@ export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      const isOpen = this.open();
-      const track = this.player.currentTrack();
+      const isOpen = this.visible();
+      const track = this.subject();
       if (!isOpen || !track) {
         this.abortResize();
         this.requestVersion++;
@@ -123,7 +138,7 @@ export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
     this.pointerListeners.abort();
     this.abortResize();
   }
-  retry(): void { const track = this.player.currentTrack(); if (track) void this.load(track.id); }
+  retry(): void { const track = this.subject(); if (track) void this.load(track.id); }
 
   onResizeStart(event: PointerEvent): void {
     if (event.button !== 0) return;
@@ -253,10 +268,10 @@ export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
     this.details.set(null);
     try {
       const details = await this.libraryGateway.getTrackDetails(trackId);
-      if (version !== this.requestVersion || trackId !== this.player.currentTrack()?.id || !this.open()) return;
+      if (version !== this.requestVersion || trackId !== this.subject()?.id || !this.visible()) return;
       this.details.set(details);
     } catch {
-      if (version !== this.requestVersion || trackId !== this.player.currentTrack()?.id || !this.open()) return;
+      if (version !== this.requestVersion || trackId !== this.subject()?.id || !this.visible()) return;
       this.error.set('The source file may be missing, locked, corrupt, or outside the registered library.');
     } finally {
       if (version === this.requestVersion) this.loading.set(false);

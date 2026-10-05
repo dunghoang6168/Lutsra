@@ -18,7 +18,14 @@
       <header class="panel-header">
         <div class="title-group">
           <span class="title-icon" aria-hidden="true"><app-icon name="info" [size]="18" /></span>
-          <h2 id="track-details-title">Track Details</h2>
+          @if (docked()) {
+            <div class="inspector-title">
+              <h2 id="track-details-title">{{ subject()?.title ?? 'No track selected' }}</h2>
+              @if (subject()) { <span class="inspector-subject">{{ subjectSource() }}</span> }
+            </div>
+          } @else {
+            <h2 id="track-details-title">Track Details</h2>
+          }
         </div>
         <button type="button" class="close-button" (click)="rightPanels.closeTrackDetails()" aria-label="Close track properties">
           <app-icon name="x" [size]="18" />
@@ -38,7 +45,19 @@
             <p>{{ error() }}</p>
             <button type="button" class="retry-button" (click)="retry()">Retry</button>
           </div>
+        } @else if (docked() && !subject()) {
+          <div class="state-view">
+            <app-icon name="music" [size]="24" />
+            <p>Select a song to read its file properties.</p>
+          </div>
         } @else if (details()) {
+          @if (docked() && subjectFormat(); as format) {
+            <div class="file-truth">
+              <span class="truth-format" [class.hires]="format.hires">{{ format.label }}</span>
+              <span class="truth-state">{{ subject()?.isAvailable ? 'On disk' : 'Missing from disk' }}</span>
+              @if (subject()?.id === player.currentTrack()?.id) { <app-signal-path class="truth-path" /> }
+            </div>
+          }
           <div class="properties-sections">
             @for (section of sections(); track section.title) {
               <section class="property-section">
@@ -47,7 +66,7 @@
                   @for (row of section.rows; track row.name) {
                     <div class="property-row">
                       <dt>{{ row.name }}</dt>
-                      <dd [class.path-value]="row.path" [title]="row.path ? row.value : null">{{ row.value }}</dd>
+                      <dd [class.path-value]="row.path" [class.measure]="measureRows.has(row.name)" [title]="row.path ? row.value : null">{{ row.value }}</dd>
                     </div>
                   }
                 </dl>

@@ -1,69 +1,57 @@
+@if (variant() === 'rail') {
+  <!-- Ambient: a floating icon rail; labels surface on hover and focus. -->
+  <nav class="icon-rail" aria-label="Main Navigation">
+    @for (item of navItems; track item.path) {
+      <a [routerLink]="item.path" routerLinkActive="active" class="rail-item" [attr.aria-label]="item.label">
+        <app-icon [name]="item.icon" [size]="20" />
+        <span class="rail-tip" aria-hidden="true">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+} @else {
+  <!-- Console: a library tree with counts and a Quality group. -->
+  <aside
+    class="sidebar"
+    [class.width-collapsed]="widthCollapsed()"
+    [class.content-collapsed]="contentCollapsed()"
+    [class.labels-hidden]="!labelsVisible()"
+    [class.animating]="isAnimating()"
+    [attr.data-phase]="phase()"
+    (transitionend)="onWidthTransitionEnd($event)">
+    <div class="tree-header">
+      <span class="tree-heading">Library</span>
+      <button
+        type="button"
+        class="sidebar-toggle-btn"
+        (click)="toggleCollapse.emit()"
+        [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        [attr.aria-expanded]="!isCollapsed()">
+        <app-icon [name]="isCollapsed() ? 'chevron-right' : 'chevron-left'" [size]="16" />
+      </button>
+    </div>
 
-    <aside
-      class="sidebar"
-      [class.width-collapsed]="widthCollapsed()"
-      [class.content-collapsed]="contentCollapsed()"
-      [class.labels-hidden]="!labelsVisible()"
-      [class.animating]="isAnimating()"
-      [attr.data-phase]="phase()"
-      (transitionend)="onWidthTransitionEnd($event)">
-      <div class="sidebar-toggle-row">
-        <span class="sidebar-section-title">LIBRARY</span>
-        <button
-          type="button"
-          class="sidebar-toggle-btn"
-          (click)="toggleCollapse.emit()"
-          [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-          [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
-          <app-icon [name]="isCollapsed() ? 'chevron-right' : 'chevron-left'" [size]="16" />
-        </button>
-      </div>
-
-      <!-- Navigation Links -->
-      <nav class="nav-menu" aria-label="Main Navigation">
-        <a routerLink="/home" routerLinkActive="active" class="nav-item" title="Home">
-          <app-icon name="home" [size]="18" class="nav-icon" />
-          <span class="nav-label">Home</span>
-        </a>
-
-        <a routerLink="/songs" routerLinkActive="active" class="nav-item" title="Songs">
-          <app-icon name="music" [size]="18" class="nav-icon" />
-          <span class="nav-label">Songs</span>
-        </a>
-
-        <a routerLink="/albums" routerLinkActive="active" class="nav-item" title="Albums">
-          <app-icon name="disc" [size]="18" class="nav-icon" />
-          <span class="nav-label">Albums</span>
-        </a>
-
-        <a routerLink="/artists" routerLinkActive="active" class="nav-item" title="Artists">
-          <app-icon name="user" [size]="18" class="nav-icon" />
-          <span class="nav-label">Artists</span>
-        </a>
-
-        <a routerLink="/folders" routerLinkActive="active" class="nav-item" title="Folders">
-          <app-icon name="folder" [size]="18" class="nav-icon" />
-          <span class="nav-label">Folders</span>
-        </a>
-
-        <a routerLink="/playlists" routerLinkActive="active" class="nav-item" title="Playlists">
-          <app-icon name="list-music" [size]="18" class="nav-icon" />
-          <span class="nav-label">Playlists</span>
-        </a>
-      </nav>
-
-      @if (showNowPlayingDock() && player.currentTrack(); as track) {
-        <a routerLink="/now-playing" class="sidebar-now-playing" [title]="'Open Now Playing: ' + track.title">
-          @if (track.artwork) {
-            <img [src]="track.artwork" [alt]="track.title" />
-          } @else {
-            <span class="sidebar-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="20" /></span>
-          }
-          <span class="sidebar-track-meta">
-            <strong class="truncate">{{ track.title }}</strong>
-            <span class="truncate">{{ track.artist || 'Unknown Artist' }}</span>
-          </span>
+    <nav class="nav-menu" aria-label="Main Navigation">
+      @for (item of navItems; track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="exactQuery"
+          class="nav-item" [title]="item.label">
+          <app-icon [name]="item.icon" [size]="16" class="nav-icon" />
+          <span class="nav-label">{{ item.label }}</span>
+          @if (counts()[item.path]; as count) { <span class="nav-count">{{ count }}</span> }
         </a>
       }
+    </nav>
 
-    </aside>
+    <nav class="nav-menu quality-menu" aria-labelledby="quality-heading">
+      <span id="quality-heading" class="tree-heading">Quality</span>
+      @for (item of qualityItems(); track item.key) {
+        <a routerLink="/songs" [queryParams]="item.params" routerLinkActive="active" [routerLinkActiveOptions]="exactQuery"
+          class="nav-item" [class.warning]="item.warning" [title]="item.label + ' (' + item.count + ')'">
+          <span class="quality-mark" [attr.data-kind]="item.key" aria-hidden="true"></span>
+          <span class="nav-label">{{ item.label }}</span>
+          <span class="nav-count">{{ item.count }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+}

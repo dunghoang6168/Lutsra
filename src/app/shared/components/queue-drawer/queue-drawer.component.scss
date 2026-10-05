@@ -13,6 +13,7 @@
       transform: translateX(calc(100% + 8px));
       transition:
         transform var(--transition-normal),
+        visibility 0s linear 250ms,
         background-color var(--transition-normal),
         border-color var(--transition-normal),
         color var(--transition-normal);
@@ -23,7 +24,11 @@
 
     .queue-drawer.open {
       transform: translateX(0);
+      transition-delay: 0s;
     }
+
+    /* Off-canvas is not enough when the drawer sits left of Gallery's rail. */
+    .queue-drawer:not(.open) { visibility: hidden; }
 
     :host-context(.layout-liquid-glass) .queue-drawer {
       border-color: var(--glass-border);
@@ -34,7 +39,7 @@
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
     }
 
-    :host-context(.layout-liquid-glass) .drawer-header { background: rgba(19, 28, 50, 0.68); }
+    :host-context(.layout-liquid-glass) .drawer-header { background: transparent; }
 
     :host-context(.layout-classic) .queue-drawer {
       top: 0;
@@ -179,9 +184,6 @@
 
     .queue-item.current {
       background: var(--accent-muted);
-    }
-    :host-context(.layout-liquid-glass) .queue-item.current {
-      box-shadow: inset 3px 0 var(--accent-primary), inset 10px 0 24px color-mix(in srgb, var(--accent-primary) 12%, transparent);
     }
 
     .queue-item.current .track-title {
@@ -335,38 +337,20 @@
       justify-content: center;
     }
 
-    @media (max-width: 900px) {
-      :host-context(.layout-liquid-glass) .queue-drawer { top: 6px; right: 6px; bottom: 6px; }
-    }
+    /* Starts under the floating header and stops above the dock, so its controls stay reachable. */
+    :host-context(.layout-liquid-glass) .queue-drawer { top: var(--page-pad-top); right: var(--shell-gap); bottom: calc(var(--shell-gap) + var(--ambient-dock-clearance, 0px)); border-radius: var(--surface-radius); }
     @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-      :host-context(.layout-liquid-glass) .queue-drawer { background: #fafafc; backdrop-filter: none; -webkit-backdrop-filter: none; }
-    }
-    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-      :host-context(.layout-liquid-glass) .queue-drawer { background: #fafafc; }
+      :host-context(.layout-liquid-glass) .queue-drawer { background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
     }
 
-    :host-context(.layout-liquid-glass) .queue-drawer {
-      border-color: rgba(29, 29, 31, 0.12);
-      background: rgba(255, 255, 255, 0.78);
-      box-shadow: inset 0 1px 0 var(--glass-specular), -10px 12px 34px rgba(32, 32, 36, 0.12);
-      backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.16);
+    /* Gallery opens the queue beside the rail, never over it. */
+    :host-context(.layout-inset) .queue-drawer { top: 0; bottom: var(--shell-gap); right: var(--shell-gap); border-radius: var(--surface-radius); }
+    :host-context(.layout-inset.has-player) .queue-drawer { right: calc(var(--rail-width) + var(--shell-gap) * 2); }
+    /* Closing fades in place: sliding off-canvas would sweep across the rail. */
+    :host-context(.layout-inset.has-player) .queue-drawer:not(.open) {
+      opacity: 0;
+      transform: translateX(var(--shell-gap));
+      transition: transform var(--transition-normal), opacity var(--transition-normal), visibility 0s linear 250ms;
     }
-    :host-context(.layout-liquid-glass) .drawer-header { background: rgba(255, 255, 255, 0.42); }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .queue-drawer,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .drawer-header { background: var(--glass-elevated); }
-    :host-context(.layout-liquid-glass) .queue-item.current { box-shadow: inset 3px 0 var(--accent-primary); }
-    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-      :host-context(.layout-liquid-glass) .queue-drawer { background: #fafafc; }
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .queue-drawer,
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .drawer-header {
-        background: #fafafc;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-      }
-    }
-    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-      :host-context(.layout-liquid-glass) .queue-drawer { background: #fafafc; }
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .queue-drawer,
-      :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .drawer-header { background: #fafafc; }
-    }
+    :host-context(.layout-inset.has-player) .queue-drawer.open { transition: transform var(--transition-normal), opacity var(--transition-normal); }
+    @media (max-width: 1100px) { :host-context(.layout-inset.has-player) .queue-drawer { right: calc(76px + var(--shell-gap) * 2); } }

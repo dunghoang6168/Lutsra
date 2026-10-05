@@ -80,3 +80,25 @@
   .layout-options { grid-template-columns: 1fr; }
   .visualization-options { grid-template-columns: 1fr; }
 }
+
+/* Layout diagrams: neutral schematic, accent marks the one thing each layout leads with. */
+.layout-diagram {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+.layout-diagram svg { display: block; width: 100%; height: 100%; }
+.d-room { fill: var(--color-navigation); }
+.d-sheet { fill: var(--color-canvas); }
+.d-panel { fill: var(--bg-surface); }
+.d-glass { fill: color-mix(in srgb, var(--bg-surface) 72%, transparent); }
+.d-pill { fill: var(--bg-elevated); }
+.d-art { fill: color-mix(in srgb, var(--accent-primary) 30%, var(--color-canvas)); }
+.d-cover { fill: var(--bg-surface-active); }
+.d-line { fill: var(--text-muted); opacity: 0.55; }
+.d-strong { fill: var(--text-secondary); }
+.d-accent { fill: var(--accent-primary); }
+.layout-option.active .layout-diagram { box-shadow: 0 0 0 1px var(--accent-primary); }

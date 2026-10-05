@@ -51,47 +51,6 @@ html[data-theme='light'] {
 }
 
 /* --------------------------------------------------------------------------
-   Liquid Glass theme (derived from the Liquid Glass layout)
-   -------------------------------------------------------------------------- */
-
-html[data-theme='liquid-glass'] {
-  color-scheme: light;
-  --color-canvas: #ececef;
-  --color-navigation: rgba(255, 255, 255, 0.62);
-  --color-surface: rgba(248, 248, 250, 0.94);
-  --color-surface-hover: rgba(29, 29, 31, 0.055);
-  --color-surface-active: rgba(29, 29, 31, 0.09);
-  --color-surface-elevated: #ffffff;
-  --color-surface-glass: rgba(255, 255, 255, 0.62);
-  --color-border-subtle: rgba(29, 29, 31, 0.08);
-  --color-border: rgba(29, 29, 31, 0.13);
-  --color-text: #1d1d1f;
-  --color-text-secondary: #5a5a5f;
-  --color-text-muted: #666669;
-  --color-text-inverse: #ffffff;
-  --color-accent: #fa2d48;
-  --color-accent-hover: #e92843;
-  --color-accent-active: #d6203b;
-  --color-accent-muted: rgba(250, 45, 72, 0.11);
-  --color-accent-glow: rgba(250, 45, 72, 0.2);
-  --color-text-accent: #d91f3c;
-  --glass-regular: rgba(255, 255, 255, 0.62);
-  --glass-clear: rgba(255, 255, 255, 0.38);
-  --glass-elevated: rgba(255, 255, 255, 0.78);
-  --glass-content: rgba(248, 248, 250, 0.94);
-  --glass-border: rgba(29, 29, 31, 0.12);
-  --glass-specular: rgba(255, 255, 255, 0.92);
-  --glass-shadow: 0 12px 34px rgba(32, 32, 36, 0.10), 0 1px 4px rgba(32, 32, 36, 0.07);
-  --glass-blur: 18px;
-  --glass-accent-halo: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  --shadow-sm: 0 1px 3px rgba(32, 32, 36, 0.08);
-  --shadow-md: 0 6px 18px rgba(32, 32, 36, 0.10);
-  --shadow-lg: var(--glass-shadow);
-  --color-scrollbar-thumb: rgba(29, 29, 31, 0.20);
-  --color-scrollbar-thumb-hover: rgba(29, 29, 31, 0.34);
-}
-
-/* --------------------------------------------------------------------------
    Accent Colors (Dark Theme Default Values)
    -------------------------------------------------------------------------- */
 
@@ -207,180 +166,121 @@ html[data-theme='light'] {
   }
 }
 
-/* Apple Acrylic keeps its own accent while sharing the existing light-theme palette. */
-html[data-theme='liquid-glass'] {
-  --color-accent: #fa2d48;
-  --color-accent-hover: #e92843;
-  --color-accent-active: #d6203b;
-  --color-text: #42151f;
-  --color-text-secondary: #672b38;
-  --color-text-muted: #703542;
-  --color-text-accent: #8f1028;
-  --color-border-strong: color-mix(in srgb, var(--color-text) 30%, transparent);
-  --color-accent-muted: color-mix(in srgb, var(--color-accent) 11%, transparent);
-  --color-accent-glow: color-mix(in srgb, var(--color-accent) 20%, transparent);
-  --glass-accent-halo: color-mix(in srgb, var(--color-accent) 18%, transparent);
+/* --------------------------------------------------------------------------
+   Layout systems. Each layout is its own shell, density and typographic voice;
+   colour always comes from the light/dark preset and the chosen accent.
+   -------------------------------------------------------------------------- */
 
-  &[data-accent='violet'] {
-    --color-accent: #7c3aed;
-    --color-accent-hover: #6d28d9;
-    --color-accent-active: #5b21b6;
-    --color-text: #251542;
-    --color-text-secondary: #422c68;
-    --color-text-muted: #4a346f;
-    --color-text-accent: #5b21b6;
-  }
-
-  &[data-accent='blue'] {
-    --color-accent: #2563eb;
-    --color-accent-hover: #1d4ed8;
-    --color-accent-active: #1e40af;
-    --color-text: #152342;
-    --color-text-secondary: #2c3f68;
-    --color-text-muted: #34476f;
-    --color-text-accent: #1e40af;
-  }
-
-  &[data-accent='cyan'] {
-    --color-accent: #0891b2;
-    --color-accent-hover: #0e7490;
-    --color-accent-active: #155e75;
-    --color-text: #153942;
-    --color-text-secondary: #2c5c68;
-    --color-text-muted: #34636f;
-    --color-text-accent: #155e75;
-  }
-
-  &[data-accent='emerald'] {
-    --color-accent: #059669;
-    --color-accent-hover: #047857;
-    --color-accent-active: #065f46;
-    --color-text: #154233;
-    --color-text-secondary: #2c6854;
-    --color-text-muted: #346f5b;
-    --color-text-accent: #065f46;
-  }
-
-  &[data-accent='amber'] {
-    --color-accent: #d97706;
-    --color-accent-hover: #b45309;
-    --color-accent-active: #92400e;
-    --color-text: #422d15;
-    --color-text-secondary: #684c2c;
-    --color-text-muted: #6f5434;
-    --color-text-accent: #92400e;
-  }
+/* Gallery (inset): the listening room. Wide gutters, cover-led, display type. */
+html,
+html[data-layout='inset'] {
+  --shell-gap: 14px;
+  --surface-radius: 20px;
+  --control-radius: var(--radius-full);
+  --page-pad-x: clamp(24px, 4cqi, 64px);
+  --page-pad-top: clamp(28px, 4cqi, 52px);
+  --type-display: clamp(2.25rem, 1.4rem + 2.6cqi, 3.5rem);
+  --type-display-weight: 800;
+  --type-display-tracking: -0.035em;
+  --type-label-variant: normal;
+  --type-label-tracking: 0;
+  --row-height: 52px;
+  --cover-min: 196px;
+  --cover-gap: clamp(20px, 2.4cqi, 36px);
+  --cover-radius: 12px;
+  --cover-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  --card-title-size: var(--font-size-base);
+  --card-title-weight: 700;
+  --motion-dur: 320ms;
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --rail-width: 300px;
 }
 
-/* Electron exposes the native Acrylic backdrop; renderer surfaces float above it. */
-html[data-theme='liquid-glass'][data-runtime='desktop'] {
+/* Console (classic): the archivist's workstation. Flush hairline panes, dense rows. */
+html[data-layout='classic'] {
+  --shell-gap: 0px;
+  --surface-radius: 0px;
+  --control-radius: 3px;
+  --page-pad-x: 20px;
+  --page-pad-top: 18px;
+  --type-display: 1.375rem;
+  --type-display-weight: 650;
+  --type-display-tracking: -0.01em;
+  --type-label-variant: all-small-caps;
+  --type-label-tracking: 0.06em;
+  --row-height: 30px;
+  --cover-min: 136px;
+  --cover-gap: 14px;
+  --cover-radius: 2px;
+  --cover-shadow: none;
+  --card-title-size: var(--font-size-sm);
+  --card-title-weight: 600;
+  --motion-dur: 100ms;
+  --motion-ease: linear;
+  --player-bar-height: 52px;
+  --inspector-width: 320px;
+}
+
+/* Ambient (liquid-glass): chrome recedes over the playing artwork. */
+html[data-layout='liquid-glass'] {
+  --shell-gap: 10px;
+  --surface-radius: 22px;
+  --control-radius: var(--radius-full);
+  --page-pad-x: clamp(20px, 3cqi, 44px);
+  --page-pad-top: 76px;
+  --type-display: clamp(1.9rem, 1.3rem + 1.6cqi, 2.75rem);
+  --type-display-weight: 600;
+  --type-display-tracking: -0.02em;
+  --type-label-variant: normal;
+  --type-label-tracking: 0;
+  --row-height: 44px;
+  --cover-min: 172px;
+  --cover-gap: 22px;
+  --cover-radius: 16px;
+  --cover-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --card-title-size: var(--font-size-sm);
+  --card-title-weight: 600;
+  --motion-dur: 460ms;
+  --motion-ease: cubic-bezier(0.34, 1.28, 0.64, 1);
+  --icon-rail-width: 56px;
+
+  /* Glass derives from the active light/dark palette so both presets work. */
+  --glass-regular: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  --glass-clear: color-mix(in srgb, var(--color-surface) 46%, transparent);
+  --glass-elevated: color-mix(in srgb, var(--color-surface-elevated) 88%, transparent);
+  --glass-content: color-mix(in srgb, var(--color-canvas) 74%, transparent);
+  --glass-solid: var(--color-surface-elevated);
+  --glass-text-backplate: var(--glass-elevated);
+  --glass-readable-surface: var(--glass-elevated);
+  --glass-border: color-mix(in srgb, var(--color-text) 11%, transparent);
+  --glass-specular: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 14px 40px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --glass-blur: 28px;
+  --glass-accent-halo: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+html[data-layout='liquid-glass'][data-theme='dark'] {
+  --glass-specular: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Electron paints native Acrylic behind the window; tint it toward the preset. */
+html[data-layout='liquid-glass'][data-runtime='desktop'] {
   --color-canvas: transparent;
-  --color-navigation: rgba(255, 255, 255, 0.78);
-  --color-surface: rgba(255, 255, 255, 0.78);
-  --color-surface-hover: rgba(255, 255, 255, 0.86);
-  --color-surface-active: rgba(255, 255, 255, 0.9);
-  --color-surface-elevated: rgba(255, 255, 255, 0.86);
-  --color-surface-glass: rgba(255, 255, 255, 0.78);
-  --color-text-primary: var(--color-text);
-  --glass-regular: rgba(255, 255, 255, 0.78);
-  --glass-clear: rgba(255, 255, 255, 0.72);
-  --glass-elevated: rgba(255, 255, 255, 0.86);
-  --glass-content: rgba(255, 255, 255, 0.14);
-  --glass-text-backplate: rgba(255, 255, 255, 0.8);
-  --glass-readable-surface: rgba(255, 255, 255, 0.82);
-  --shadow-sm: 0 1px 3px rgba(24, 32, 38, 0.08);
-  --shadow-md: 0 7px 20px rgba(24, 32, 38, 0.10);
-}
-
-/* Small reading surfaces keep headings clear while the main Acrylic canvas stays visible. */
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass
-  :is(.settings-header, .songs-header .title-area, .page-header .title-group, .folders-header .title-group) {
-  display: inline-flex;
-  width: fit-content;
-  max-width: 100%;
-  padding: 9px 13px;
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  background: var(--glass-text-backplate);
-  box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-sm);
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass
-  :is(.settings-header, .folders-header .title-group) {
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass
-  :is(.songs-header .title-area, .page-header .title-group) {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass .folders-page .breadcrumb-trail {
-  border: 1px solid var(--glass-border);
-  border-radius: 11px;
-  background: var(--glass-text-backplate);
-  box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-sm);
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass .home-section .section-header h2 {
-  padding: 5px 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: 11px;
-  background: var(--glass-text-backplate);
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass .see-all-link {
-  padding: 5px 9px;
-  border-radius: 10px;
-  color: var(--text-accent);
-  background: var(--glass-text-backplate);
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass
-  :is(.album-hero, .artist-hero, .playlist-hero) .type-tag {
-  color: var(--text-accent);
-}
-
-html[data-theme='liquid-glass'][data-runtime='desktop'] .layout-liquid-glass
-  :is(.album-hero, .artist-hero, .playlist-hero) > .hero-info {
-  flex: 0 1 520px;
-  max-width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  background: var(--glass-text-backplate);
-  box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-sm);
+  --glass-content: color-mix(in srgb, var(--color-surface) 58%, transparent);
 }
 
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  html[data-theme='liquid-glass'][data-runtime='desktop'] {
-    --color-canvas: #eef1f4;
-    --color-navigation: #f3f5f7;
-    --color-surface: #f8fafc;
-    --color-surface-hover: #eef1f4;
-    --color-surface-active: #e5e9ed;
-    --color-surface-elevated: #ffffff;
-    --color-surface-glass: #f3f5f7;
-    --glass-regular: #f3f5f7;
-    --glass-clear: #f8fafc;
-    --glass-elevated: #ffffff;
-    --glass-content: #f8fafc;
-    --glass-text-backplate: #f8fafc;
-    --glass-readable-surface: #f8fafc;
+  html[data-layout='liquid-glass'],
+  html[data-layout='liquid-glass'][data-runtime='desktop'] {
+    --color-canvas: var(--color-navigation);
+    --glass-regular: var(--color-surface);
+    --glass-clear: var(--color-surface);
+    --glass-elevated: var(--color-surface-elevated);
+    --glass-content: var(--color-canvas);
   }
 }
 
-@media (forced-colors: active) {
-  html[data-theme='liquid-glass'][data-runtime='desktop'] {
-    --color-text: CanvasText;
-    --color-text-secondary: CanvasText;
-    --color-text-muted: CanvasText;
-    --color-text-accent: LinkText;
-    --glass-text-backplate: Canvas;
-    --glass-readable-surface: Canvas;
-  }
+@media (prefers-reduced-motion: reduce) {
+  html { --motion-dur: 0ms; }
 }

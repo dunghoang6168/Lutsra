@@ -1,242 +1,170 @@
+<ng-template #transport let-size="size" let-modes="modes">
+  @if (modes) {
+    <button type="button" class="ctrl-btn" [class.active]="player.isShuffle()" (click)="player.toggleShuffle()"
+      [disabled]="player.queue().length === 0" title="Shuffle (S)" aria-label="Shuffle"
+      [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
+      <app-icon name="shuffle" [size]="16" />
+    </button>
+  }
+  <button type="button" class="ctrl-btn" (click)="player.previous()" [disabled]="!player.currentTrack()"
+    title="Previous (P)" aria-label="Previous Track" aria-keyshortcuts="P">
+    <app-icon name="skip-back" [size]="18" />
+  </button>
+  <button type="button" class="play-pause-btn" (click)="player.togglePlayPause()"
+    [disabled]="!player.currentTrack() && player.queue().length === 0"
+    [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
+    [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
+    <app-icon [name]="player.isPlaybackActive() ? 'pause' : 'play'" [size]="size" />
+  </button>
+  <button type="button" class="ctrl-btn" (click)="player.next()" [disabled]="!player.currentTrack()"
+    title="Next (N)" aria-label="Next Track" aria-keyshortcuts="N">
+    <app-icon name="skip-forward" [size]="18" />
+  </button>
+  @if (modes) {
+    <button type="button" class="ctrl-btn" [class.active]="player.repeatMode() !== 'off'"
+      (click)="player.cycleRepeatMode()" [title]="'Repeat: ' + player.repeatMode() + ' (R)'"
+      [attr.aria-label]="'Repeat: ' + player.repeatMode()" [attr.aria-pressed]="player.repeatMode() !== 'off'"
+      aria-keyshortcuts="R">
+      <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
+    </button>
+  }
+</ng-template>
 
-    @if (variant() === 'liquid-dock') {
-    <div class="player-bar liquid-dock" role="region" aria-label="Audio Player">
-      <div class="dock-island dock-transport">
-        @if (showTrackIdentity()) {
-          @if (player.currentTrack(); as track) {
-            <a routerLink="/now-playing" class="dock-track-info" [title]="'Open Now Playing: ' + track.title">
-              @if (track.artwork) {
-                <img [src]="track.artwork" [alt]="track.title" class="dock-artwork" />
-              } @else {
-                <span class="dock-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="18" /></span>
-              }
-              <span class="dock-track-meta"><strong>{{ track.title }}</strong><span>{{ track.artist || 'Unknown Artist' }}</span></span>
-            </a>
-          } @else {
-            <span class="dock-artwork-placeholder" aria-hidden="true"><app-icon name="disc" [size]="18" /></span>
-          }
-        }
-        <div class="dock-transport-buttons">
-          <button type="button" class="ctrl-btn" (click)="player.previous()" [disabled]="!player.currentTrack()"
-            title="Previous (P)" aria-label="Previous Track" aria-keyshortcuts="P"><app-icon name="skip-back" [size]="18" /></button>
-          <button type="button" class="play-pause-btn" (click)="player.togglePlayPause()"
-            [disabled]="!player.currentTrack() && player.queue().length === 0"
-            [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
-            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
-            <app-icon [name]="player.isPlaybackActive() ? 'pause' : 'play'" [size]="18" />
-          </button>
-          <button type="button" class="ctrl-btn" (click)="player.next()" [disabled]="!player.currentTrack()"
-            title="Next (N)" aria-label="Next Track" aria-keyshortcuts="N"><app-icon name="skip-forward" [size]="18" /></button>
-        </div>
-      </div>
-
-      <div class="dock-island dock-timeline">
-        <span class="time-label">{{ player.currentTime() | duration }}</span>
-        <div class="progress-bar-wrap"
-          (pointerdown)="onTimelinePointerDown($event)" (pointermove)="onTimelinePointerMove($event)"
-          (pointerup)="onTimelinePointerUp($event)" (pointercancel)="onTimelinePointerCancel($event)"
-          (keydown)="onTimelineKeyDown($event)" role="slider"
-          [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
-          [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
-          [attr.aria-valuenow]="player.currentTime()" [attr.aria-valuemin]="0"
-          [attr.aria-valuemax]="player.duration()" aria-label="Timeline scrubber">
-          <div class="progress-bar-track"><div class="progress-bar-fill" [style.width.%]="player.progressPercent()"></div></div>
-        </div>
-        <span class="time-label">{{ player.duration() | duration }}</span>
-      </div>
-
-      <div class="dock-island dock-extras">
-        <div class="volume-container">
-          <button type="button" class="ctrl-btn" (click)="player.toggleMute()"
-            [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'" aria-label="Mute" [attr.aria-pressed]="player.isMuted()" aria-keyshortcuts="M">
-            <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
-          </button>
-          <div class="volume-slider-shell" [class.adjusting]="isVolumeAdjusting()"
-            [style.--volume-position]="volumePosition()">
-            <app-range-slider class="volume-slider dock-responsive-vertical" [min]="0" [max]="100" [step]="1"
-              [value]="volumePercent()" [muted]="player.isMuted()"
-              ariaLabel="Volume" [ariaValueText]="volumeAriaText()"
-              (valueChange)="player.setVolume($event / 100)"
-              (adjustingChange)="isVolumeAdjusting.set($event)" />
-            <span class="volume-tooltip" aria-hidden="true">{{ volumeTooltip() }}</span>
-          </div>
-        </div>
-        <button type="button" class="ctrl-btn" [class.active]="player.isShuffle()" (click)="player.toggleShuffle()"
-          [disabled]="player.queue().length === 0" title="Shuffle (S)" aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
-          <app-icon name="shuffle" [size]="16" />
-        </button>
-        <button type="button" class="ctrl-btn" [class.active]="player.repeatMode() !== 'off'"
-          (click)="player.cycleRepeatMode()" [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
-          [attr.aria-label]="'Repeat: ' + player.repeatMode()" aria-keyshortcuts="R">
-          <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
-        </button>
-        <button type="button" class="queue-btn" [class.active]="isQueueOpen()" (click)="toggleQueue.emit()"
-          title="Toggle Queue Drawer (Q)" aria-label="Toggle Playback Queue Drawer" aria-keyshortcuts="Q">
-          <app-icon name="queue" [size]="18" />
-          @if (player.queue().length > 0) { <span class="queue-badge">{{ player.queue().length }}</span> }
-        </button>
-      </div>
+<ng-template #timeline>
+  <div class="timeline">
+    <span class="time-label">{{ player.currentTime() | duration }}</span>
+    <div class="progress-bar-wrap"
+      (pointerdown)="onTimelinePointerDown($event)" (pointermove)="onTimelinePointerMove($event)"
+      (pointerup)="onTimelinePointerUp($event)" (pointercancel)="onTimelinePointerCancel($event)"
+      (keydown)="onTimelineKeyDown($event)" role="slider"
+      [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
+      [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
+      [attr.aria-valuenow]="player.currentTime()" [attr.aria-valuemin]="0"
+      [attr.aria-valuemax]="player.duration()" [attr.aria-valuetext]="timelineValueText()"
+      aria-label="Timeline scrubber">
+      <div class="progress-bar-track"><div class="progress-bar-fill" [style.width.%]="player.progressPercent()"></div></div>
     </div>
-    } @else {
-    <div class="player-bar" role="region" aria-label="Audio Player">
-      <!-- Left: Current Track Info (Click opens Now Playing) -->
-      <div class="track-info">
+    <span class="time-label">{{ player.duration() | duration }}</span>
+  </div>
+</ng-template>
+
+<ng-template #volume>
+  <div class="volume-container">
+    <button type="button" class="ctrl-btn" (click)="player.toggleMute()"
+      [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'" aria-label="Mute"
+      [attr.aria-pressed]="player.isMuted()" aria-keyshortcuts="M">
+      <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
+    </button>
+    <div class="volume-slider-shell" [class.adjusting]="isVolumeAdjusting()" [style.--volume-position]="volumePosition()">
+      <app-range-slider class="volume-slider" [min]="0" [max]="100" [step]="1"
+        [value]="volumePercent()" [muted]="player.isMuted()"
+        ariaLabel="Volume" [ariaValueText]="volumeAriaText()"
+        (valueChange)="player.setVolume($event / 100)"
+        (adjustingChange)="isVolumeAdjusting.set($event)" />
+      <span class="volume-tooltip" aria-hidden="true">{{ volumeTooltip() }}</span>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #queueButton>
+  <button type="button" class="queue-btn" [class.active]="isQueueOpen()" (click)="toggleQueue.emit()"
+    title="Queue (Q)" aria-label="Toggle Playback Queue" [attr.aria-pressed]="isQueueOpen()" aria-keyshortcuts="Q">
+    <app-icon name="queue" [size]="18" />
+    @if (player.queue().length > 0) { <span class="queue-badge">{{ player.queue().length }}</span> }
+  </button>
+</ng-template>
+
+<ng-template #cover let-size="size">
+  @if (player.currentTrack(); as track) {
+    <a routerLink="/now-playing" class="cover-link" [title]="'Open Now Playing: ' + track.title">
+      @if (track.artwork) {
+        <img [src]="track.artwork" alt="" class="cover-img" />
+      } @else {
+        <span class="cover-placeholder" aria-hidden="true"><app-icon name="disc" [size]="size" /></span>
+      }
+      <span class="sr-only">Open Now Playing</span>
+    </a>
+  } @else {
+    <span class="cover-placeholder empty" aria-hidden="true"><app-icon name="disc" [size]="size" /></span>
+  }
+</ng-template>
+
+@switch (variant()) {
+  @case ('rail') {
+    <!-- Gallery: the now-playing rail is the whole player. -->
+    <section class="player-rail" aria-label="Now playing">
+      <div class="rail-cover">
+        <ng-container *ngTemplateOutlet="cover; context: { size: 40 }" />
+      </div>
+      @if (player.currentTrack(); as track) {
+        <div class="rail-meta">
+          <a routerLink="/now-playing" class="rail-title">{{ track.title }}</a>
+          <span class="rail-artist">{{ track.artist || 'Unknown Artist' }}</span>
+          @if (track.album) { <span class="rail-album">{{ track.album }}</span> }
+        </div>
+      } @else {
+        <div class="rail-meta">
+          <span class="rail-title idle">Queue ready</span>
+          <span class="rail-artist">Press play to start</span>
+        </div>
+      }
+      <app-signal-path class="rail-signal" />
+      <div class="rail-timeline"><ng-container *ngTemplateOutlet="timeline" /></div>
+      <div class="rail-transport">
+        <ng-container *ngTemplateOutlet="transport; context: { size: 22, modes: true }" />
+      </div>
+      <div class="rail-footer">
+        <ng-container *ngTemplateOutlet="volume" />
+        <ng-container *ngTemplateOutlet="queueButton" />
+      </div>
+    </section>
+  }
+  @case ('pill') {
+    <!-- Ambient: one floating dock. -->
+    <section class="player-pill" aria-label="Audio player">
+      <div class="pill-identity">
+        <div class="pill-cover"><ng-container *ngTemplateOutlet="cover; context: { size: 18 }" /></div>
+        <div class="pill-meta">
+          @if (player.currentTrack(); as track) {
+            <a routerLink="/now-playing" class="pill-title">{{ track.title }}</a>
+            <app-signal-path />
+          } @else {
+            <span class="pill-title idle">Queue ready</span>
+          }
+        </div>
+      </div>
+      <div class="pill-transport"><ng-container *ngTemplateOutlet="transport; context: { size: 18, modes: false }" /></div>
+      <div class="pill-timeline"><ng-container *ngTemplateOutlet="timeline" /></div>
+      <div class="pill-extras">
+        <ng-container *ngTemplateOutlet="volume" />
+        <ng-container *ngTemplateOutlet="queueButton" />
+      </div>
+    </section>
+  }
+  @default {
+    <!-- Console: a single 52px instrument strip with the signal path always in view. -->
+    <section class="player-strip" aria-label="Audio player">
+      <div class="strip-identity">
+        <div class="strip-cover"><ng-container *ngTemplateOutlet="cover; context: { size: 16 }" /></div>
         @if (player.currentTrack(); as track) {
-          <a routerLink="/now-playing" class="artwork-link" title="Open Now Playing screen">
-            @if (track.artwork) {
-              <img [src]="track.artwork" [alt]="track.title" class="artwork-img" />
-            } @else {
-              <div class="artwork-placeholder" aria-hidden="true">
-                <app-icon name="disc" [size]="20" />
-              </div>
-            }
-          </a>
-          <div class="track-meta">
-            <a routerLink="/now-playing" class="track-title truncate" [title]="track.title">
-              {{ track.title }}
-            </a>
-            <span class="track-artist truncate" [title]="track.artist || 'Unknown Artist'">
-              {{ track.artist || 'Unknown Artist' }}
-            </span>
+          <div class="strip-meta">
+            <a routerLink="/now-playing" class="strip-title" [title]="track.title">{{ track.title }}</a>
+            <span class="strip-artist">{{ track.artist || 'Unknown Artist' }}</span>
           </div>
         } @else {
-          <div class="artwork-placeholder empty" aria-hidden="true">
-            <app-icon name="disc" [size]="20" />
-          </div>
-          <div class="track-meta">
-            <span class="track-title empty truncate">No track selected</span>
-            <span class="track-artist truncate">Double click a song to start</span>
+          <div class="strip-meta">
+            <span class="strip-title idle">No track selected</span>
+            <span class="strip-artist">Double-click a song to start</span>
           </div>
         }
       </div>
-
-      <!-- Center: Controls & Timeline -->
-      <div class="player-controls-container">
-        <div class="buttons-row">
-          <!-- Shuffle Button -->
-          <button
-            type="button"
-            class="ctrl-btn"
-            [class.active]="player.isShuffle()"
-            (click)="player.toggleShuffle()"
-            [disabled]="player.queue().length === 0"
-            title="Shuffle (S)"
-            aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
-            <app-icon name="shuffle" [size]="16" />
-          </button>
-
-          <!-- Previous Button -->
-          <button
-            type="button"
-            class="ctrl-btn"
-            (click)="player.previous()"
-            [disabled]="!player.currentTrack()"
-            title="Previous (P)"
-            aria-label="Previous Track" aria-keyshortcuts="P">
-            <app-icon name="skip-back" [size]="18" />
-          </button>
-
-          <!-- Play / Pause Button -->
-          <button
-            type="button"
-            class="play-pause-btn"
-            (click)="player.togglePlayPause()"
-            [disabled]="!player.currentTrack() && player.queue().length === 0"
-            [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
-            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'" aria-keyshortcuts="Space">
-            @if (player.isPlaybackActive()) {
-              <app-icon name="pause" [size]="18" />
-            } @else {
-              <app-icon name="play" [size]="18" />
-            }
-          </button>
-
-          <!-- Next Button -->
-          <button
-            type="button"
-            class="ctrl-btn"
-            (click)="player.next()"
-            [disabled]="!player.currentTrack()"
-            title="Next (N)"
-            aria-label="Next Track" aria-keyshortcuts="N">
-            <app-icon name="skip-forward" [size]="18" />
-          </button>
-
-          <!-- Repeat Mode Button -->
-          <button
-            type="button"
-            class="ctrl-btn"
-            [class.active]="player.repeatMode() !== 'off'"
-            (click)="player.cycleRepeatMode()"
-            [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
-            [attr.aria-label]="'Repeat: ' + player.repeatMode()" aria-keyshortcuts="R">
-            <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
-          </button>
-        </div>
-
-        <!-- Timeline Row -->
-        <div class="timeline-row">
-          <span class="time-label">{{ player.currentTime() | duration }}</span>
-          <div
-            class="progress-bar-wrap"
-            (pointerdown)="onTimelinePointerDown($event)"
-            (pointermove)="onTimelinePointerMove($event)"
-            (pointerup)="onTimelinePointerUp($event)"
-            (pointercancel)="onTimelinePointerCancel($event)"
-            (keydown)="onTimelineKeyDown($event)"
-            role="slider"
-            [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
-            [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
-            [attr.aria-valuenow]="player.currentTime()"
-            [attr.aria-valuemin]="0"
-            [attr.aria-valuemax]="player.duration()"
-            aria-label="Timeline scrubber">
-            <div class="progress-bar-track">
-              <div class="progress-bar-fill" [style.width.%]="player.progressPercent()"></div>
-            </div>
-          </div>
-          <span class="time-label">{{ player.duration() | duration }}</span>
-        </div>
+      <div class="strip-transport"><ng-container *ngTemplateOutlet="transport; context: { size: 16, modes: true }" /></div>
+      <div class="strip-timeline"><ng-container *ngTemplateOutlet="timeline" /></div>
+      <app-signal-path class="strip-signal" />
+      <div class="strip-extras">
+        <ng-container *ngTemplateOutlet="volume" />
+        <ng-container *ngTemplateOutlet="queueButton" />
       </div>
-
-      <!-- Right: Volume & Queue Drawer Toggle -->
-      <div class="player-extras">
-        <!-- Volume Container -->
-        <div class="volume-container">
-          <button
-            type="button"
-            class="ctrl-btn"
-            (click)="player.toggleMute()"
-            [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'"
-            aria-label="Mute" [attr.aria-pressed]="player.isMuted()" aria-keyshortcuts="M">
-            <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
-          </button>
-          <div
-            class="volume-slider-shell"
-            [class.adjusting]="isVolumeAdjusting()"
-            [style.--volume-position]="volumePosition()">
-            <app-range-slider class="volume-slider" [min]="0" [max]="100" [step]="1"
-              [value]="volumePercent()" [muted]="player.isMuted()"
-              ariaLabel="Volume" [ariaValueText]="volumeAriaText()"
-              (valueChange)="player.setVolume($event / 100)"
-              (adjustingChange)="isVolumeAdjusting.set($event)" />
-            <span class="volume-tooltip" aria-hidden="true">{{ volumeTooltip() }}</span>
-          </div>
-        </div>
-
-        <!-- Queue Drawer Toggle -->
-        <button
-          type="button"
-          class="queue-btn"
-          [class.active]="isQueueOpen()"
-          (click)="toggleQueue.emit()"
-          title="Toggle Queue Drawer (Q)"
-          aria-label="Toggle Playback Queue Drawer" aria-keyshortcuts="Q">
-          <app-icon name="queue" [size]="18" />
-          @if (player.queue().length > 0) {
-            <span class="queue-badge">{{ player.queue().length }}</span>
-          }
-        </button>
-      </div>
-    </div>
-    }
+    </section>
+  }
+}

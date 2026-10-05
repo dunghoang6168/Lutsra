@@ -41,7 +41,7 @@ const SIDEBAR_HIDDEN_KEY = 'lutsra.sidebar.hidden';
 export class AppComponent implements AfterViewChecked {
   readonly isSidebarCollapsed = signal(readSavedFlag(SIDEBAR_COLLAPSED_KEY));
   readonly isSidebarHidden = signal(readSavedFlag(SIDEBAR_HIDDEN_KEY));
-  readonly compactWindow = signal(typeof window !== 'undefined' && window.innerWidth <= 650);
+  readonly windowWidth = signal(typeof window !== 'undefined' ? window.innerWidth : 1280);
   readonly rightPanels = inject(RightPanelService);
   readonly player = inject(PlayerService);
   readonly queueActions = inject(QueueActionsService);
@@ -75,20 +75,26 @@ export class AppComponent implements AfterViewChecked {
     { initialValue: this.router.url },
   );
   readonly isQueueOpen = this.rightPanels.isQueueOpen;
-  readonly hasPlaybackOrQueue = computed(() => this.player.isPlaybackActive() || this.player.queue().length > 0);
+  readonly layout = this.layoutPreference.mode;
   readonly hasTrackOrQueue = computed(() => this.player.currentTrack() !== null || this.player.queue().length > 0);
-  readonly hasInteractivePlayback = computed(() => this.layoutPreference.mode() === 'liquid-glass'
-    ? this.hasTrackOrQueue() : this.hasPlaybackOrQueue());
-  readonly nowPlayingArtwork = computed(() =>
-    this.currentUrl().split(/[?#]/, 1)[0] === '/now-playing' ? this.player.currentTrack()?.artwork ?? null : null);
-  readonly showPlayerBar = computed(() => this.layoutPreference.mode() === 'classic' ||
-    (this.layoutPreference.mode() === 'liquid-glass' && this.hasTrackOrQueue()) ||
-    (this.layoutPreference.mode() === 'inset' && this.hasPlaybackOrQueue() &&
-      this.currentUrl().split(/[?#]/, 1)[0] !== '/now-playing'));
+  private readonly onNowPlaying = computed(() => this.currentUrl().split(/[?#]/, 1)[0] === '/now-playing');
+  /** Ambient lays the playing artwork under every page, Gallery only on Now Playing, Console never (no glow). */
+  readonly backdropArtwork = computed(() => {
+    const artwork = this.player.currentTrack()?.artwork ?? null;
+    if (this.layout() === 'classic') return null;
+    return this.layout() === 'liquid-glass' || this.onNowPlaying() ? artwork : null;
+  });
+  /** Console's strip is permanent; Gallery's rail and Ambient's dock appear once there is music. */
+  readonly showPlayer = computed(() => {
+    if (this.layout() === 'classic') return true;
+    if (!this.hasTrackOrQueue()) return false;
+    return this.layout() === 'liquid-glass' || !this.onNowPlaying();
+  });
+  readonly consoleInspector = computed(() => this.layout() === 'classic' && this.windowWidth() >= 1100);
 
   @HostListener('window:resize')
   onWindowResize(): void {
-    this.compactWindow.set(window.innerWidth <= 650);
+    this.windowWidth.set(window.innerWidth);
   }
 
   constructor() {
@@ -96,17 +102,17 @@ export class AppComponent implements AfterViewChecked {
     this.destroyRef.onDestroy(() => this.acrylicScrollbars.stop());
     void this.checkOnboarding();
     effect(() => {
-      if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) this.rightPanels.closeQueue();
+      if (this.layoutPreference.mode() !== 'classic' && !this.hasTrackOrQueue()) this.rightPanels.closeQueue();
     });
     effect(() => {
-      const artwork = this.nowPlayingArtwork();
+      const artwork = this.backdropArtwork();
       if (!artwork || this.layoutPreference.mode() !== 'inset') {
         this.panelGlow.set(null);
         return;
       }
       this.panelGlow.set(null);
       void this.artworkEdgeGlow.getGlow(artwork).then((url) => {
-        if (this.nowPlayingArtwork() === artwork && this.layoutPreference.mode() === 'inset') {
+        if (this.backdropArtwork() === artwork && this.layoutPreference.mode() === 'inset') {
           this.panelGlow.set({ source: artwork, url });
         }
       });
@@ -193,7 +199,7 @@ export class AppComponent implements AfterViewChecked {
   }
 
   onToggleQueue(): void {
-    if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) return;
+    if (this.layoutPreference.mode() !== 'classic' && !this.hasTrackOrQueue()) return;
     this.rightPanels.toggleQueue();
   }
 
@@ -250,7 +256,7 @@ export class AppComponent implements AfterViewChecked {
         this.needsShortcutsFocus = true;
         break;
       case 'Space':
-        if (!this.hasInteractivePlayback() || activeEl?.closest('button, a, [role="button"]')) return;
+        if (!this.hasTrackOrQueue() || activeEl?.closest('button, a, [role="button"]')) return;
         this.player.togglePlayPause();
         break;
       case 'KeyP':
@@ -272,7 +278,7 @@ export class AppComponent implements AfterViewChecked {
         this.player.toggleMute();
         break;
       case 'KeyQ':
-        if (this.layoutPreference.mode() !== 'classic' && !this.hasInteractivePlayback()) return;
+        if (this.layoutPreference.mode() !== 'classic' && !this.hasTrackOrQueue()) return;
         this.onToggleQueue();
         break;
       default:

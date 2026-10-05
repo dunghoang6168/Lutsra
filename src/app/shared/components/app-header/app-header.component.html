@@ -1,7 +1,88 @@
+<ng-template #history>
+  <div class="navigation-buttons" role="group" aria-label="Navigation history">
+    <button type="button" class="header-button" [disabled]="!navHistory.canGoBack()" (click)="navHistory.back()" aria-label="Go back" title="Back">
+      <app-icon name="chevron-left" [size]="20" />
+    </button>
+    <button type="button" class="header-button" [disabled]="!navHistory.canGoForward()" (click)="navHistory.forward()" aria-label="Go forward" title="Forward">
+      <app-icon name="chevron-right" [size]="20" />
+    </button>
+  </div>
+</ng-template>
 
-    <header class="app-header">
-      @if (layoutPreference.mode() === 'liquid-glass') {
-      <div class="titlebar-content liquid-toolbar" [class.compact-search-open]="compactSearchOpen()">
+<ng-template #status>
+  @if (scanProgress().isScanning || scanProgress().error) {
+    <div class="runtime-status" [class.scanning]="scanProgress().isScanning" [class.error]="!!scanProgress().error"
+      role="status" [title]="statusTitle()">
+      <app-icon [name]="scanProgress().isScanning ? 'refresh-cw' : 'alert-triangle'" [size]="14" />
+      <span class="status-label">{{ statusLabel() }}</span>
+    </div>
+  }
+</ng-template>
+
+<ng-template #compactSearchButton>
+  <button type="button" class="header-button compact-search-button" (click)="toggleCompactSearch()" aria-label="Search" title="Search (Ctrl K)">
+    <app-icon name="search" [size]="18" />
+  </button>
+</ng-template>
+
+<header class="app-header" [attr.data-variant]="layoutPreference.mode()">
+  <div class="titlebar-content" [class.compact-search-open]="compactSearchOpen()">
+    @switch (layoutPreference.mode()) {
+      @case ('inset') {
+        <!-- Gallery: section tabs replace the sidebar. -->
+        <div class="header-left">
+          <ng-container *ngTemplateOutlet="history" />
+          <nav class="gallery-tabs" aria-label="Main Navigation">
+            @for (tab of tabs; track tab.path) {
+              <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page" class="gallery-tab">{{ tab.label }}</a>
+            }
+          </nav>
+          <details class="gallery-tabs-menu" #tabsMenu>
+            <summary class="header-button" aria-label="Sections">
+              <app-icon name="menu" [size]="18" />
+            </summary>
+            <nav class="tabs-menu-list" aria-label="Main Navigation">
+              @for (tab of tabs; track tab.path) {
+                <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="tabsMenu.open = false">{{ tab.label }}</a>
+              }
+            </nav>
+          </details>
+        </div>
+        <div class="header-drag-space" aria-hidden="true"></div>
+        <div class="header-right">
+          <ng-container *ngTemplateOutlet="compactSearchButton" />
+          <app-global-search />
+          <ng-container *ngTemplateOutlet="status" />
+          <a routerLink="/settings" routerLinkActive="active" class="header-button settings-button" aria-label="Settings" title="Settings">
+            <app-icon name="settings" [size]="18" />
+          </a>
+          <app-window-controls />
+        </div>
+      }
+      @case ('liquid-glass') {
+        <!-- Ambient: controls float over the content; no bar behind them. -->
+        <div class="header-left float-cluster">
+          <button type="button" class="header-button sidebar-visibility-button"
+            [attr.aria-label]="sidebarHidden() ? 'Show navigation rail' : 'Hide navigation rail'"
+            [attr.title]="sidebarHidden() ? 'Show navigation rail' : 'Hide navigation rail'"
+            [attr.aria-expanded]="!sidebarHidden()" (click)="toggleSidebarVisibility.emit()">
+            <app-icon name="panel-left" [size]="18" />
+          </button>
+          <ng-container *ngTemplateOutlet="history" />
+          <ng-container *ngTemplateOutlet="compactSearchButton" />
+          <app-global-search />
+        </div>
+        <div class="header-drag-space" aria-hidden="true"></div>
+        <div class="header-right float-cluster">
+          <ng-container *ngTemplateOutlet="status" />
+          <a routerLink="/settings" routerLinkActive="active" class="header-button settings-button" aria-label="Settings" title="Settings">
+            <app-icon name="settings" [size]="18" />
+          </a>
+          <app-window-controls />
+        </div>
+      }
+      @default {
+        <!-- Console: a flush 44px title bar. -->
         <div class="header-left">
           <button type="button" class="header-button sidebar-visibility-button"
             [attr.aria-label]="sidebarHidden() ? 'Show sidebar' : 'Hide sidebar'"
@@ -9,84 +90,18 @@
             [attr.aria-expanded]="!sidebarHidden()" (click)="toggleSidebarVisibility.emit()">
             <app-icon name="panel-left" [size]="18" />
           </button>
-          <div class="navigation-buttons" aria-label="Navigation history">
-            <button type="button" class="header-button" [disabled]="!history.canGoBack()" (click)="history.back()" aria-label="Go back" title="Back">
-              <app-icon name="chevron-left" [size]="20" />
-            </button>
-            <button type="button" class="header-button" [disabled]="!history.canGoForward()" (click)="history.forward()" aria-label="Go forward" title="Forward">
-              <app-icon name="chevron-right" [size]="20" />
-            </button>
-          </div>
-          <button type="button" class="header-button compact-search-button" (click)="toggleCompactSearch()" aria-label="Search" title="Search">
-            <app-icon name="search" [size]="18" />
-          </button>
-          <app-global-search />
+          <ng-container *ngTemplateOutlet="history" />
+          <ng-container *ngTemplateOutlet="compactSearchButton" />
         </div>
-
-        <div class="header-drag-space" aria-hidden="true"></div>
-
-        <div class="header-right">
-          @if (scanProgress().isScanning || scanProgress().error) {
-            <div class="runtime-status" [class.scanning]="scanProgress().isScanning"
-              [class.error]="!!scanProgress().error" role="status" [title]="statusTitle()">
-              <app-icon [name]="scanProgress().isScanning ? 'refresh-cw' : 'alert-triangle'" [size]="14" />
-              <span class="status-label">{{ statusLabel() }}</span>
-            </div>
-          }
-          <a routerLink="/settings" routerLinkActive="active" class="header-button settings-button" aria-label="Settings" title="Settings">
-            <app-icon name="settings" [size]="18" />
-          </a>
-          <app-window-controls />
-        </div>
-      </div>
-      } @else {
-      <div class="titlebar-content" [class.compact-search-open]="compactSearchOpen()">
-        <div class="header-left">
-          <button
-            type="button"
-            class="header-button sidebar-visibility-button"
-            [attr.aria-label]="sidebarHidden() ? 'Show sidebar' : 'Hide sidebar'"
-            [attr.title]="sidebarHidden() ? 'Show sidebar' : 'Hide sidebar'"
-            [attr.aria-expanded]="!sidebarHidden()"
-            (click)="toggleSidebarVisibility.emit()">
-            <app-icon name="panel-left" [size]="18" />
-          </button>
-
-          <div class="navigation-buttons" aria-label="Navigation history">
-            <button type="button" class="header-button" [disabled]="!history.canGoBack()" (click)="history.back()" aria-label="Go back" title="Back">
-              <app-icon name="chevron-left" [size]="20" />
-            </button>
-            <button type="button" class="header-button" [disabled]="!history.canGoForward()" (click)="history.forward()" aria-label="Go forward" title="Forward">
-              <app-icon name="chevron-right" [size]="20" />
-            </button>
-            <a routerLink="/home" routerLinkActive="active" class="header-button home-button" aria-label="Home" title="Home">
-              <app-icon name="home" [size]="18" />
-            </a>
-          </div>
-          <button type="button" class="header-button compact-search-button" (click)="toggleCompactSearch()" aria-label="Search" title="Search">
-            <app-icon name="search" [size]="18" />
-          </button>
-        </div>
-
         <app-global-search />
-
         <div class="header-right">
-          @if (scanProgress().isScanning || scanProgress().error) {
-            <div
-              class="runtime-status"
-              [class.scanning]="scanProgress().isScanning"
-              [class.error]="!!scanProgress().error"
-              role="status"
-              [title]="statusTitle()">
-              <app-icon [name]="scanProgress().isScanning ? 'refresh-cw' : 'alert-triangle'" [size]="14" />
-              <span class="status-label">{{ statusLabel() }}</span>
-            </div>
-          }
+          <ng-container *ngTemplateOutlet="status" />
           <a routerLink="/settings" routerLinkActive="active" class="header-button settings-button" aria-label="Settings" title="Settings">
             <app-icon name="settings" [size]="18" />
           </a>
           <app-window-controls />
         </div>
-      </div>
       }
-    </header>
+    }
+  </div>
+</header>

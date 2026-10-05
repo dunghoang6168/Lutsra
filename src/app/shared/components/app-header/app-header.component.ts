@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy, Component, HostListener, computed, effect, inject, input, output, signal, viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { getDesktopApi } from '../../../core/desktop/desktop-api';
@@ -16,7 +17,7 @@ import { WindowControlsComponent } from '../window-controls/window-controls.comp
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, GlobalSearchComponent, IconComponent, WindowControlsComponent],
+  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive, GlobalSearchComponent, IconComponent, WindowControlsComponent],
   templateUrl: './app-header.component.html',
   styleUrl: './app-header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,7 +33,15 @@ export class AppHeaderComponent {
   private wasScanning = false;
   readonly compactSearchOpen = signal(false);
 
-  readonly history = inject(NavigationHistoryService);
+  readonly navHistory = inject(NavigationHistoryService);
+  /** Gallery's section tabs; Folders lives in Settings › Music Library Folders. */
+  readonly tabs = [
+    { path: '/home', label: 'Home' },
+    { path: '/songs', label: 'Songs' },
+    { path: '/albums', label: 'Albums' },
+    { path: '/artists', label: 'Artists' },
+    { path: '/playlists', label: 'Playlists' },
+  ];
   readonly scanProgress = toSignal(this.gateway.scanProgress$, {
     initialValue: {
       isScanning: false, scannedFiles: 0, audioFiles: 0, currentPath: null, error: null,

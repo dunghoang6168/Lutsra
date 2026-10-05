@@ -127,7 +127,7 @@ export class AcrylicScrollbarService {
     this.observer = new MutationObserver(() => this.schedule());
     this.observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['data-theme', 'data-runtime'],
+      attributeFilter: ['data-layout', 'data-runtime'],
     });
     const layout = document.querySelector('.app-layout');
     if (layout) this.observer.observe(layout, { childList: true, subtree: true });
@@ -154,7 +154,7 @@ export class AcrylicScrollbarService {
 
   private refresh(): void {
     const enabled = document.documentElement.matches(
-      "[data-theme='liquid-glass'][data-runtime='desktop']");
+      "[data-layout='liquid-glass'][data-runtime='desktop']");
     const found = enabled
       ? new Set(document.querySelectorAll<HTMLElement>(SCROLL_AREAS))
       : new Set<HTMLElement>();

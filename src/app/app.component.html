@@ -1,13 +1,18 @@
 
     <div class="app-layout"
-      [class.layout-classic]="layoutPreference.mode() === 'classic'"
-      [class.layout-liquid-glass]="layoutPreference.mode() === 'liquid-glass'"
+      [class.layout-inset]="layout() === 'inset'"
+      [class.layout-classic]="layout() === 'classic'"
+      [class.layout-liquid-glass]="layout() === 'liquid-glass'"
+      [class.has-player]="showPlayer()"
+      [class.rail-hidden]="isSidebarHidden()"
       [attr.inert]="showOnboarding() || showShortcuts() ? '' : null">
-      @if (nowPlayingArtwork(); as artwork) {
+      @if (backdropArtwork(); as artwork) {
         <div class="now-playing-backdrop" aria-hidden="true">
-          @if (layoutPreference.mode() === 'classic') {
-            <img class="classic-ambient-img" [src]="artwork" alt="" />
-          } @else if (layoutPreference.mode() === 'inset' && artworkGlowPosition.bounds(); as bounds) {
+          @if (layout() === 'liquid-glass') {
+            @for (art of [artwork]; track art) {
+              <img class="ambient-art" [src]="art" alt="" />
+            }
+          } @else if (artworkGlowPosition.bounds(); as bounds) {
             @if (panelGlow(); as glow) {
               @if (glow.source === artwork) {
                 @if (glow.url) {
@@ -26,17 +31,17 @@
           }
         </div>
       }
+
       <app-header
         [sidebarHidden]="isSidebarHidden()"
         (toggleSidebarVisibility)="onToggleSidebarVisibility()"
       />
 
-      <!-- Main Workspace (Sidebar + Router Content + Queue Drawer) -->
-      <div class="workspace" [class.has-ambient-artwork]="nowPlayingArtwork()">
-        @if (!isSidebarHidden()) {
+      <div class="workspace" [class.has-ambient-artwork]="backdropArtwork()">
+        @if (layout() !== 'inset' && !isSidebarHidden()) {
           <app-sidebar
+            [variant]="layout() === 'classic' ? 'tree' : 'rail'"
             [isCollapsed]="isSidebarCollapsed()"
-            [showNowPlayingDock]="layoutPreference.mode() === 'liquid-glass' && hasTrackOrQueue() && !isSidebarCollapsed() && !compactWindow()"
             (toggleCollapse)="onToggleSidebar()"
           />
         }
@@ -45,21 +50,29 @@
           <router-outlet />
         </main>
 
-        <app-track-details-panel [open]="rightPanels.isTrackDetailsOpen()" />
+        @if (consoleInspector()) {
+          <app-track-details-panel class="console-inspector" [docked]="true" />
+        } @else {
+          <app-track-details-panel [open]="rightPanels.isTrackDetailsOpen()" />
+        }
 
         <app-queue-drawer
           [isOpen]="isQueueOpen()"
           (close)="onCloseQueue()"
         />
+
+        @if (layout() === 'inset' && showPlayer()) {
+          <app-player-bar class="gallery-rail" variant="rail"
+            [isQueueOpen]="isQueueOpen()" (toggleQueue)="onToggleQueue()" />
+        }
       </div>
 
-      @if (showPlayerBar()) {
-        <app-player-bar
-          [variant]="layoutPreference.mode() === 'liquid-glass' ? 'liquid-dock' : 'footer'"
-          [showTrackIdentity]="compactWindow() || isSidebarHidden() || isSidebarCollapsed() || !player.currentTrack()"
-          [isQueueOpen]="isQueueOpen()"
-          (toggleQueue)="onToggleQueue()"
-        />
+      @if (layout() === 'classic') {
+        <app-player-bar class="console-strip" variant="strip"
+          [isQueueOpen]="isQueueOpen()" (toggleQueue)="onToggleQueue()" />
+      } @else if (layout() === 'liquid-glass' && showPlayer()) {
+        <app-player-bar class="ambient-dock" variant="pill"
+          [isQueueOpen]="isQueueOpen()" (toggleQueue)="onToggleQueue()" />
       }
     </div>
     @if (queueActions.notice(); as notice) {

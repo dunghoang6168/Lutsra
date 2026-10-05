@@ -1,29 +1,89 @@
 <section class="settings-card card-base" aria-labelledby="layout-settings-title">
   <div class="card-header">
     <h2 id="layout-settings-title">Layout</h2>
-    <span class="card-desc">Choose how the navigation and player frame the workspace</span>
+    <span class="card-desc">Each layout is a different way to use the library, not just a different colour</span>
   </div>
   <div class="layout-options" role="group" aria-label="Application layout">
     <button type="button" class="layout-option"
       [class.active]="layoutPreference.mode() === 'inset'"
       [attr.aria-pressed]="layoutPreference.mode() === 'inset'"
       (click)="layoutPreference.setMode('inset')">
-      <span class="layout-option-title">Panel</span>
-      <span class="layout-option-description">Rounded navigation and player panels. Player appears when music is available.</span>
+      <span class="layout-diagram" aria-hidden="true">
+        <svg viewBox="0 0 160 100" focusable="false">
+          <rect class="d-room" x="0" y="0" width="160" height="100" rx="6" />
+          <rect class="d-line" x="10" y="9" width="12" height="4" rx="2" />
+          <rect class="d-line" x="26" y="9" width="12" height="4" rx="2" />
+          <rect class="d-line" x="42" y="9" width="12" height="4" rx="2" />
+          <rect class="d-sheet" x="8" y="20" width="104" height="72" rx="7" />
+          <rect class="d-strong" x="16" y="28" width="46" height="8" rx="2" />
+          <rect class="d-cover" x="16" y="44" width="26" height="26" rx="3" />
+          <rect class="d-cover" x="47" y="44" width="26" height="26" rx="3" />
+          <rect class="d-cover" x="78" y="44" width="26" height="26" rx="3" />
+          <rect class="d-panel" x="118" y="20" width="34" height="72" rx="7" />
+          <rect class="d-accent" x="123" y="26" width="24" height="24" rx="3" />
+          <rect class="d-line" x="123" y="56" width="20" height="4" rx="2" />
+          <circle class="d-strong" cx="135" cy="78" r="6" />
+        </svg>
+      </span>
+      <span class="layout-option-title">Gallery</span>
+      <span class="layout-option-description">Cover-led listening room. Section tabs instead of a sidebar, large artwork, and a now-playing rail with the file format.</span>
     </button>
     <button type="button" class="layout-option"
       [class.active]="layoutPreference.mode() === 'classic'"
       [attr.aria-pressed]="layoutPreference.mode() === 'classic'"
       (click)="layoutPreference.setMode('classic')">
-      <span class="layout-option-title">Classic</span>
-      <span class="layout-option-description">Navigation and player touch the edges. Player is always visible.</span>
+      <span class="layout-diagram" aria-hidden="true">
+        <svg viewBox="0 0 160 100" focusable="false">
+          <rect class="d-room" x="0" y="0" width="160" height="100" rx="2" />
+          <rect class="d-panel" x="0" y="0" width="160" height="10" />
+          <rect class="d-panel" x="0" y="10" width="34" height="78" />
+          <rect class="d-line" x="5" y="16" width="22" height="3" />
+          <rect class="d-line" x="5" y="23" width="18" height="3" />
+          <rect class="d-line" x="5" y="30" width="20" height="3" />
+          <rect class="d-accent" x="5" y="44" width="2" height="3" />
+          <rect class="d-line" x="10" y="44" width="16" height="3" />
+          <rect class="d-line" x="10" y="51" width="14" height="3" />
+          <rect class="d-strong" x="40" y="16" width="70" height="3" />
+          <rect class="d-line" x="40" y="24" width="70" height="3" />
+          <rect class="d-line" x="40" y="31" width="70" height="3" />
+          <rect class="d-line" x="40" y="38" width="70" height="3" />
+          <rect class="d-line" x="40" y="45" width="70" height="3" />
+          <rect class="d-line" x="40" y="52" width="70" height="3" />
+          <rect class="d-line" x="40" y="59" width="70" height="3" />
+          <rect class="d-panel" x="116" y="10" width="44" height="78" />
+          <rect class="d-line" x="121" y="16" width="30" height="3" />
+          <rect class="d-line" x="121" y="23" width="24" height="3" />
+          <rect class="d-line" x="121" y="30" width="28" height="3" />
+          <rect class="d-panel" x="0" y="88" width="160" height="12" />
+          <rect class="d-accent" x="96" y="92.5" width="40" height="3" />
+        </svg>
+      </span>
+      <span class="layout-option-title">Console</span>
+      <span class="layout-option-description">Dense workstation for auditing files. Library tree with quality counts, a docked inspector, and the signal path always in view.</span>
     </button>
-    <button type="button" class="layout-option liquid-glass-option"
+    <button type="button" class="layout-option"
       [class.active]="layoutPreference.mode() === 'liquid-glass'"
       [attr.aria-pressed]="layoutPreference.mode() === 'liquid-glass'"
       (click)="layoutPreference.setMode('liquid-glass')">
-      <span class="layout-option-title">Apple Acrylic</span>
-      <span class="layout-option-description">Light silver workspace with a customizable accent, an acrylic backdrop, and a player dock.</span>
+      <span class="layout-diagram" aria-hidden="true">
+        <svg viewBox="0 0 160 100" focusable="false">
+          <rect class="d-art" x="0" y="0" width="160" height="100" rx="8" />
+          <rect class="d-glass" x="6" y="6" width="14" height="88" rx="7" />
+          <circle class="d-line" cx="13" cy="18" r="3" />
+          <circle class="d-accent" cx="13" cy="28" r="3" />
+          <circle class="d-line" cx="13" cy="38" r="3" />
+          <rect class="d-glass" x="24" y="6" width="130" height="88" rx="9" />
+          <rect class="d-pill" x="30" y="11" width="44" height="9" rx="4.5" />
+          <rect class="d-strong" x="32" y="28" width="40" height="7" rx="2" />
+          <rect class="d-cover" x="32" y="42" width="24" height="24" rx="4" />
+          <rect class="d-cover" x="61" y="42" width="24" height="24" rx="4" />
+          <rect class="d-cover" x="90" y="42" width="24" height="24" rx="4" />
+          <rect class="d-pill" x="52" y="78" width="86" height="11" rx="5.5" />
+          <circle class="d-strong" cx="95" cy="83.5" r="3.5" />
+        </svg>
+      </span>
+      <span class="layout-option-title">Ambient</span>
+      <span class="layout-option-description">The music fills the window. Playing artwork glows behind glass, with an icon rail and a single floating player.</span>
     </button>
   </div>
   <p class="layout-save-status" aria-live="polite">
