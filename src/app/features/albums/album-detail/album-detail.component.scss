@@ -248,8 +248,8 @@
 
     .badge-unavailable {
       font-size: var(--font-size-xs);
-      background: color-mix(in srgb, var(--status-error) 20%, transparent);
-      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
+      background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+      color: var(--status-warning-text);
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       margin-left: var(--space-2);

@@ -107,12 +107,12 @@
   line-height: 1;
 }
 .metric-missing {
-  
+
 }
 .metric-label {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  
+
   letter-spacing: 0.05em;
 }
 .metric-divider {
@@ -199,7 +199,7 @@
 .mini-status {
   font-size: var(--font-size-xs);
   color: var(--accent-primary);
-  
+
   letter-spacing: 0.05em;
   font-weight: 600;
 }
@@ -224,7 +224,7 @@
   color: var(--text-muted);
   text-decoration: none;
   font-weight: 600;
-  
+
   letter-spacing: 0.05em;
   transition: color var(--transition-fast);
 }
@@ -310,7 +310,7 @@
 .console-table .mono { font-family: var(--font-family-mono); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
 .console-table .mono.hires { color: var(--text-accent); }
 .console-table tr.missing td { color: var(--text-muted); }
-.console-table tr.missing .state { color: var(--status-warning); }
+.console-table tr.missing .state { color: var(--status-warning-text); }
 .console-home-header h1 { white-space: nowrap; }
 .console-home-header { flex-wrap: wrap; }
 

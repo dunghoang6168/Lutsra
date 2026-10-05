@@ -78,7 +78,7 @@
   font-variant-numeric: tabular-nums;
 }
 .nav-item.warning .nav-count,
-.nav-item.warning .nav-label { color: var(--status-warning); }
+.nav-item.warning .nav-label { color: var(--status-warning-text); }
 
 /* A 2px measurement tick, not a badge: Hi-Res carries the accent, the rest stay neutral. */
 .quality-mark { width: 16px; height: 10px; flex-shrink: 0; display: grid; place-items: center; }

@@ -40,7 +40,7 @@ type PathState = 'bit-perfect' | 'converted' | 'shared' | 'disconnected';
     .arrow { color: var(--text-muted); }
     .path { overflow: hidden; text-overflow: ellipsis; }
     [data-state='bit-perfect'] .path { color: var(--text-accent); }
-    [data-state='disconnected'] .path { color: var(--status-warning); }
+    [data-state='disconnected'] .path { color: var(--status-warning-text); }
   `,
 })
 export class SignalPathComponent {

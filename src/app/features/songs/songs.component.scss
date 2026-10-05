@@ -106,6 +106,10 @@
       border-radius: var(--radius-md);
       font-size: var(--font-size-sm);
       color: var(--text-primary);
+
+      &::placeholder {
+        color: var(--color-text-muted);
+      }
     }
 
     .clear-search-btn {
@@ -118,9 +122,9 @@
     }
 
     .notice-toast {
-      background: color-mix(in srgb, var(--status-error) 15%, transparent);
-      border: 1px solid var(--status-error);
-      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
+      background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+      border: 1px solid var(--status-warning);
+      color: var(--status-warning-text);
       padding: var(--space-2) var(--space-4);
       border-radius: var(--radius-md);
       margin-bottom: var(--space-3);
@@ -303,8 +307,8 @@
 
     .badge-unavailable {
       font-size: var(--font-size-xs);
-      background: color-mix(in srgb, var(--status-error) 20%, transparent);
-      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
+      background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+      color: var(--status-warning-text);
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       font-variant-caps: var(--type-label-variant);
@@ -491,7 +495,7 @@
       .row-action-btn { width: 20px; height: 24px; }
     }
 
-    
+
     @container main-content (max-width: 560px) {
       .badge-unavailable {
         flex: none;
@@ -502,8 +506,9 @@
         height: 18px;
         padding: 0;
         font-size: 0;
+        color: var(--status-warning-text);
       }
-      .badge-unavailable::after { content: '!'; font-size: var(--font-size-xs); }
+      .badge-unavailable::after { content: '!'; font-size: var(--font-size-xs); color: var(--status-warning-text); }
     }
 
     @container main-content (max-width: 440px) {

@@ -173,6 +173,10 @@
       padding: 0 var(--space-3);
       color: var(--text-primary);
       margin-bottom: var(--space-6);
+
+      &::placeholder {
+        color: var(--color-text-muted);
+      }
     }
 
     .safe-note {
