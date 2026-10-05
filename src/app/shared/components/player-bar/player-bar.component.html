@@ -109,6 +109,40 @@
         </div>
       }
       <app-signal-path class="rail-signal" />
+      @if (player.currentTrack() && upNextEnabled()) {
+        <section class="rail-up-next" #upNextSlot aria-labelledby="up-next-title">
+          <div class="up-next-header">
+            <h2 id="up-next-title">Up next</h2>
+            @if (upNextHeaderFits()) {
+              <button type="button" class="open-queue-link" (click)="toggleQueue.emit()"
+                [attr.aria-expanded]="isQueueOpen()">Open queue</button>
+            }
+          </div>
+          <span class="up-next-measure" aria-hidden="true"></span>
+          <div class="up-next-list">
+            @for (item of visibleUpNext(); track item.entry.id) {
+              <button type="button" class="up-next-track" (click)="player.jumpToQueueIndex(item.index)"
+                [attr.aria-label]="'Play ' + item.entry.track.title + ' next in queue'">
+                <span class="up-next-cover" aria-hidden="true">
+                  @if (item.entry.track.artwork) {
+                    <img [src]="item.entry.track.artwork" alt="" />
+                  } @else { <app-icon name="disc" [size]="20" /> }
+                </span>
+                <span class="up-next-copy">
+                  <span class="up-next-title">{{ item.entry.track.title }}</span>
+                  <span class="up-next-artist">{{ item.entry.track.artist || 'Unknown Artist' }}</span>
+                  @if (formatTrackFormat(item.entry.track); as format) {
+                    <span class="up-next-format" [class.hires]="format.hires">{{ format.label }}</span>
+                  }
+                </span>
+              </button>
+            }
+            @if (upNext().length === 0) {
+              <p class="up-next-empty">Queue ends after this track</p>
+            }
+          </div>
+        </section>
+      }
       <div class="rail-timeline"><ng-container *ngTemplateOutlet="timeline" /></div>
       <div class="rail-transport">
         <ng-container *ngTemplateOutlet="transport; context: { size: 22, modes: true }" />

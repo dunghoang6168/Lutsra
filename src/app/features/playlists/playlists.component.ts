@@ -1,3 +1,4 @@
+import { selectPlaylistArtwork } from '../../shared/utils/list-media';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -18,6 +19,7 @@ import { AlbumCardComponent } from '../../shared/components/album-card/album-car
   styleUrl: './playlists.component.scss'
 })
 export class PlaylistsComponent implements OnInit {
+  readonly playlistArtwork = selectPlaylistArtwork;
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);

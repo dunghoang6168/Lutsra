@@ -242,3 +242,23 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Playlist actions share the card footer with the track count. */
+.card-actions {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  margin-top: 0;
+  gap: var(--space-1);
+}
+.card-actions .btn-icon {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-actions .btn-icon:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}

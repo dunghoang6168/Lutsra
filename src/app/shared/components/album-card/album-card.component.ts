@@ -10,8 +10,14 @@ import { IconComponent, IconName } from '../icon/icon.component';
   template: `
     <div class="album-card">
       <div class="cover-wrapper" [class.is-circle]="isCircle">
-        @if (imageUrl) {
-          <img [src]="imageUrl" alt="" class="cover-img" />
+        @if (!imageUrl && imageUrls.length === 4) {
+          <div class="cover-mosaic">
+            @for (url of imageUrls; track url) {
+              <span class="cover-cell"><img [src]="url" alt="" class="cover-img" /></span>
+            }
+          </div>
+        } @else if (imageUrl || imageUrls[0]) {
+          <img [src]="imageUrl || imageUrls[0]" alt="" class="cover-img" />
         } @else {
           <div class="cover-placeholder" aria-hidden="true">
             <app-icon [name]="fallbackIcon" [size]="isCircle ? 48 : 36" />
@@ -51,12 +57,24 @@ import { IconComponent, IconName } from '../icon/icon.component';
       @if (showDetails && subtext) {
         <div class="album-sub">
           <span>{{ subtext }}</span>
+          <ng-content select="[card-actions]"></ng-content>
         </div>
       }
 
       <ng-content></ng-content>
     </div>
   `,
+  styles: [`
+    .cover-mosaic {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+    }
+    .cover-cell { min-width: 0; min-height: 0; overflow: hidden; }
+    .album-sub { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  `],
   styleUrl: './album-card.component.scss'
 })
 export class AlbumCardComponent {
@@ -65,6 +83,7 @@ export class AlbumCardComponent {
   @Input() subtitle: string = '';
   @Input() subtext: string = '';
   @Input() imageUrl: string | null = null;
+  @Input() imageUrls: readonly string[] = [];
   @Input() fallbackIcon: IconName = 'disc';
   @Input() link!: any[] | string;
   @Input() showDetails = false;

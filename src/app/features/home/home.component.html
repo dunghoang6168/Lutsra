@@ -188,6 +188,7 @@
           @for (playlist of visiblePlaylists(); track playlist.id) {
             <app-album-card
               [item]="playlist"
+              [imageUrls]="playlistArtwork(playlist.entries, trackMapSignal())"
               [title]="playlist.name"
               [subtext]="(playlist.entries.length | number) + ' tracks'"
               fallbackIcon="list-music"

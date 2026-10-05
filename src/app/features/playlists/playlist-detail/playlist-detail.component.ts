@@ -1,3 +1,4 @@
+import { selectPlaylistArtwork } from '../../../shared/utils/list-media';
 import { Component, DestroyRef, OnInit, afterNextRender, computed, effect, ElementRef, Injector, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -25,6 +26,7 @@ interface PlaylistTrackRow {
   styleUrl: './playlist-detail.component.scss'
 })
 export class PlaylistDetailComponent implements OnInit {
+  readonly playlistArtwork = selectPlaylistArtwork;
   private readonly route = inject(ActivatedRoute);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);

@@ -37,6 +37,7 @@
           @for (playlist of playlists(); track playlist.id) {
             <app-album-card
               [item]="playlist"
+              [imageUrls]="playlistArtwork(playlist.entries, allTracks())"
               [title]="playlist.name"
               [subtext]="playlist.entries.length + ' tracks'"
               fallbackIcon="list-music"
@@ -45,7 +46,7 @@
               [disableActions]="playlist.entries.length === 0"
               (play)="onPlayPlaylist(playlist)"
               (queue)="onAddPlaylistToQueue(playlist)">
-              <div class="card-actions" (click)="$event.stopPropagation()">
+              <div card-actions class="card-actions" (click)="$event.stopPropagation()">
                 <button
                   type="button"
                   class="btn-icon"

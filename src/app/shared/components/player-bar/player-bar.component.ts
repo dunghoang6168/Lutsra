@@ -1,6 +1,8 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterNextRender, afterRenderEffect, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { nextQueueEntries } from '../../utils/list-media';
+import { formatTrackFormat } from '../../../features/home/library-quality';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
 import { IconComponent } from '../icon/icon.component';
@@ -33,6 +35,48 @@ export class PlayerBarComponent {
 
   readonly timelineValueText = computed(() =>
     `${formatClock(this.player.currentTime())} of ${formatClock(this.player.duration())}`);
+
+  readonly formatTrackFormat = formatTrackFormat;
+  readonly upNext = computed(() => nextQueueEntries(this.player.queue(), this.player.currentIndex()));
+  readonly upNextEnabled = signal(false);
+  readonly upNextRowCount = signal(0);
+  readonly upNextHeaderFits = signal(false);
+  readonly visibleUpNext = computed(() => this.upNext().slice(0, this.upNextRowCount()));
+  private readonly upNextSlot = viewChild<ElementRef<HTMLElement>>('upNextSlot');
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    afterNextRender(() => {
+      const media = window.matchMedia('(min-width: 1101px) and (min-height: 701px)');
+      const update = () => this.upNextEnabled.set(media.matches);
+      update();
+      media.addEventListener('change', update);
+      this.destroyRef.onDestroy(() => media.removeEventListener('change', update));
+    });
+    afterRenderEffect((onCleanup) => {
+      const slot = this.upNextSlot()?.nativeElement;
+      if (!slot) return;
+      const update = () => {
+        const header = slot.querySelector<HTMLElement>('.up-next-header');
+        const measure = slot.querySelector<HTMLElement>('.up-next-measure');
+        const list = slot.querySelector<HTMLElement>('.up-next-list');
+        if (!header || !measure || !list) return;
+        const headerHeight = header.getBoundingClientRect().height;
+        const rowHeight = measure.getBoundingClientRect().height;
+        const sectionGap = Number.parseFloat(getComputedStyle(slot).rowGap) || 0;
+        const rowGap = Number.parseFloat(getComputedStyle(list).rowGap) || 0;
+        const available = slot.clientHeight - headerHeight - sectionGap;
+        this.upNextHeaderFits.set(slot.clientHeight >= headerHeight);
+        this.upNextRowCount.set(rowHeight > 0
+          ? Math.max(0, Math.min(3, Math.floor((available + rowGap) / (rowHeight + rowGap))))
+          : 0);
+      };
+      const observer = new ResizeObserver(update);
+      observer.observe(slot);
+      update();
+      onCleanup(() => observer.disconnect());
+    });
+  }
 
   private isTimelineScrubbing = false;
 

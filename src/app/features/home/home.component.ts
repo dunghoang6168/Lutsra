@@ -1,3 +1,4 @@
+import { selectPlaylistArtwork } from '../../shared/utils/list-media';
 import { Component, DestroyRef, OnInit, computed, effect, ElementRef, inject, signal, untracked, viewChild, viewChildren, afterRenderEffect } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,6 +22,7 @@ import { LayoutPreferenceService } from '../../core/layout/layout-preference.ser
   styleUrl: './home.component.scss'
 })
 export class HomeComponent implements OnInit {
+  readonly playlistArtwork = selectPlaylistArtwork;
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
