@@ -33,9 +33,9 @@
       z-index: 1;
       color: var(--text-muted);
       font-family: var(--font-family-mono);
-      font-size: 9px;
+      font-size: var(--font-size-xs);
       font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0;
       pointer-events: none;
     }
 
@@ -44,7 +44,7 @@
       border-radius: 5px;
       color: var(--text-secondary);
       background: var(--glass-readable-surface);
-      font-size: 10px;
+      font-size: var(--font-size-xs);
     }
 
     canvas {

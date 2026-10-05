@@ -46,12 +46,12 @@
     }
 
     .btn-action.primary {
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
     }
 
     .btn-action.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
+      background: var(--color-accent-fill-hover);
     }
 
     .btn-action:disabled {
@@ -100,10 +100,10 @@
     }
 
     .scan-status-badge {
-      font-size: 10px;
+      font-size: var(--font-size-xs);
       font-weight: 700;
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       letter-spacing: 0.05em;
@@ -116,7 +116,7 @@
 
     .scan-current-path {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: var(--font-size-xs);
       color: var(--text-muted);
     }
 
@@ -149,7 +149,7 @@
     }
 
     .btn-remove-root {
-      font-size: 11px;
+      font-size: var(--font-size-xs);
       color: #ffffff;
       padding: var(--space-2) var(--space-3);
       border-radius: var(--radius-md);
@@ -250,8 +250,8 @@
     .folder-hero-eyebrow {
       font-size: var(--font-size-xs);
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      font-variant-caps: var(--type-label-variant);
+      letter-spacing: var(--type-label-tracking);
     }
 
     .folder-hero h2 {
@@ -369,7 +369,7 @@
       .folder-cover { width: 64px; }
       .folder-row-name { font-size: var(--font-size-base); }
       .folder-hero { min-height: 230px; }
-      .btn-remove-root { font-size: 10px; }
+      .btn-remove-root { font-size: var(--font-size-xs); }
     }
 
     .files-card {
@@ -396,8 +396,8 @@
     .btn-play-folder {
       font-size: var(--font-size-xs);
       font-weight: 600;
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       padding: var(--space-1) var(--space-3);
       border-radius: var(--radius-sm);
       display: inline-flex;
@@ -422,8 +422,8 @@
       padding: var(--space-2) var(--space-4);
       color: var(--text-muted);
       font-size: var(--font-size-xs);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-variant-caps: var(--type-label-variant);
+      letter-spacing: var(--type-label-tracking);
       text-align: left;
       border-bottom: 1px solid var(--border-subtle);
     }
@@ -447,7 +447,7 @@
     .col-title { min-width: 250px; }
     .col-codec { width: 100px; }
     .badge-codec {
-      font-size: 10px;
+      font-size: var(--font-size-xs);
       padding: 2px 6px;
       border-radius: var(--radius-sm);
       background: var(--bg-elevated);
@@ -529,7 +529,7 @@
     }
 
     .option-path {
-      font-size: 11px;
+      font-size: var(--font-size-xs);
       font-family: var(--font-family-mono);
       color: var(--text-muted);
     }
@@ -537,12 +537,12 @@
     .btn-confirm {
       padding: var(--space-2) var(--space-4);
       border-radius: var(--radius-md);
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       font-weight: 600;
     }
 
-    .btn-confirm:hover { background: var(--accent-hover); }
+    .btn-confirm:hover { background: var(--color-accent-fill-hover); }
 
     .state-error svg {
       stroke: var(--status-error);

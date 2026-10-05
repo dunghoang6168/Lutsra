@@ -63,12 +63,12 @@
     }
 
     .action-btn.primary {
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
     }
 
     .action-btn.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
+      background: var(--color-accent-fill-hover);
     }
 
     .action-btn.secondary {
@@ -168,8 +168,8 @@
       color: var(--text-muted);
       font-weight: 600;
       font-size: var(--font-size-xs);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      letter-spacing: var(--type-label-tracking);
+      font-variant-caps: var(--type-label-variant);
       user-select: none;
     }
 
@@ -283,17 +283,17 @@
     }
 
     .badge-unavailable {
-      font-size: 10px;
+      font-size: var(--font-size-xs);
       background: rgba(239, 68, 68, 0.2);
       color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
       padding: 1px 6px;
       border-radius: var(--radius-sm);
-      text-transform: uppercase;
+      font-variant-caps: var(--type-label-variant);
       font-weight: 600;
     }
 
     .badge-codec {
-      font-size: 10px;
+      font-size: var(--font-size-xs);
       padding: 2px 6px;
       border-radius: var(--radius-sm);
       background: var(--bg-elevated);
@@ -472,6 +472,21 @@
       .row-action-btn { width: 20px; height: 24px; }
     }
 
+    
+    @container main-content (max-width: 560px) {
+      .badge-unavailable {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        font-size: 0;
+      }
+      .badge-unavailable::after { content: '!'; font-size: var(--font-size-xs); }
+    }
+
     @container main-content (max-width: 440px) {
       .col-artist, .col-lyrics { display: none; }
       .col-index { width: 32px; }
@@ -481,17 +496,6 @@
       .thumb-img, .thumb-placeholder { display: none; }
       .title-cell { gap: 0; }
       .title-text-group { gap: 4px; }
-      .badge-unavailable {
-        flex: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 14px;
-        height: 14px;
-        padding: 0;
-        font-size: 0;
-      }
-      .badge-unavailable::after { content: '!'; font-size: 10px; }
     }
 .missing-chip {
   display: inline-flex;

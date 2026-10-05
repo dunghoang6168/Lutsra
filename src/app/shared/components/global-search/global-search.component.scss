@@ -75,7 +75,7 @@
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
     }
     .result-group + .result-group { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
-    h3 { padding: 4px 8px; color: var(--text-muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    h3 { padding: 4px 8px; color: var(--text-muted); font-size: var(--font-size-xs); letter-spacing: var(--type-label-tracking); font-variant-caps: var(--type-label-variant); }
     .result-row { display: flex; align-items: center; border-radius: var(--radius-md); }
     .result-item {
       width: 100%;
@@ -101,7 +101,7 @@
     .result-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .result-copy strong { font-size: var(--font-size-sm); font-weight: 650; }
     .result-copy small { color: var(--text-secondary); font-size: var(--font-size-xs); }
-    .result-type { align-self: center; color: var(--text-muted); font-size: 9px; text-transform: uppercase; }
+    .result-type { align-self: center; color: var(--text-muted); font-size: var(--font-size-xs); font-variant-caps: var(--type-label-variant); }
     .result-queue-btn {
       flex: 0 0 30px; width: 30px; height: 30px; margin-right: 6px; border-radius: var(--radius-sm);
       color: var(--text-muted); opacity: 0;
@@ -112,7 +112,7 @@
     .result-queue-btn:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-elevated); }
     .search-state { min-height: 92px; display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-secondary); text-align: center; }
     .error-state { flex-direction: column; color: var(--status-error); }
-    .error-state button { min-height: 30px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: white; background: var(--accent-primary); }
+    .error-state button { min-height: 30px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-on-accent); background: var(--color-accent-fill); }
     .spinner { width: 15px; height: 15px; border: 2px solid var(--border-default); border-top-color: var(--accent-primary); border-radius: 50%; animation: search-spin .7s linear infinite; }
     @keyframes search-spin { to { transform: rotate(360deg); } }
     @media (max-width: 900px) {

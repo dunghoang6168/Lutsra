@@ -243,7 +243,8 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 - **Title**: the Gallery rail track title (800, 24px, tight, balanced, three-line clamp) and the album card title (`--card-title-*`: 700 at 15px in Gallery, 600 at 14px in Console and Ambient).
 - **Body** (500, 15px, 1.5): the base size for the whole app. 14px is used for nav items, table cells and strip titles.
 - **Label**: Console only, using all-small-caps at 650 with 0.06em tracking (`--type-label-variant` / `--type-label-tracking`) for tree headings, table headers and inspector sections. Gallery and Ambient labels stay in normal case.
-- **Measure** (mono, 0.75rem, tabular-nums): format lines such as "FLAC 24/96", times, counts and the signal path. The inspector's file-truth headline uses the same mono at 18px/600.
+- **Measure** (mono, 13px / var(--font-size-xs), tabular-nums): format lines such as "FLAC 24/96", times, counts and the signal path. The inspector's file-truth headline uses the same mono at 18px/600.
+- **Minimum Size**: 13px is the absolute floor for text legibility. Sizes below 13px are forbidden except for purely decorative non-readable markers.
 
 ### Named Rules
 **The Measurement Rule.** Mono plus tabular figures mean "this was measured from the file or engine". Prose never goes mono, and measurements never go proportional.
@@ -299,7 +300,7 @@ Radius belongs to the layout, not the component. Gallery uses soft sheets (r20) 
 
 ### Buttons
 - **Shape:** `--radius-md` (8px; 2px inside Console).
-- **Primary:** accent fill with white text, 8px × 16px padding. Used for empty-state commits (Add Music Folder, Rescan). The hover glow is suppressed in Console.
+- **Primary:** accent fill with `--color-on-accent` text, 8px × 16px padding. Used for empty-state commits (Add Music Folder, Rescan). There is no hover glow on primary buttons.
 - **Secondary:** surface-hover fill, 1px border and text colour. Used for in-page actions such as Shuffle library.
 - **Icon controls:** 32-34px, transparent, `--control-radius`. They fill with secondary text on surface-hover when hovered, and the active state uses `accent-text`.
 - **Play/pause:** a solid ink circle (36px in the strip and pill, 30px in Console, 56px in the Gallery rail). It scales 1.05 on hover and 0.97 on press.

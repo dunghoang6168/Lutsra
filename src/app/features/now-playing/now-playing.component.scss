@@ -188,9 +188,9 @@
       position: absolute;
       top: -4px;
       right: -4px;
-      background: var(--accent-primary);
-      color: #ffffff;
-      font-size: 10px;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
+      font-size: var(--font-size-xs);
       font-weight: 700;
       border-radius: var(--radius-full);
       padding: 1px 5px;
@@ -337,8 +337,8 @@
       width: 40px;
       height: 40px;
       border-radius: var(--radius-full);
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       box-shadow: var(--shadow-md);
       transition: background var(--transition-fast), transform var(--transition-fast);
       display: inline-flex;
@@ -354,7 +354,7 @@
     }
 
     .btn-play-large:hover {
-      background: var(--accent-hover);
+      background: var(--color-accent-fill-hover);
       transform: scale(1.08);
     }
 
@@ -394,8 +394,8 @@
       font-size: var(--font-size-sm);
       font-weight: 700;
       color: var(--text-primary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-variant-caps: var(--type-label-variant);
+      letter-spacing: var(--type-label-tracking);
     }
 
     .specs-disclaimer { display: block; margin-top: 4px; }
@@ -500,8 +500,8 @@
       margin-top: var(--space-3);
       height: 38px;
       padding: 0 var(--space-6);
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       border-radius: var(--radius-md);
       text-decoration: none;
       font-weight: 600;
@@ -512,7 +512,7 @@
     }
 
     .btn-browse:hover {
-      background: var(--accent-hover);
+      background: var(--color-accent-fill-hover);
     }
 
     .now-playing-page.layout-liquid-glass { padding: var(--page-pad-top) clamp(24px, 4vw, 52px) clamp(24px, 4vw, 52px); }

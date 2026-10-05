@@ -307,7 +307,7 @@
   white-space: nowrap;
 }
 .console-table .console-play:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
-.console-table .mono { font-family: var(--font-family-mono); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.console-table .mono { font-family: var(--font-family-mono); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
 .console-table .mono.hires { color: var(--text-accent); }
 .console-table tr.missing td { color: var(--text-muted); }
 .console-table tr.missing .state { color: var(--status-warning); }

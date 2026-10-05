@@ -140,8 +140,8 @@
       width: 44px;
       height: 44px;
       border-radius: var(--radius-full);
-      background: var(--accent-primary);
-      color: #ffffff;
+      background: var(--color-accent-fill);
+      color: var(--color-on-accent);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -165,7 +165,7 @@
     @media (hover: none) { .quick-play-btn, .quick-queue-btn { opacity: 1; transform: none; } }
 
     .quick-play-btn:hover, .quick-queue-btn:hover {
-      background: var(--accent-hover);
+      background: var(--color-accent-fill-hover);
       transform: scale(1.08);
     }
 
@@ -190,12 +190,13 @@
       display: flex;
       align-items: center;
       gap: var(--space-1);
-      font-size: 12px;
+      font-size: var(--font-size-xs);
       color: var(--text-muted);
       margin-top: var(--space-2);
     }
 
     .dot {
+      /* decorative separator, below type floor by design */
       font-size: 8px;
     }
 
