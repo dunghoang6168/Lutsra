@@ -68,6 +68,15 @@ export function formatTrackFormat(track: Track): FormatLabel | null {
   return { label: resolution ? `${codec} ${resolution}` : codec, hires: quality === 'hires' };
 }
 
+/** Resolution for the Songs measurement column; lossy files never show bit depth. */
+export function formatResolution(track: Track): string {
+  const lossy = trackQuality(track) === 'lossy';
+  if (lossy && track.bitrate) return `${Math.round(track.bitrate / 1000)}k`;
+  if (!track.sampleRate) return '—';
+  const khz = formatKhz(track.sampleRate);
+  return !lossy && track.bitDepth ? `${track.bitDepth}/${khz}` : `${khz} kHz`;
+}
+
 /** The best format an album carries; "Mixed" when its tracks use more than one codec. */
 export function formatAlbumFormat(tracks: Track[]): FormatLabel | null {
   const known = tracks.filter((track) => track.codec);

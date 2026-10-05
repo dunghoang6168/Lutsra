@@ -109,7 +109,7 @@
             </a>
           }
         </div>
-        <div class="health-caption">Hi-Res = 24-bit or above 48 kHz</div>
+        <div class="health-caption">Hi-Res: lossless at 24-bit or above 48 kHz</div>
       </div>
     </header>
 
@@ -131,7 +131,7 @@
           <p class="mini-artist truncate">{{ track.artist || 'Unknown Artist' }}</p>
         </div>
         <div class="mini-meta">
-          <span class="mini-format">{{ formatTrackFormat(track) }}</span>
+          <span class="mini-format now-playing-format" [class.hires]="formatLabel(track)?.hires">{{ formatLabel(track)?.label ?? '—' }}</span>
           <span class="mini-status">{{ player.isPlaybackActive() ? 'Now Playing' : 'Paused' }}</span>
         </div>
       </a>

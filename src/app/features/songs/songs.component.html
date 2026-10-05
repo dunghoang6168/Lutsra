@@ -253,12 +253,19 @@
                         </div>
                       }
                       <div class="title-text-group">
-                        <span class="track-name truncate" [title]="track.title">
-                          {{ track.title }}
-                        </span>
-                        @if (!track.isAvailable) {
-                          <span class="badge-unavailable" title="File not found or missing from disk">
-                            Unavailable
+                        <div class="track-title-line">
+                          <span class="track-name truncate" [title]="track.title">
+                            {{ track.title }}
+                          </span>
+                          @if (!track.isAvailable) {
+                            <span class="badge-unavailable" title="File not found or missing from disk">
+                              Unavailable
+                            </span>
+                          }
+                        </div>
+                        @if (!isSongColumnHidden('codec') || !isSongColumnHidden('sampleRate')) {
+                          <span class="track-format" [class.hires]="isHiRes(track)">
+                            {{ formatTrackFormat(track)?.label ?? '—' }}
                           </span>
                         }
                       </div>
@@ -288,11 +295,9 @@
                         </td>
                       }
                       @case ('sampleRate') {
-                        <td class="col-quality" [class.user-hidden]="isSongColumnHidden('sampleRate')">
-                          <span class="quality-spec">
-                            {{ formatSampleRate(track.sampleRate) }}
-                            @if (track.bitDepth) { <span class="bit-depth">/ {{ track.bitDepth }}-bit</span> }
-                          </span>
+                        <td class="col-quality" [class.user-hidden]="isSongColumnHidden('sampleRate')"
+                          [title]="resolutionLabel(track)" [attr.aria-label]="resolutionLabel(track)">
+                          <span class="quality-spec" [class.hires]="isHiRes(track)">{{ formatResolution(track) }}</span>
                         </td>
                       }
                       @case ('lyrics') {

@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LIBRARY_GATEWAY, LYRICS_GATEWAY } from '../../core/contracts';
 import { FolderNode, MusicFolder, ScanProgress, Track } from '../../core/models';
+import { trackQuality } from '../home/library-quality';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
@@ -369,8 +370,7 @@ export class FoldersComponent implements OnInit, OnDestroy {
   }
 
   isHiRes(track: Track): boolean {
-    return (track.sampleRate !== null && track.sampleRate > 48000) ||
-      (track.bitDepth !== null && track.bitDepth > 16);
+    return trackQuality(track) === 'hires';
   }
 }
 

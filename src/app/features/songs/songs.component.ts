@@ -12,7 +12,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
 import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { compareNames } from '../library-browse';
-import { matchesQualityFilter } from '../home/library-quality';
+import { formatKhz, formatResolution, formatTrackFormat, matchesQualityFilter, trackQuality } from '../home/library-quality';
 import { TrackSelectionService } from '../../core/layout/track-selection.service';
 import { nextRowIndex } from '../../shared/utils/row-navigation';
 
@@ -376,14 +376,18 @@ export class SongsComponent implements OnInit {
     return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
   }
 
+  readonly formatResolution = formatResolution;
+  readonly formatTrackFormat = formatTrackFormat;
+
   isHiRes(track: Track): boolean {
-    return (track.sampleRate !== null && track.sampleRate > 48000) ||
-           (track.bitDepth !== null && track.bitDepth > 16);
+    return trackQuality(track) === 'hires';
   }
 
-  formatSampleRate(sr: number | null): string {
-    if (!sr) return '—';
-    const khz = sr / 1000;
-    return Number.isInteger(khz) ? `${khz} kHz` : `${khz.toFixed(1)} kHz`;
+  resolutionLabel(track: Track): string {
+    const lossy = trackQuality(track) === 'lossy';
+    if (lossy && track.bitrate) return `${Math.round(track.bitrate / 1000)} kbps`;
+    if (!track.sampleRate) return 'Resolution unavailable';
+    const rate = `${formatKhz(track.sampleRate)} kHz`;
+    return !lossy && track.bitDepth ? `${rate}, ${track.bitDepth}-bit` : rate;
   }
 }

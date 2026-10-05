@@ -67,16 +67,6 @@ export class HomeComponent implements OnInit {
   readonly qualityLine = computed(() => formatQualityLine(this.qualityStats()));
   readonly limitedPlaylists = computed(() => this.playlists().slice(0, 6));
 
-  formatTrackFormat(track: Track): string {
-    const parts: string[] = [];
-    if (track.codec) parts.push(track.codec);
-    const audioFmt: string[] = [];
-    if (track.bitDepth) audioFmt.push(`${track.bitDepth}-bit`);
-    if (track.sampleRate) audioFmt.push(`${track.sampleRate / 1000} kHz`);
-    if (audioFmt.length > 0) parts.push(audioFmt.join(' / '));
-    return parts.join(' · ');
-  }
-
   constructor() {
     effect(() => {
       const tracks = this.playableRecentTracks();
