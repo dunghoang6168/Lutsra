@@ -213,6 +213,7 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 
 ### Primary
 - **User Accent** (default Violet, dark `accent` / light `accent-light`): the only decorative hue. It marks Hi-Res measurements (`.hires` text in `accent-text`), the active nav item's icon, the active rail item, progress and volume fill, focus rings, selection and caret, the bit-perfect state in the signal path, and the solid empty-state call to action. The user can switch the set to Violet, Blue, Cyan, Emerald, Amber or Rose. Each set ships a darker light-theme variant for contrast, and `accent-text` is the legible text form on each preset.
+- **Accent fill** (`--color-accent-fill`, `--color-accent-fill-hover`, `--color-on-accent`): any surface that carries text on the accent uses these, never raw `--color-accent`. They are declared per accent × theme in `_themes.scss` so the pair always reaches 4.5:1. Dark-text presets lighten on hover and white-text presets darken, and `:active` reuses the hover fill. `scripts/check-accent-contrast.mjs` reads the tokens from `_themes.scss` and fails below 4.5:1.
 
 ### Neutral
 - **Graphite** (dark preset): canvas, navigation, surface, hover, active and elevated steps rise by small value increments, with white hairline borders at 7% and 12%. The text steps are primary, secondary and muted.
@@ -222,6 +223,7 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 ### Status
 - **Missing Amber** (`status-warning`): reserved for file and output truth. It colours the Missing tree entry and its tick, the Missing state cell in tables, a disconnected output in the signal path, and output or playback notices. It is never decoration.
 - **Error Red** (`status-error`): failures such as scan errors and runtime errors.
+- **Status tints** are derived, not literal: `color-mix(in srgb, var(--status-*) N%, transparent)` for banner and badge backgrounds and borders. No `rgba()` status literals in components.
 
 ### Named Rules
 **The One Hue Rule.** The accent is the only chromatic colour a layout may use, and it marks meaning (Hi-Res, active, progress, focus), never ornament. Layout tokens never declare a colour.
@@ -323,6 +325,20 @@ A mono line reading `source → path`, for example `FLAC 24/96 → bit-perfect` 
 ### Console Table and Inspector
 30px rows separated by subtle hairlines, with small-caps headers. Hover uses surface-hover, and the playing row uses surface-active. Missing rows go muted, with the state cell in amber. The inspector opens with the file-truth block (18px mono format plus the on-disk state) before the tag sections.
 
+### Track Lists and Keyboard
+Every track list (Songs, album, artist and playlist detail, Console Home, queue) follows one pattern:
+- **Roving tabindex:** exactly one row (or the title button on Console Home) is in the tab order. Row actions are tabbable only on the active row.
+- **Keys:** ↑/↓/Home/End/PageUp/PageDown move through `nextRowIndex` (`shared/utils/row-navigation.ts`) and clamp at both ends. Enter runs the row's primary action. Space is left to global play/pause.
+- **Selection follows focus** on track tables, so the Console inspector tracks the active row. Home and queue do not change selection.
+- **Focus ring:** `2px solid var(--border-focus)` with `-2px` offset. Rows carry `scroll-margin-top` so floating headers never cover the focused row.
+- **Playlist Move buttons** use `aria-disabled` at the ends so focus survives a reorder.
+
+### Media Heroes
+Text set on artwork (the Folders hero) stays white over a dark scrim in both themes, and its fallback gradient ends in `color-mix(in srgb, var(--accent-primary) 18%, black)`. This is the one place a literal white text colour is allowed.
+
+### Copy
+Interface copy is sentence case. Each concept has a single name throughout: **track** for an item ("Songs" names the page only), **library folder**, **Rescan library**, **output device**, **Native Shared** / **Chromium Shared**. Toggles show On/Off and keep a constant accessible name with `aria-pressed`. Errors name what failed and the next step. The product name is shown as **Lutstra**; storage keys stay `lutsra.*`.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -338,3 +354,11 @@ A mono line reading `source → path`, for example `FLAC 24/96 → bit-perfect` 
 - **Don't** introduce a second typeface or a system display face. Mono is for measurements only.
 - **Don't** reskin one topology three times. A layout earns its id by moving navigation, content and the player.
 - **Don't** hard-code hues or gradients for placeholders or heroes. They must follow the preset and accent.
+
+## Known Gaps (critique 2026-10-05, 26/40)
+These shipped surfaces do not yet meet this document:
+- **Absence colour.** Missing amber reaches only 1.8–2.0:1 on light surfaces, and Unavailable badges in Songs and detail tables use Error Red. The Amber accent preset collides with the warning hue.
+- **Now Playing.** The play button is accent-filled with a glow (Ink Play Rule), and the spectrum outranks the Source file section.
+- **Motion.** `--motion-ease` overshoots (`cubic-bezier(0.34, 1.28, 0.64, 1)`), although motion should ease out.
+- **Quality navigation** exists only in Console. Gallery and Ambient Home are the same page.
+- **Type and contrast floor.** Light muted text sits at 4.45:1. The Songs search placeholder uses the browser default (3.6:1). `.filter-count` is 11px.
