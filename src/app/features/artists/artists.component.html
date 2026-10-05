@@ -69,47 +69,18 @@
       } @else {
         <div class="artists-grid">
           @for (artist of filteredArtists(); track artist.id) {
-            <div class="artist-card" [routerLink]="['/artists', artist.id]" tabindex="0" role="button">
-              <div class="avatar-wrapper">
-                <div class="avatar-circle">
-                  @if (avatarFor(artist); as avatar) {
-                    <img
-                      class="artist-avatar-img"
-                      [src]="avatar"
-                      [alt]="avatar === artist.customAvatar || avatar === artist.onlineMetadata?.avatar ? artist.name : 'Album artwork for ' + artist.name"
-                      loading="lazy"
-                      decoding="async"
-                      (error)="onAvatarError(artist)" />
-                  } @else {
-                    <span class="initial">{{ artist.name.charAt(0) }}</span>
-                  }
-                </div>
-                <button
-                  type="button"
-                  class="quick-play-btn"
-                  (click)="onPlayArtist($event, artist)"
-                  title="Play artist tracks"
-                  aria-label="Play artist tracks">
-                  <app-icon name="play" [size]="20" />
-                </button>
-                <button
-                  type="button"
-                  class="quick-queue-btn"
-                  (click)="onAddArtistToQueue($event, artist)"
-                  title="Add artist tracks to queue"
-                  aria-label="Add artist tracks to queue">
-                  <app-icon name="plus" [size]="18" />
-                </button>
-              </div>
-
-              <div class="artist-meta">
-                <h3 class="artist-name truncate" [title]="artist.name">{{ artist.name }}</h3>
-                <span class="artist-stats">
-                  {{ artist.albumIds.length }} {{ artist.albumIds.length === 1 ? 'album' : 'albums' }} •
-                  {{ artist.trackIds.length }} tracks
-                </span>
-              </div>
-            </div>
+            <app-album-card
+              [item]="artist"
+              [title]="artist.name"
+              [subtext]="artist.albumIds.length + ' albums • ' + artist.trackIds.length + ' tracks'"
+              [imageUrl]="avatarFor(artist) || null"
+              fallbackIcon="user"
+              [isCircle]="true"
+              [link]="['/artists', artist.id]"
+              [showDetails]="true"
+              (play)="onPlayArtist(artist)"
+              (queue)="onAddArtistToQueue(artist)">
+            </app-album-card>
           }
         </div>
       }

@@ -1,6 +1,6 @@
 
     .settings-page {
-      padding: var(--space-8);
+      padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
       overflow-y: auto;
       max-width: 900px;
@@ -11,8 +11,10 @@
     }
 
     .settings-header h1 {
-      font-size: var(--font-size-2xl);
-      font-weight: 700;
+      font-size: var(--type-display);
+      font-weight: var(--type-display-weight);
+      letter-spacing: var(--type-display-tracking);
+      line-height: 1.05;
     }
 
     .subtitle {
@@ -220,6 +222,7 @@
     .pref-row {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       justify-content: space-between;
       gap: var(--space-4);
       padding-bottom: var(--space-4);
@@ -268,6 +271,7 @@
       display: flex;
       align-items: center;
       gap: var(--space-3);
+      max-width: 100%;
     }
 
     .settings-range-slider {
@@ -591,10 +595,17 @@
       border-top: 1px solid var(--color-border-subtle);
     }
 
-    .acrylic-accent-card .accent-picker-section {
-      padding-top: 0;
-      border-top: 0;
+    .browse-folders-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-top: var(--space-1);
+      color: var(--text-accent);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      text-decoration: none;
     }
+    .browse-folders-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
     .accent-palette-row {
       display: flex;
@@ -718,22 +729,22 @@
       margin-top: 2px;
     }
 
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .integration-notice-card {
-      background: color-mix(in srgb, var(--accent-primary) 10%, rgba(255, 255, 255, 0.84));
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .integration-notice-card {
+      background: color-mix(in srgb, var(--accent-primary) 10%, var(--glass-elevated));
       border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
     }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .integration-notice-card .notice-content h3 {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .integration-notice-card .notice-content h3 {
       color: var(--text-accent);
     }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .preset-card.disabled,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn:disabled,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn.disabled {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .preset-card.disabled,
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .accent-option-btn:disabled,
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .accent-option-btn.disabled {
       opacity: 1;
       color: var(--text-secondary);
       background: var(--glass-readable-surface);
       border-color: var(--glass-border);
     }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .preset-card.disabled.active,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .accent-option-btn.disabled.active {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .preset-card.disabled.active,
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .accent-option-btn.disabled.active {
       border-color: var(--text-accent);
     }

@@ -1,6 +1,6 @@
 
     .albums-page {
-      padding: var(--space-6);
+      padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
       overflow-y: auto;
     }
@@ -22,8 +22,10 @@
     }
 
     .title-group h1 {
-      font-size: var(--font-size-2xl);
-      font-weight: 700;
+      font-size: var(--type-display);
+      font-weight: var(--type-display-weight);
+      letter-spacing: var(--type-display-tracking);
+      line-height: 1.05;
     }
 
     .title-separator {
@@ -84,8 +86,8 @@
 
     .albums-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: var(--space-5);
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--cover-min)), 1fr));
+      gap: var(--cover-gap);
     }
 
     .album-card {

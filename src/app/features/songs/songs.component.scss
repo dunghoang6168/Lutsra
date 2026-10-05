@@ -4,7 +4,7 @@
       flex-direction: column;
       height: 100%;
       overflow: hidden;
-      padding: var(--space-6);
+      padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       background: var(--bg-app);
     }
 
@@ -26,9 +26,10 @@
     }
 
     .title-area h1 {
-      font-size: var(--font-size-2xl);
-      font-weight: 700;
-      letter-spacing: -0.02em;
+      font-size: var(--type-display);
+      font-weight: var(--type-display-weight);
+      letter-spacing: var(--type-display-tracking);
+      line-height: 1.05;
     }
 
     .title-separator {
@@ -119,7 +120,7 @@
     .notice-toast {
       background: rgba(239, 68, 68, 0.15);
       border: 1px solid var(--status-error);
-      color: #fca5a5;
+      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
       padding: var(--space-2) var(--space-4);
       border-radius: var(--radius-md);
       margin-bottom: var(--space-3);
@@ -186,7 +187,7 @@
     }
 
     .song-row {
-      height: 48px;
+      height: var(--row-height);
       border-bottom: 1px solid var(--border-subtle);
       cursor: pointer;
       transition: background var(--transition-fast);
@@ -214,7 +215,7 @@
     }
 
     .songs-table td {
-      padding: var(--space-2) var(--space-4);
+      padding: 0 var(--space-4);
       vertical-align: middle;
     }
 
@@ -247,8 +248,8 @@
     }
 
     .thumb-img, .thumb-placeholder {
-      width: 32px;
-      height: 32px;
+      width: min(32px, calc(var(--row-height) - 10px));
+      height: min(32px, calc(var(--row-height) - 10px));
       border-radius: var(--radius-sm);
       flex-shrink: 0;
       object-fit: cover;
@@ -284,7 +285,7 @@
     .badge-unavailable {
       font-size: 10px;
       background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
+      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       text-transform: uppercase;
@@ -444,7 +445,7 @@
     }
 
     @container main-content (max-width: 900px) {
-      .songs-container { padding: var(--space-4); }
+      .songs-container { padding: var(--page-pad-top) var(--space-4) var(--space-4); }
     }
 
     @container main-content (max-width: 780px) {
@@ -492,3 +493,19 @@
       }
       .badge-unavailable::after { content: '!'; font-size: 10px; }
     }
+.missing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.missing-chip:hover {
+  background: var(--bg-surface-hover);
+}

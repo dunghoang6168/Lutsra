@@ -183,23 +183,6 @@
       outline-offset: 2px;
     }
 
-    .heading-details-btn {
-      flex: 0 0 auto;
-      min-height: 32px;
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      padding: 0 9px;
-      border-radius: var(--radius-full);
-      color: var(--accent-primary);
-      background: var(--accent-muted);
-      font-size: var(--font-size-xs);
-      font-weight: 650;
-    }
-    .heading-details-btn:hover {
-      background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
-    }
-    .heading-details-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
     .heading-queue-btn .queue-badge {
       position: absolute;
@@ -220,9 +203,11 @@
       color: var(--text-primary);
       line-height: 1.2;
       margin-bottom: var(--space-2);
+      display: -webkit-box;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      text-wrap: balance;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
 
     .artist-album-row {
@@ -354,7 +339,7 @@
       border-radius: var(--radius-full);
       background: var(--accent-primary);
       color: #ffffff;
-      box-shadow: 0 4px 16px var(--accent-glow);
+      box-shadow: var(--shadow-md);
       transition: background var(--transition-fast), transform var(--transition-fast);
       display: inline-flex;
       align-items: center;
@@ -386,8 +371,6 @@
       border: 1px solid var(--border-default);
       border-radius: var(--radius-lg);
       padding: var(--space-4);
-      cursor: pointer;
-      transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
     }
 
     .now-playing-content:not(.has-lyrics) .technical-specs-card { grid-column: 1 / -1; }
@@ -396,16 +379,6 @@
       display: none;
     }
 
-    .technical-specs-card:hover {
-      border-color: var(--accent-primary);
-      background: var(--bg-elevated);
-    }
-
-    .technical-specs-card:focus-visible {
-      outline: 2px solid var(--accent-primary);
-      outline-offset: 3px;
-      box-shadow: 0 0 0 4px var(--color-accent-muted);
-    }
 
     .specs-header {
       display: flex;
@@ -417,6 +390,7 @@
 
     .specs-title {
       display: block;
+      margin: 0;
       font-size: var(--font-size-sm);
       font-weight: 700;
       color: var(--text-primary);
@@ -424,22 +398,20 @@
       letter-spacing: 0.05em;
     }
 
-    .specs-disclaimer {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-      display: block;
-    }
+    .specs-disclaimer { display: block; margin-top: 4px; }
 
     .details-affordance {
       display: inline-flex;
       align-items: center;
       gap: var(--space-1);
-      color: var(--accent-primary);
+      padding: 4px 8px;
+      border-radius: var(--control-radius);
+      color: var(--text-accent);
       font-size: var(--font-size-xs);
       font-weight: 700;
       white-space: nowrap;
     }
+    .details-affordance:hover { background: var(--accent-muted); }
 
     .specs-grid {
       display: grid;
@@ -448,19 +420,17 @@
       margin-bottom: var(--space-3);
     }
 
+    /* A definition grid on hairlines, not tiles inside a card. */
     .spec-item {
-      background: var(--bg-elevated);
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-md);
       display: flex;
       flex-direction: column;
+      padding: var(--space-2) 0;
+      border-top: 1px solid var(--border-subtle);
     }
 
     .spec-name {
-      font-size: 10px;
+      font-size: var(--font-size-xs);
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
       font-weight: 600;
     }
 
@@ -478,9 +448,8 @@
       gap: var(--space-2);
       font-size: var(--font-size-xs);
       color: var(--text-muted);
-      background: var(--bg-app);
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-sm);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--border-subtle);
     }
 
     .path-label {
@@ -546,7 +515,7 @@
       background: var(--accent-hover);
     }
 
-    .now-playing-page.layout-liquid-glass { padding: clamp(24px, 4vw, 52px); }
+    .now-playing-page.layout-liquid-glass { padding: var(--page-pad-top) clamp(24px, 4vw, 52px) clamp(24px, 4vw, 52px); }
     .layout-liquid-glass .now-playing-content {
       grid-template-columns: clamp(300px, 34%, 430px) minmax(0, 1fr);
       column-gap: clamp(28px, 4vw, 64px);
@@ -556,7 +525,7 @@
     }
     .layout-liquid-glass .large-artwork-card {
       border-radius: 18px;
-      box-shadow: 0 18px 42px rgba(32, 32, 36, 0.16), 0 2px 8px rgba(32, 32, 36, 0.09);
+      box-shadow: var(--glass-shadow);
     }
     .layout-liquid-glass .details-column {
       align-self: stretch;
@@ -581,10 +550,10 @@
       flex-direction: column;
       min-height: 0;
       padding: 18px;
-      border: 1px solid rgba(29, 29, 31, 0.08);
+      border: 1px solid var(--glass-border);
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.58);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 6px 20px rgba(32, 32, 36, 0.06);
+      background: var(--glass-regular);
+      box-shadow: inset 0 1px 0 var(--glass-specular);
       overflow: hidden;
     }
     .layout-liquid-glass .visualization-controls app-spectrum-visualizer {
@@ -601,10 +570,17 @@
       grid-row: 2;
       height: clamp(240px, 30vh, 380px);
       padding: 20px 22px;
-      border-color: rgba(29, 29, 31, 0.08);
+      border-color: var(--glass-border);
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.58);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 20px rgba(32, 32, 36, 0.05);
+      background: var(--glass-regular);
+      box-shadow: inset 0 1px 0 var(--glass-specular);
+    }
+    .layout-liquid-glass .technical-specs-card {
+      grid-column: 1 / -1;
+      grid-row: auto;
+      border-color: var(--glass-border);
+      border-radius: 16px;
+      background: var(--glass-regular);
     }
     .layout-liquid-glass .lyrics-card h2,
     .layout-liquid-glass .lyrics-lines,
@@ -630,29 +606,24 @@
       font-size: 18px;
       font-weight: 800;
       opacity: 1;
-      text-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 28%, transparent);
     }
     .layout-liquid-glass .lyrics-line:not(.active):is(:hover, :focus-visible) {
       color: var(--text-primary);
       opacity: 1;
     }
-    .layout-liquid-glass .large-artwork-placeholder { background: #e2e2e7; }
+    .layout-liquid-glass .large-artwork-placeholder { background: var(--bg-elevated); }
 
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .track-heading-card {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .layout-liquid-glass .track-heading-card {
       padding: 15px 18px;
       border: 1px solid var(--glass-border);
       border-radius: 16px;
       background: var(--glass-text-backplate);
       box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-sm);
     }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .visualization-controls,
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .lyrics-card {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .layout-liquid-glass .lyrics-card {
       background: var(--glass-readable-surface);
     }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .heading-details-btn {
-      color: var(--text-accent);
-    }
-    :host-context(html[data-runtime='desktop'][data-theme='liquid-glass']) .layout-liquid-glass .lyrics-lines {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .layout-liquid-glass .lyrics-lines {
       mask-image: linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 8px), transparent);
     }
 
@@ -674,7 +645,7 @@
     }
 
     @container main-content (min-width: 761px) and (max-width: 1000px) {
-      .now-playing-page.layout-liquid-glass { padding: 24px; }
+      .now-playing-page.layout-liquid-glass { padding: var(--page-pad-top) 24px 24px; }
       .layout-liquid-glass .now-playing-content {
         grid-template-columns: clamp(260px, 34%, 340px) minmax(0, 1fr);
         column-gap: 24px;

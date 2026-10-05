@@ -74,46 +74,18 @@
       } @else {
         <div class="albums-grid">
           @for (album of filteredAlbums(); track album.id) {
-            <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
-              <div class="cover-wrapper">
-                @if (album.artwork) {
-                  <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
-                } @else {
-                  <div class="cover-placeholder" aria-hidden="true">
-                    <app-icon name="disc" [size]="48" />
-                  </div>
-                }
-                <!-- Quick Play Overlay Button -->
-                <button
-                  type="button"
-                  class="quick-play-btn"
-                  (click)="onPlayAlbum($event, album)"
-                  title="Play Album"
-                  aria-label="Play Album">
-                  <app-icon name="play" [size]="20" />
-                </button>
-                <button
-                  type="button"
-                  class="quick-queue-btn"
-                  (click)="onAddAlbumToQueue($event, album)"
-                  title="Add Album to Queue"
-                  aria-label="Add Album to Queue">
-                  <app-icon name="plus" [size]="18" />
-                </button>
-              </div>
-
-              <div class="album-meta">
-                <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
-                <p class="album-artist truncate" [title]="album.artist || 'Unknown Artist'">
-                  {{ album.artist || 'Unknown Artist' }}
-                </p>
-                <div class="album-sub">
-                  <span>{{ album.year || 'Unknown Year' }}</span>
-                  <span class="dot">•</span>
-                  <span>{{ album.trackIds.length }} tracks</span>
-                </div>
-              </div>
-            </div>
+            <app-album-card
+              [item]="album"
+              [title]="album.title"
+              [subtitle]="album.artist || 'Unknown Artist'"
+              [subtext]="(album.year || 'Unknown Year') + ' • ' + album.trackIds.length + ' tracks'"
+              [imageUrl]="album.artwork || null"
+              [link]="['/albums', album.id]"
+              [showDetails]="true"
+              [format]="albumFormats().get(album.id) ?? null"
+              (play)="onPlayAlbum(album)"
+              (queue)="onAddAlbumToQueue(album)">
+            </app-album-card>
           }
         </div>
       }

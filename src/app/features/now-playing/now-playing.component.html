@@ -54,14 +54,6 @@
                     <span class="queue-badge">{{ player.queue().length }}</span>
                   }
                 </button>
-              } @else if (layoutPreference.mode() === 'liquid-glass') {
-                <button #detailsTrigger type="button" class="heading-details-btn"
-                  [class.active]="rightPanels.isTrackDetailsOpen()"
-                  (click)="openTrackDetails($event)" aria-controls="track-details-panel"
-                  [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()" title="Track details">
-                  <span>Track Details</span>
-                  <app-icon name="chevron-right" [size]="15" />
-                </button>
               }
             </div>
 
@@ -179,27 +171,19 @@
           </div>
 
             <!-- Technical Audio Specification Box (Source Quality) -->
-            @if (layoutPreference.mode() !== 'liquid-glass') {
-            <button
-              #detailsTrigger
-              type="button"
-              class="technical-specs-card"
-              [class.hidden-while-details-open]="rightPanels.isTrackDetailsOpen()"
-              (click)="openTrackDetails($event)"
-              aria-controls="track-details-panel"
-              [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()"
-              title="View detailed source-file metadata">
+            <section class="technical-specs-card" aria-labelledby="specs-title"
+              [class.hidden-while-details-open]="rightPanels.isTrackDetailsOpen()">
               <span class="specs-header">
                 <span>
-                  <span class="specs-title">Technical Audio Specifications (Source File)</span>
-                  <span class="specs-disclaimer">
-                    Verified metadata of the file on disk. (Does not claim DAC hardware output).
-                  </span>
+                  <h2 class="specs-title" id="specs-title">Source file</h2>
+                  <app-signal-path class="specs-disclaimer" />
                 </span>
-                <span class="details-affordance">
-                  <span>View details</span>
+                <button #detailsTrigger type="button" class="details-affordance"
+                  (click)="openTrackDetails($event)" aria-controls="track-details-panel"
+                  [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()">
+                  <span>All properties</span>
                   <app-icon name="chevron-right" [size]="16" />
-                </span>
+                </button>
               </span>
 
               <span class="specs-grid">
@@ -233,8 +217,7 @@
                 <span class="path-label">Path:</span>
                 <span class="path-value truncate" [title]="track.path">{{ track.path }}</span>
               </span>
-            </button>
-            }
+            </section>
 
           @if (lyricsStatus() !== 'missing') {
             <section class="lyrics-card" aria-labelledby="lyrics-heading">

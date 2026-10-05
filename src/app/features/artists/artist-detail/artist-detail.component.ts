@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ARTIST_METADATA_GATEWAY, LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, Artist, ArtistMatchCandidate, orderAlbumTracks, Track } from '../../../core/models';
+import { albumFormatMap } from '../../home/library-quality';
 import { PlayerService } from '../../../core/player/player.service';
 import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
@@ -11,11 +12,12 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { artistAvatarCandidates } from '../artist-avatar';
 import { orderArtistTracks } from '../artist-play-order';
+import { AlbumCardComponent } from '../../../shared/components/album-card/album-card.component';
 
 @Component({
   selector: 'app-artist-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, DurationPipe, IconComponent],
+  imports: [CommonModule, FormsModule, RouterModule, DurationPipe, IconComponent, AlbumCardComponent],
   templateUrl: './artist-detail.component.html',
   styleUrl: './artist-detail.component.scss'
 })
@@ -31,6 +33,7 @@ export class ArtistDetailComponent implements OnInit {
   readonly artistAlbums = signal<Album[]>([]);
   readonly artistTracks = signal<Track[]>([]);
   readonly allTracks = signal<Track[]>([]);
+  readonly albumFormats = computed(() => albumFormatMap(this.artistAlbums(), this.allTracks()));
   readonly isLoading = signal<boolean>(true);
   readonly metadataStatus = signal<'idle' | 'loading' | 'available' | 'not-found' | 'ambiguous' | 'matched-empty' | 'error'>('idle');
   readonly metadataError = signal<string | null>(null);
@@ -255,8 +258,7 @@ export class ArtistDetailComponent implements OnInit {
     this.player.playCollection(tracks, selectedIndex);
   }
 
-  onPlayAlbum(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
+  onPlayAlbum(album: Album): void {
     const albumTracks = this.tracksForAlbum(album);
 
     if (albumTracks.length === 0) return;
@@ -270,8 +272,7 @@ export class ArtistDetailComponent implements OnInit {
     if (artist) this.queueActions.add(orderArtistTracks(artist, this.artistAlbums(), this.allTracks()));
   }
 
-  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
+  onAddAlbumToQueue(album: Album): void {
     this.queueActions.add(this.tracksForAlbum(album));
   }
 

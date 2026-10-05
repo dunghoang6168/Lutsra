@@ -1,22 +1,20 @@
-import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
-import { Album, orderAlbumTracks, Playlist, Track } from '../../core/models';
+import { Album, orderAlbumTracks, Playlist, Track, ScanProgress } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
-import { compareAlbumsByTitle } from '../library-browse';
-
-export function albumColumns(width: number, minCardWidth = 160, gap = 16): number {
-  return Math.max(1, Math.floor((width + gap) / (minCardWidth + gap)));
-}
+import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
+import { albumFormatMap, formatCount, formatTrackFormat as trackFormatLabel, summarizeQuality, formatQualityLine } from './library-quality';
+import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, IconComponent],
+  imports: [DecimalPipe, RouterModule, IconComponent, AlbumCardComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss'
 })
@@ -29,50 +27,70 @@ export class HomeComponent implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly addingFolder = signal(false);
   readonly isLoading = signal(true);
+  private isFirstLoad = true;
   readonly libraryLoadError = signal<string | null>(null);
 
+  readonly scanProgress = signal<ScanProgress>({ isScanning: false, scannedFiles: 0, audioFiles: 0, currentPath: null });
+  readonly scanFinishedMessage = signal<string | null>(null);
+  private scanToastTimer: ReturnType<typeof setTimeout> | undefined;
+
   readonly tracksCount = signal<number>(0);
-  readonly albumsCount = signal<number>(0);
-  readonly artistsCount = signal<number>(0);
   readonly foldersCount = signal<number>(0);
   readonly allAlbums = signal<Album[]>([]);
-  readonly albumColumnCount = signal(1);
-  readonly albumsAZ = computed(() => [...this.allAlbums()].sort(compareAlbumsByTitle).slice(0, this.albumColumnCount()));
   readonly playlists = signal<Playlist[]>([]);
-  private allTracks: Track[] = [];
-  private albumsGridElement: HTMLElement | null = null;
-  private albumsObserver: ResizeObserver | null = null;
+  readonly allTracksSignal = signal<Track[]>([]);
+  readonly trackMapSignal = computed(() => new Map(this.allTracksSignal().map((t) => [t.id, t] as const)));
 
-  constructor() {
-    this.destroyRef.onDestroy(() => this.albumsObserver?.disconnect());
+  readonly recentlyAddedAlbums = computed(() => {
+    const trackMap = this.trackMapSignal();
+    return this.allAlbums()
+      .map((album) => ({
+        album,
+        maxTime: Math.max(0, ...album.trackIds.map((id) => trackMap.get(id)?.lastModified ?? 0)),
+      }))
+      .sort((a, b) => b.maxTime - a.maxTime)
+      .slice(0, 8)
+      .map((item) => item.album);
+  });
+
+  readonly layout = inject(LayoutPreferenceService).mode;
+  readonly formatLabel = trackFormatLabel;
+  readonly recentTracks = computed(() => [...this.allTracksSignal()]
+    .sort((a, b) => (b.lastModified ?? 0) - (a.lastModified ?? 0))
+    .slice(0, 24));
+  readonly albumFormats = computed(() => albumFormatMap(this.allAlbums(), this.allTracksSignal()));
+  readonly qualityStats = computed(() => summarizeQuality(this.allTracksSignal()));
+  readonly qualityLine = computed(() => formatQualityLine(this.qualityStats()));
+  readonly limitedPlaylists = computed(() => this.playlists().slice(0, 6));
+
+  formatTrackFormat(track: Track): string {
+    const parts: string[] = [];
+    if (track.codec) parts.push(track.codec);
+    const audioFmt: string[] = [];
+    if (track.bitDepth) audioFmt.push(`${track.bitDepth}-bit`);
+    if (track.sampleRate) audioFmt.push(`${track.sampleRate / 1000} kHz`);
+    if (audioFmt.length > 0) parts.push(audioFmt.join(' / '));
+    return parts.join(' · ');
   }
 
-  @ViewChild('albumsGrid') private set albumsGrid(element: ElementRef<HTMLElement> | undefined) {
-    this.albumsObserver?.disconnect();
-    this.albumsObserver = null;
-    this.albumsGridElement = element?.nativeElement ?? null;
-    const grid = this.albumsGridElement;
-    if (!grid) return;
-    const updateColumns = () => {
-      if (this.albumsGridElement !== grid) return;
-      const style = getComputedStyle(grid);
-      const minWidth = Number.parseFloat(style.getPropertyValue('--album-min-width')) || 160;
-      const gap = Number.parseFloat(style.columnGap) || 0;
-      this.albumColumnCount.set(albumColumns(grid.clientWidth, minWidth, gap));
-    };
-    queueMicrotask(updateColumns);
-    if (typeof ResizeObserver === 'function') {
-      this.albumsObserver = new ResizeObserver(updateColumns);
-      this.albumsObserver.observe(grid);
-    }
+  constructor() {
+    this.destroyRef.onDestroy(() => clearTimeout(this.scanToastTimer));
   }
 
   async ngOnInit(): Promise<void> {
     let wasScanning = false;
     this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
+      this.scanProgress.set(progress);
       const justFinished = wasScanning && !progress.isScanning;
       wasScanning = progress.isScanning;
-      if (justFinished) void this.loadHome();
+      if (justFinished) {
+        void this.loadHome().then(() => {
+          if (this.tracksCount() === 0) return;
+          this.scanFinishedMessage.set(`Found ${formatCount.format(this.tracksCount())} tracks · ${this.qualityLine()}`);
+          clearTimeout(this.scanToastTimer);
+          this.scanToastTimer = setTimeout(() => this.scanFinishedMessage.set(null), 5000);
+        });
+      }
     });
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadHome());
     await this.loadHome();
@@ -92,19 +110,31 @@ export class HomeComponent implements OnInit {
     }
   }
 
+  onRescanAll(): void {
+    void this.libraryGateway.requestScan();
+  }
+
+  shuffleAll(): void {
+    const tracks = this.allTracksSignal().filter((t) => t.isAvailable);
+    if (tracks.length === 0) return;
+    const shuffled = [...tracks];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    void this.player.playCollection(shuffled, 0);
+  }
+
   async loadHome(): Promise<void> {
-    this.isLoading.set(true);
+    if (this.isFirstLoad) this.isLoading.set(true);
     this.libraryLoadError.set(null);
     try {
       const [lib, pls] = await Promise.all([
         this.libraryGateway.getLibrary(),
         this.playlistGateway.getPlaylists(),
       ]);
-
-      this.allTracks = lib.tracks;
+      this.allTracksSignal.set(lib.tracks);
       this.tracksCount.set(lib.tracks.length);
-      this.albumsCount.set(lib.albums.length);
-      this.artistsCount.set(lib.artists.length);
       this.foldersCount.set(lib.folders.length);
       this.allAlbums.set(lib.albums);
       this.playlists.set(pls);
@@ -112,32 +142,35 @@ export class HomeComponent implements OnInit {
       this.libraryLoadError.set(error instanceof Error ? error.message : 'Failed to load music library');
     } finally {
       this.isLoading.set(false);
+      this.isFirstLoad = false;
     }
   }
 
-  onPlayAlbum(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
-    const tracks = this.tracksForAlbum(album);
-    if (tracks.length > 0) {
-      this.player.playCollection(tracks, 0);
-    }
+  playRecent(track: Track): void {
+    const playable = this.recentTracks().filter((item) => item.isAvailable);
+    void this.player.playCollection(playable, Math.max(0, playable.indexOf(track)));
   }
 
-  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
-    this.queueActions.add(this.tracksForAlbum(album));
+  onPlayAlbum(album: Album): void {
+    const tracks = this.tracksForIds(album.trackIds);
+    if (tracks.length > 0) void this.player.playCollection(orderAlbumTracks(tracks), 0);
   }
 
-  private tracksForAlbum(album: Album): Track[] {
-    const trackMap = new Map<string, Track>();
-    this.allTracks.forEach((t) => trackMap.set(t.id, t));
+  onAddAlbumToQueue(album: Album): void {
+    this.queueActions.add(orderAlbumTracks(this.tracksForIds(album.trackIds)));
+  }
 
-    const tracks: Track[] = [];
-    album.trackIds.forEach((id) => {
-      const t = trackMap.get(id);
-      if (t) tracks.push(t);
-    });
+  onPlayPlaylist(playlist: Playlist): void {
+    const tracks = this.tracksForIds(playlist.entries.map((entry) => entry.trackId));
+    if (tracks.length > 0) void this.player.playCollection(tracks, 0);
+  }
 
-    return orderAlbumTracks(tracks);
+  onAddPlaylistToQueue(playlist: Playlist): void {
+    this.queueActions.add(this.tracksForIds(playlist.entries.map((entry) => entry.trackId)));
+  }
+
+  private tracksForIds(ids: string[]): Track[] {
+    const trackMap = this.trackMapSignal();
+    return ids.map((id) => trackMap.get(id)).filter((t): t is Track => t?.isAvailable === true);
   }
 }

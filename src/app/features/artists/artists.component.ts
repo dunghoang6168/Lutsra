@@ -14,6 +14,7 @@ import { artistAvatarCandidates } from './artist-avatar';
 import { artistInitial, compareNames } from '../library-browse';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
 import { orderArtistTracks } from './artist-play-order';
+import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
 
 type ArtistSort = 'name' | 'albums' | 'tracks';
 type SortDirection = 'asc' | 'desc';
@@ -21,7 +22,7 @@ type SortDirection = 'asc' | 'desc';
 @Component({
   selector: 'app-artists',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent, AlbumCardComponent],
   templateUrl: './artists.component.html',
   styleUrl: './artists.component.scss'
 })
@@ -143,8 +144,7 @@ export class ArtistsComponent implements OnInit {
     }
   }
 
-  onPlayArtist(event: MouseEvent, artist: Artist): void {
-    event.stopPropagation();
+  onPlayArtist(artist: Artist): void {
     const tracks = this.tracksForArtist(artist);
     if (tracks.length > 0) {
       this.player.setShuffle(false);
@@ -152,8 +152,7 @@ export class ArtistsComponent implements OnInit {
     }
   }
 
-  onAddArtistToQueue(event: MouseEvent, artist: Artist): void {
-    event.stopPropagation();
+  onAddArtistToQueue(artist: Artist): void {
     this.queueActions.add(this.tracksForArtist(artist));
   }
 

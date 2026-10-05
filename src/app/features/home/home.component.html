@@ -1,126 +1,192 @@
-
-    <div class="home-page">
-      <!-- Library Statistics Counter Cards -->
-      @if (isLoading()) {
-        <div class="state-loading">Loading your music library...</div>
-      } @else if (libraryLoadError()) {
-        <div class="state-error" role="alert">
-          <p>{{ libraryLoadError() }}</p>
-          <button type="button" class="btn-retry" (click)="loadHome()">Retry</button>
-        </div>
-      } @else if (tracksCount() === 0) {
-        <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
-          <h2 id="emptyLibraryTitle">Add music to your library</h2>
-          <p>Choose a folder to find your songs, albums, and artists.</p>
-          <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
-          @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
-        </section>
-      } @else {
-      <section class="stats-row">
-        <a routerLink="/songs" class="stat-card">
-          <div class="stat-icon-box songs">
-            <app-icon name="music" [size]="22" />
-          </div>
-          <div class="stat-meta">
-            <span class="stat-count">{{ tracksCount() }}</span>
-            <span class="stat-label">Tracks</span>
-          </div>
-        </a>
-
-        <a routerLink="/albums" class="stat-card">
-          <div class="stat-icon-box albums">
-            <app-icon name="disc" [size]="22" />
-          </div>
-          <div class="stat-meta">
-            <span class="stat-count">{{ albumsCount() }}</span>
-            <span class="stat-label">Albums</span>
-          </div>
-        </a>
-
-        <a routerLink="/artists" class="stat-card">
-          <div class="stat-icon-box artists">
-            <app-icon name="user" [size]="22" />
-          </div>
-          <div class="stat-meta">
-            <span class="stat-count">{{ artistsCount() }}</span>
-            <span class="stat-label">Artists</span>
-          </div>
-        </a>
-
-        <a routerLink="/folders" class="stat-card">
-          <div class="stat-icon-box folders">
-            <app-icon name="folder" [size]="22" />
-          </div>
-          <div class="stat-meta">
-            <span class="stat-count">{{ foldersCount() }}</span>
-            <span class="stat-label">Music Roots</span>
-          </div>
-        </a>
-      </section>
-
-      <!-- Albums A–Z Section -->
-      @if (albumsAZ().length > 0) {
-      <section class="home-section">
-        <div class="section-header">
-          <h2>Albums A–Z</h2>
-          <a routerLink="/albums" class="see-all-link">See All &rarr;</a>
-        </div>
-
-        <div class="albums-grid" #albumsGrid>
-          @for (album of albumsAZ(); track album.id) {
-            <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
-              <div class="cover-wrapper">
-                @if (album.artwork) {
-                  <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
-                } @else {
-                  <div class="cover-placeholder" aria-hidden="true">
-                    <app-icon name="disc" [size]="36" />
-                  </div>
-                }
-
-                <button
-                  type="button"
-                  class="quick-play-btn"
-                  (click)="onPlayAlbum($event, album)"
-                  title="Play Album"
-                  aria-label="Play Album">
-                  <app-icon name="play" [size]="18" />
-                </button>
-                <button
-                  type="button"
-                  class="quick-queue-btn"
-                  (click)="onAddAlbumToQueue($event, album)"
-                  title="Add Album to Queue"
-                  aria-label="Add Album to Queue">
-                  <app-icon name="plus" [size]="17" />
-                </button>
-              </div>
-              <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
-              <p class="album-artist truncate">{{ album.artist || 'Unknown Artist' }}</p>
-            </div>
-          }
-        </div>
-      </section>
+<div class="home-page">
+  @if (scanFinishedMessage()) {
+    <div class="scan-success-toast" role="status">
+      <app-icon name="check" [size]="18" />
+      {{ scanFinishedMessage() }}
+    </div>
+  }
+  
+  @if (isLoading()) {
+    <div class="state-loading">
+      <h1 class="sr-only">Loading</h1>
+      Loading your music library...
+    </div>
+  } @else if (libraryLoadError()) {
+    <div class="state-error" role="alert">
+      <h1 class="sr-only">Error</h1>
+      <p>{{ libraryLoadError() }}</p>
+      <button type="button" class="btn-retry" (click)="loadHome()">Retry</button>
+    </div>
+  } @else if (scanProgress().isScanning && tracksCount() === 0) {
+    <section class="home-scanning" aria-labelledby="scanningTitle">
+      <h1 id="scanningTitle">Scanning for music...</h1>
+      <p>Found {{ scanProgress().audioFiles | number }} files so far.</p>
+      @if (scanProgress().currentPath) {
+        <p class="scan-path">{{ scanProgress().currentPath }}</p>
       }
+    </section>
+  } @else if (foldersCount() > 0 && tracksCount() === 0) {
+    <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
+      <h1 id="emptyLibraryTitle">No playable files found</h1>
+      <p>Your folders don't contain any supported audio formats (FLAC, ALAC, WAV, MP3, M4A, Opus, OGG).</p>
+      <a routerLink="/settings" class="btn btn-secondary">Go to Settings</a>
+    </section>
+  } @else if (foldersCount() > 0 && tracksCount() > 0 && qualityStats().missing === tracksCount()) {
+    <section class="home-empty-library" aria-labelledby="unreachableLibraryTitle">
+      <h1 id="unreachableLibraryTitle">Your music folders can't be reached</h1>
+      <p>The external drive or network share where your music is stored might be disconnected.</p>
+      <div class="unreachable-actions">
+        <button type="button" class="btn btn-primary" (click)="onRescanAll()">Rescan</button>
+        <a routerLink="/folders" class="btn btn-secondary">Manage Folders</a>
+      </div>
+    </section>
+  } @else if (tracksCount() === 0) {
+    <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
+      <h1 id="emptyLibraryTitle">Add music to your library</h1>
+      <p>Choose a folder to find your songs, albums, and artists.</p>
+      <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+      @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
+    </section>
+  } @else if (layout() === 'classic') {
 
-      <!-- Quick Playlists Section -->
-      @if (playlists().length > 0) {
-      <section class="home-section">
-        <div class="section-header">
-          <h2>Playlists</h2>
-          <a routerLink="/playlists" class="see-all-link">Manage &rarr;</a>
-        </div>
+    <!-- Console: the landing view is a table of what changed on disk. -->
+    <header class="console-home-header">
+      <h1>Recently modified</h1>
+      <span class="console-home-count">{{ recentTracks().length }} of {{ tracksCount() | number }} files</span>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="shuffleAll()">
+        <app-icon name="shuffle" [size]="15" /> Shuffle library
+      </button>
+    </header>
+    <table class="console-table">
+      <thead>
+        <tr><th scope="col">Title</th><th scope="col">Artist</th><th scope="col">Album</th><th scope="col">Format</th><th scope="col">File</th></tr>
+      </thead>
+      <tbody>
+        @for (track of recentTracks(); track track.id) {
+          <tr [class.missing]="!track.isAvailable" [class.playing]="player.currentTrack()?.id === track.id">
+            <td><button type="button" class="console-play" [disabled]="!track.isAvailable" (click)="playRecent(track)">{{ track.title }}</button></td>
+            <td>{{ track.artist || 'Unknown Artist' }}</td>
+            <td>{{ track.album || 'Unknown Album' }}</td>
+            <td class="mono" [class.hires]="formatLabel(track)?.hires">{{ formatLabel(track)?.label ?? '—' }}</td>
+            <td class="state">{{ track.isAvailable ? 'On disk' : 'Missing' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
 
-        <div class="playlists-row">
-          @for (pl of playlists(); track pl.id) {
-            <a [routerLink]="['/playlists', pl.id]" class="playlist-pill">
-              <app-icon name="list-music" [size]="16" class="pill-icon" />
-              <span class="pill-title truncate">{{ pl.name }}</span>
-              <span class="pill-count">({{ pl.entries.length }})</span>
+  } @else {
+
+    <!-- Library Health Report -->
+    <header class="home-header">
+      <div class="home-header-top">
+        <h1>Library</h1>
+        <button type="button" class="btn" [class.btn-primary]="!player.currentTrack()" [class.btn-secondary]="player.currentTrack()" (click)="shuffleAll()">
+          <app-icon name="shuffle" [size]="18" />
+          Shuffle Library
+        </button>
+      </div>
+      <div class="health-report">
+        <div class="health-metrics">
+          <div class="metric">
+            <span class="metric-value">{{ qualityStats().lossless | number }}</span>
+            <span class="metric-label">Lossless</span>
+          </div>
+          <div class="metric-divider" aria-hidden="true"></div>
+          <div class="metric">
+            <span class="metric-value">{{ qualityStats().hires | number }}</span>
+            <span class="metric-label">Hi-Res</span>
+          </div>
+          <div class="metric-divider" aria-hidden="true"></div>
+          <div class="metric">
+            <span class="metric-value">{{ qualityStats().lossy | number }}</span>
+            <span class="metric-label">Lossy</span>
+          </div>
+          @if (qualityStats().missing > 0) {
+            <div class="metric-divider" aria-hidden="true"></div>
+            <a routerLink="/songs" [queryParams]="{ availability: 'missing' }" class="metric metric-link">
+              <span class="metric-value metric-missing">{{ qualityStats().missing | number }}</span>
+              <span class="metric-label">Missing</span>
             </a>
           }
         </div>
+        <div class="health-caption">Hi-Res = 24-bit or above 48 kHz</div>
+      </div>
+    </header>
+
+    <!-- Now Playing Mini Bar -->
+    @if (player.currentTrack(); as track) {
+      <a routerLink="/now-playing" class="now-playing-mini">
+        <div class="mini-artwork">
+          @if (track.artwork) {
+            <!-- impeccable-ignore broken-image Angular [src] binding guarded by @if -->
+            <img [src]="track.artwork" alt="" />
+          } @else {
+            <div class="mini-placeholder" aria-hidden="true">
+              <app-icon name="music" [size]="24" />
+            </div>
+          }
+        </div>
+        <div class="mini-info">
+          <h2 class="mini-track-title truncate">{{ track.title }}</h2>
+          <p class="mini-artist truncate">{{ track.artist || 'Unknown Artist' }}</p>
+        </div>
+        <div class="mini-meta">
+          <span class="mini-format">{{ formatTrackFormat(track) }}</span>
+          <span class="mini-status">{{ player.isPlaybackActive() ? 'Now Playing' : 'Paused' }}</span>
+        </div>
+      </a>
+    }
+
+    <!-- Recently Modified -->
+    @if (recentlyAddedAlbums().length > 0) {
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Recently Modified</h2>
+          <a routerLink="/albums" class="see-all-link">See all &rarr;</a>
+        </div>
+        <div class="albums-grid">
+          @for (album of recentlyAddedAlbums(); track album.id) {
+            <app-album-card
+              [item]="album"
+              [title]="album.title"
+              [subtitle]="album.artist || 'Unknown Artist'"
+              [imageUrl]="album.artwork || null"
+              [link]="['/albums', album.id]"
+              [format]="albumFormats().get(album.id) ?? null"
+              (play)="onPlayAlbum(album)"
+              (queue)="onAddAlbumToQueue(album)">
+            </app-album-card>
+          }
+        </div>
       </section>
-      }
-      }
-    </div>
+    }
+  }
+
+  @if (!isLoading() && !libraryLoadError() && tracksCount() > 0) {
+    <!-- Playlists -->
+    @if (limitedPlaylists().length > 0) {
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Playlists</h2>
+          <a routerLink="/playlists" class="see-all-link">See all &rarr;</a>
+        </div>
+        <div class="albums-grid">
+          @for (playlist of limitedPlaylists(); track playlist.id) {
+            <app-album-card
+              [item]="playlist"
+              [title]="playlist.name"
+              [subtext]="(playlist.entries.length | number) + ' tracks'"
+              fallbackIcon="list-music"
+              [link]="['/playlists', playlist.id]"
+              [showDetails]="true"
+              [disableActions]="playlist.entries.length === 0"
+              (play)="onPlayPlaylist(playlist)"
+              (queue)="onAddPlaylistToQueue(playlist)">
+            </app-album-card>
+          }
+        </div>
+      </section>
+    }
+
+  }
+</div>

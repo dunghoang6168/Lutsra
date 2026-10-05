@@ -12,12 +12,16 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
 import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { compareNames } from '../library-browse';
+import { matchesQualityFilter } from '../home/library-quality';
+import { TrackSelectionService } from '../../core/layout/track-selection.service';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
 type SortDirection = 'asc' | 'desc';
 const UNKNOWN_ARTIST = '__unknown_artist__';
 const UNKNOWN_ALBUM = '__unknown_album__';
 const UNKNOWN_YEAR = 'unknown';
+
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-songs',
@@ -43,7 +47,10 @@ export class SongsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private lyricsRequestVersion = 0;
   readonly player = inject(PlayerService);
+  private readonly selection = inject(TrackSelectionService);
   private readonly queueActions = inject(QueueActionsService);
+  private readonly route = inject(Router);
+  private readonly activatedRoute = inject(ActivatedRoute);
 
   readonly tracks = signal<Track[]>([]);
   readonly lyricTrackIds = signal<ReadonlySet<string>>(new Set());
@@ -66,7 +73,16 @@ export class SongsComponent implements OnInit {
   readonly hasUnknownArtist = computed(() => this.artistFilter() === UNKNOWN_ARTIST || this.tracks().some((track) => !track.artist));
   readonly hasUnknownAlbum = computed(() => this.albumFilter() === UNKNOWN_ALBUM || this.tracks().some((track) => !track.album));
   readonly hasUnknownYear = computed(() => this.yearFilter() === UNKNOWN_YEAR || this.tracks().some((track) => track.year === null));
-  readonly activeFilterCount = computed(() => Number(Boolean(this.artistFilter())) + Number(Boolean(this.albumFilter())) + Number(Boolean(this.yearFilter())));
+  
+  readonly availabilityFilter = signal('');
+  readonly qualityFilter = signal('');
+  readonly qualityOptions = [
+    { value: 'lossless', label: 'Lossless (incl. Hi-Res)' },
+    { value: 'hires', label: 'Hi-Res only' },
+    { value: 'lossy', label: 'Lossy' },
+  ];
+  readonly availabilityOptions = [{ value: 'missing', label: 'Missing files' }];
+  readonly activeFilterCount = computed(() => Number(Boolean(this.artistFilter())) + Number(Boolean(this.albumFilter())) + Number(Boolean(this.yearFilter())) + Number(Boolean(this.availabilityFilter())) + Number(Boolean(this.qualityFilter())));
   readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.activeFilterCount()));
   readonly selectedTrackId = signal<string | null>(null);
   readonly noticeMessage = signal<string | null>(null);
@@ -105,6 +121,8 @@ export class SongsComponent implements OnInit {
     const artist = this.artistFilter();
     const album = this.albumFilter();
     const year = this.yearFilter();
+    const availability = this.availabilityFilter();
+    const quality = this.qualityFilter();
     const col = this.sortColumn();
     const dir = this.sortDirection() === 'asc' ? 1 : -1;
 
@@ -112,7 +130,9 @@ export class SongsComponent implements OnInit {
       (!query || track.title.toLowerCase().includes(query) || (track.artist || '').toLowerCase().includes(query) || (track.album || '').toLowerCase().includes(query)) &&
       (!artist || (artist === UNKNOWN_ARTIST ? !track.artist : track.artist === artist)) &&
       (!album || (album === UNKNOWN_ALBUM ? !track.album : track.album === album)) &&
-      (!year || (year === UNKNOWN_YEAR ? track.year === null : track.year === Number(year)))
+      (!year || (year === UNKNOWN_YEAR ? track.year === null : track.year === Number(year))) &&
+      (!availability || (availability === 'missing' && !track.isAvailable)) &&
+      (!quality || matchesQualityFilter(track, quality))
     ).sort((a, b) => {
       let comparison = 0;
       if (col === 'title') comparison = compareNames(a.title, b.title);
@@ -165,6 +185,14 @@ export class SongsComponent implements OnInit {
     this.artistFilter.set('');
     this.albumFilter.set('');
     this.yearFilter.set('');
+    if (this.availabilityFilter() || this.qualityFilter()) {
+      this.route.navigate([], { queryParams: { availability: null, quality: null }, queryParamsHandling: 'merge' });
+    }
+  }
+
+  /** Quality and availability live in the URL so sidebar and Home links land on the same view. */
+  setRouteFilter(key: 'quality' | 'availability', value: string): void {
+    this.route.navigate([], { queryParams: { [key]: value || null }, queryParamsHandling: 'merge' });
   }
 
   readonly errorMessage = signal<string | null>(null);
@@ -186,6 +214,11 @@ export class SongsComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    this.activatedRoute.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.availabilityFilter.set(params['availability'] || '');
+      this.qualityFilter.set(params['quality'] || '');
+    });
+
     let wasScanning = false;
     this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
       const justFinished = wasScanning && !progress.isScanning;
@@ -215,6 +248,7 @@ export class SongsComponent implements OnInit {
 
   onSelectTrack(track: Track): void {
     this.selectedTrackId.set(track.id);
+    this.selection.selected.set(track);
   }
 
   onPlayTrack(track: Track, indexInFiltered: number): void {
@@ -224,6 +258,7 @@ export class SongsComponent implements OnInit {
     }
     this.noticeMessage.set(null);
     this.selectedTrackId.set(track.id);
+    this.selection.selected.set(track);
     this.player.playCollection(this.filteredTracks(), indexInFiltered);
   }
 

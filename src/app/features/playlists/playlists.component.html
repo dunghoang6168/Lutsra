@@ -35,35 +35,16 @@
       } @else {
         <div class="playlists-grid">
           @for (playlist of playlists(); track playlist.id) {
-            <div class="playlist-card" [routerLink]="['/playlists', playlist.id]" tabindex="0" role="button">
-              <div class="playlist-icon-box">
-                <app-icon name="list-music" [size]="36" />
-
-                <button
-                  type="button"
-                  class="quick-play-btn"
-                  (click)="onPlayPlaylist($event, playlist)"
-                  [disabled]="playlist.entries.length === 0"
-                  title="Play Playlist"
-                  aria-label="Play Playlist">
-                  <app-icon name="play" [size]="18" />
-                </button>
-                <button
-                  type="button"
-                  class="quick-queue-btn"
-                  (click)="onAddPlaylistToQueue($event, playlist)"
-                  [disabled]="playlist.entries.length === 0"
-                  title="Add Playlist to Queue"
-                  aria-label="Add Playlist to Queue">
-                  <app-icon name="plus" [size]="17" />
-                </button>
-              </div>
-
-              <div class="playlist-info">
-                <h3 class="playlist-name truncate" [title]="playlist.name">{{ playlist.name }}</h3>
-                <span class="playlist-stats">{{ playlist.entries.length }} tracks</span>
-              </div>
-
+            <app-album-card
+              [item]="playlist"
+              [title]="playlist.name"
+              [subtext]="playlist.entries.length + ' tracks'"
+              fallbackIcon="list-music"
+              [link]="['/playlists', playlist.id]"
+              [showDetails]="true"
+              [disableActions]="playlist.entries.length === 0"
+              (play)="onPlayPlaylist(playlist)"
+              (queue)="onAddPlaylistToQueue(playlist)">
               <div class="card-actions" (click)="$event.stopPropagation()">
                 <button
                   type="button"
@@ -82,7 +63,7 @@
                   <app-icon name="trash" [size]="14" />
                 </button>
               </div>
-            </div>
+            </app-album-card>
           }
         </div>
       }

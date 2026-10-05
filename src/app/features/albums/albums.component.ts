@@ -5,9 +5,11 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../core/models';
+import { albumFormatMap } from '../home/library-quality';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
 import { compareAlbumsByTitle, compareNames } from '../library-browse';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
 import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
@@ -20,7 +22,7 @@ const UNKNOWN_YEAR = 'unknown';
 @Component({
   selector: 'app-albums',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent, AlbumCardComponent],
   templateUrl: './albums.component.html',
   styleUrl: './albums.component.scss'
 })
@@ -40,6 +42,7 @@ export class AlbumsComponent implements OnInit {
 
   readonly albums = signal<Album[]>([]);
   readonly allTracks = signal<Track[]>([]);
+  readonly albumFormats = computed(() => albumFormatMap(this.albums(), this.allTracks()));
   readonly isLoading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
   readonly addingFolder = signal(false);
@@ -142,8 +145,7 @@ export class AlbumsComponent implements OnInit {
     }
   }
 
-  onPlayAlbum(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
+  onPlayAlbum(album: Album): void {
     const albumTracks = this.tracksForAlbum(album);
     if (albumTracks.length > 0) {
       this.player.setShuffle(false);
@@ -151,8 +153,7 @@ export class AlbumsComponent implements OnInit {
     }
   }
 
-  onAddAlbumToQueue(event: MouseEvent, album: Album): void {
-    event.stopPropagation();
+  onAddAlbumToQueue(album: Album): void {
     this.queueActions.add(this.tracksForAlbum(album));
   }
 

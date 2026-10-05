@@ -98,17 +98,20 @@
     flex-direction: row-reverse;
     box-sizing: border-box;
     width: 80px;
-    height: 0;
+    height: 120px;
     padding: 0 6px;
-    border: 0 solid var(--border-default);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
     background: var(--bg-elevated);
-    transition: height var(--transition-fast), opacity var(--transition-fast);
+    visibility: hidden;
+    transform: translateY(4px) scale(0.96);
+    transform-origin: bottom right;
+    transition: transform var(--transition-fast), opacity var(--transition-fast), visibility var(--transition-fast);
   }
 
   .volume-reveal.open {
-    height: 120px;
-    border-width: 1px;
+    visibility: visible;
+    transform: none;
   }
 
   .volume-range {

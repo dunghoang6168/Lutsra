@@ -8,11 +8,12 @@ import { Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
 
 @Component({
   selector: 'app-playlists',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, AlbumCardComponent],
   templateUrl: './playlists.component.html',
   styleUrl: './playlists.component.scss'
 })
@@ -110,16 +111,14 @@ export class PlaylistsComponent implements OnInit {
     }
   }
 
-  onPlayPlaylist(event: MouseEvent, playlist: Playlist): void {
-    event.stopPropagation();
+  onPlayPlaylist(playlist: Playlist): void {
     const tracks = this.tracksForPlaylist(playlist);
     if (tracks.length > 0) {
       this.player.playCollection(tracks, 0);
     }
   }
 
-  onAddPlaylistToQueue(event: MouseEvent, playlist: Playlist): void {
-    event.stopPropagation();
+  onAddPlaylistToQueue(playlist: Playlist): void {
     this.queueActions.add(this.tracksForPlaylist(playlist));
   }
 

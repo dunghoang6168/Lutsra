@@ -1,6 +1,6 @@
 
     .artist-detail-page {
-      padding: var(--space-6);
+      padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
       overflow-y: auto;
     }
@@ -147,7 +147,7 @@
 
     .albums-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--cover-min)), 1fr));
       gap: var(--space-4);
     }
 
@@ -310,7 +310,7 @@
     .badge-unavailable {
       font-size: 10px;
       background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
+      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       margin-left: var(--space-2);

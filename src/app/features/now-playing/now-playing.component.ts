@@ -12,13 +12,14 @@ import { LYRICS_GATEWAY } from '../../core/contracts';
 import { LyricLine } from '../../core/models';
 import { activeLyricIndex, parseLrc } from './lrc-parser';
 import { InlineVolumeControlComponent } from './inline-volume-control.component';
+import { SignalPathComponent } from '../../shared/components/signal-path/signal-path.component';
 import { WaveformSeekComponent } from './waveform-seek.component';
 import { AudioVisualizationPreferenceService } from '../../core/layout/audio-visualization-preference.service';
 
 @Component({
   selector: 'app-now-playing',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, SpectrumVisualizerComponent, InlineVolumeControlComponent, WaveformSeekComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, SpectrumVisualizerComponent, InlineVolumeControlComponent, WaveformSeekComponent, SignalPathComponent],
   templateUrl: './now-playing.component.html',
   styleUrl: './now-playing.component.scss'
 })

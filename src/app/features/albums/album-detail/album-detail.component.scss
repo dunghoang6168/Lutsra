@@ -1,6 +1,6 @@
 
     .album-detail-page {
-      padding: var(--space-6);
+      padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
       overflow-y: auto;
     }
@@ -43,6 +43,7 @@
       border: 1px solid var(--border-default);
       flex-shrink: 0;
     }
+    :host-context(.layout-liquid-glass) .hero-artwork-wrapper { border-color: var(--glass-border); border-radius: var(--cover-radius); }
 
     .hero-artwork-img {
       width: 100%;
@@ -247,7 +248,7 @@
     .badge-unavailable {
       font-size: 10px;
       background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
+      color: color-mix(in srgb, var(--status-error) 50%, var(--color-text));
       padding: 1px 6px;
       border-radius: var(--radius-sm);
       margin-left: var(--space-2);

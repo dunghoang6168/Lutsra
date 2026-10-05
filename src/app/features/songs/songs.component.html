@@ -87,6 +87,16 @@
                   allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown Year"
                   (valueChange)="yearFilter.set($event)" />
               </div>
+              <div class="browse-filter-field">
+                <span class="field-label">Quality</span>
+                <app-searchable-filter-select label="Quality" [options]="qualityOptions" [value]="qualityFilter()"
+                  allLabel="All formats" (valueChange)="setRouteFilter('quality', $event)" />
+              </div>
+              <div class="browse-filter-field">
+                <span class="field-label">Availability</span>
+                <app-searchable-filter-select label="Availability" [options]="availabilityOptions" [value]="availabilityFilter()"
+                  allLabel="All files" (valueChange)="setRouteFilter('availability', $event)" />
+              </div>
               @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
             </div>
           </app-browse-filter-popover>

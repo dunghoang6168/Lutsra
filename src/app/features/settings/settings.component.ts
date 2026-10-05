@@ -3,6 +3,7 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
 import { AccentColor, AudioEngineBackend, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
@@ -29,7 +30,7 @@ export interface ThemePresetOption {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, RangeSliderComponent, SongColumnsSettingsComponent, LayoutSettingsComponent, SearchableFilterSelectComponent, ConfirmRemoveFolderDialogComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, RangeSliderComponent, SongColumnsSettingsComponent, LayoutSettingsComponent, SearchableFilterSelectComponent, ConfirmRemoveFolderDialogComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
@@ -75,13 +76,13 @@ export class SettingsComponent implements OnInit {
     },
   ];
 
-  readonly accentColors: { id: AccentColor; label: string; hex: string; acrylicHex: string }[] = [
-    { id: 'violet', label: 'Violet', hex: '#8b5cf6', acrylicHex: '#7c3aed' },
-    { id: 'blue', label: 'Blue', hex: '#3b82f6', acrylicHex: '#2563eb' },
-    { id: 'cyan', label: 'Cyan', hex: '#06b6d4', acrylicHex: '#0891b2' },
-    { id: 'emerald', label: 'Emerald', hex: '#10b981', acrylicHex: '#059669' },
-    { id: 'amber', label: 'Amber', hex: '#f59e0b', acrylicHex: '#d97706' },
-    { id: 'rose', label: 'Rose', hex: '#f43f5e', acrylicHex: '#fa2d48' },
+  readonly accentColors: { id: AccentColor; label: string; hex: string }[] = [
+    { id: 'violet', label: 'Violet', hex: '#8b5cf6' },
+    { id: 'blue', label: 'Blue', hex: '#3b82f6' },
+    { id: 'cyan', label: 'Cyan', hex: '#06b6d4' },
+    { id: 'emerald', label: 'Emerald', hex: '#10b981' },
+    { id: 'amber', label: 'Amber', hex: '#f59e0b' },
+    { id: 'rose', label: 'Rose', hex: '#f43f5e' },
   ];
 
   readonly folders = signal<MusicFolder[]>([]);
