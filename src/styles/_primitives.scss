@@ -56,9 +56,9 @@
   border-color: var(--status-error-fill);
 
   &:hover:not(:disabled), &:active:not(:disabled) {
-    background-color: var(--status-error-fill);
+    background-color: var(--status-error-fill-hover);
     color: var(--color-on-error);
-    border-color: var(--status-error-fill);
+    border-color: var(--status-error-fill-hover);
   }
 }
 

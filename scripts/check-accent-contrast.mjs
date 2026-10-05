@@ -208,9 +208,9 @@ export function runChecks() {
     }
   }
 
-  const dangerNames = ['--status-error-fill', '--color-on-error'];
+  const dangerNames = ['--status-error-fill', '--status-error-fill-hover', '--color-on-error'];
   const rootDanger = tokens(block(tokensScss, ':root {'), dangerNames);
-  console.log('\n| theme | danger fill | on-error | normal | hover | active | result |');
+  console.log('\n| theme | danger fill | fill-hover | on-error | normal | hover/active | result |');
   console.log('|---|---|---|---|---|---|---|');
   for (const theme of ['dark', 'light']) {
     const t = { ...rootDanger, ...tokens(theme === 'dark' ? darkBody : lightBody, dangerNames) };
@@ -220,9 +220,10 @@ export function runChecks() {
       continue;
     }
     const cr = contrast(t['--color-on-error'], t['--status-error-fill']);
-    const ok = cr >= MIN;
+    const hover = contrast(t['--color-on-error'], t['--status-error-fill-hover']);
+    const ok = cr >= MIN && hover >= MIN;
     if (!ok) failed = true;
-    console.log('| ' + theme + ' | ' + t['--status-error-fill'] + ' | ' + t['--color-on-error'] + ' | ' + cr.toFixed(2) + ':1 | ' + cr.toFixed(2) + ':1 | ' + cr.toFixed(2) + ':1 | ' + (ok ? 'PASS' : 'FAIL') + ' |');
+    console.log('| ' + theme + ' | ' + t['--status-error-fill'] + ' | ' + t['--status-error-fill-hover'] + ' | ' + t['--color-on-error'] + ' | ' + cr.toFixed(2) + ':1 | ' + hover.toFixed(2) + ':1 | ' + (ok ? 'PASS' : 'FAIL') + ' |');
   }
   return failed ? 1 : 0;
 }
