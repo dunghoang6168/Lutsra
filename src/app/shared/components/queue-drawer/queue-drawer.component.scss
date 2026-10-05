@@ -354,3 +354,15 @@
     }
     :host-context(.layout-inset.has-player) .queue-drawer.open { transition: transform var(--transition-normal), opacity var(--transition-normal); }
     @media (max-width: 1100px) { :host-context(.layout-inset.has-player) .queue-drawer { right: calc(76px + var(--shell-gap) * 2); } }
+
+// Keyboard navigation: keep the focused item clear of layout and table headers.
+.queue-item {
+  scroll-margin-top: calc(var(--page-pad-top) + var(--row-height) + var(--space-2));
+}
+
+.queue-item:focus-visible,
+.drag-handle:focus-visible,
+.remove-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}

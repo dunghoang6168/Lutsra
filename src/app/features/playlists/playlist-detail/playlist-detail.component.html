@@ -92,34 +92,40 @@
                   <th class="col-actions"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody #rowsContainer (keydown)="onRowsKeyDown($event)">
                 @for (row of trackRows(); track row.entry.id; let i = $index) {
                   <tr
                     class="entry-row"
                     [class.playing]="player.currentTrack()?.id === row.track.id"
                     [class.unavailable]="!row.track.isAvailable"
                     (dblclick)="onPlayRow(i)"
-                    tabindex="0"
-                    (keydown.enter)="onPlayRow(i)">
+                    (click)="onActivateRow(row, true)"
+                    (focusin)="onActivateRow(row)"
+                    [attr.data-entry-id]="row.entry.id"
+                    [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                     <!-- Move Up / Down Buttons -->
                     <td class="col-reorder" (click)="$event.stopPropagation()">
                       <div class="reorder-btns">
                         <button
                           type="button"
                           class="reorder-btn"
-                          [disabled]="i === 0"
-                          (click)="onMoveUp(i)"
+                          [attr.aria-disabled]="i === 0"
+                          data-move="up"
+                          (click)="onMoveUp(i, $event)"
                           title="Move Up"
-                          aria-label="Move track up">
+                          aria-label="Move track up"
+                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="arrow-up" [size]="12" />
                         </button>
                         <button
                           type="button"
                           class="reorder-btn"
-                          [disabled]="i === trackRows().length - 1"
-                          (click)="onMoveDown(i)"
+                          [attr.aria-disabled]="i === trackRows().length - 1"
+                          data-move="down"
+                          (click)="onMoveDown(i, $event)"
                           title="Move Down"
-                          aria-label="Move track down">
+                          aria-label="Move track down"
+                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="arrow-down" [size]="12" />
                         </button>
                       </div>
@@ -170,7 +176,8 @@
                       <div class="entry-actions">
                         <button type="button" class="btn-queue-entry" (click)="onAddTrackToQueue(row.track)"
                           [disabled]="!row.track.isAvailable" title="Add to Queue"
-                          [attr.aria-label]="'Add ' + row.track.title + ' to queue'">
+                          [attr.aria-label]="'Add ' + row.track.title + ' to queue'"
+                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="plus" [size]="14" />
                         </button>
                         <button
@@ -178,7 +185,8 @@
                           class="btn-remove-entry"
                           (click)="onRemoveEntry(row.entry.id)"
                           title="Remove from playlist"
-                          aria-label="Remove from playlist">
+                          aria-label="Remove from playlist"
+                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="trash" [size]="14" />
                         </button>
                       </div>

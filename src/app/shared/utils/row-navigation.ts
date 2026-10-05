@@ -16,3 +16,18 @@ export function nextRowIndex(key: string, current: number, count: number, pageSi
     default: return null;
   }
 }
+
+/** Focus a list item or its control, then reveal the item with its scroll margin. */
+export function focusListItem(
+  container: HTMLElement | null | undefined,
+  dataAttribute: 'data-track-id' | 'data-entry-id',
+  id: string,
+  descendantSelector?: string,
+): HTMLElement | null {
+  const item = container?.querySelector<HTMLElement>('[' + dataAttribute + '="' + CSS.escape(id) + '"]');
+  const target = descendantSelector ? item?.querySelector<HTMLElement>(descendantSelector) : item;
+  if (!item || !target) return null;
+  target.focus({ preventScroll: true });
+  item.scrollIntoView({ block: 'nearest' });
+  return target;
+}

@@ -77,7 +77,7 @@
         </header>
 
         <!-- Disc Groups & Track List -->
-        <div class="tracklist-container">
+        <div class="tracklist-container" #rowsContainer>
           @for (group of discGroups(); track group.discNumber) {
             <div class="disc-section">
               @if (discGroups().length > 1) {
@@ -97,15 +97,17 @@
                     <th class="col-actions"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody (keydown)="onRowsKeyDown($event)">
                   @for (track of group.tracks; track track.id; let i = $index) {
                     <tr
                       class="track-row"
                       [class.playing]="player.currentTrack()?.id === track.id"
                       [class.unavailable]="!track.isAvailable"
                       (dblclick)="onPlayTrack(track)"
-                      (keydown.enter)="onPlayTrack(track)"
-                      tabindex="0">
+                      (click)="onActivateTrack(track, true)"
+                      (focusin)="onActivateTrack(track)"
+                      [attr.data-track-id]="track.id"
+                      [attr.tabindex]="activeId() === track.id ? 0 : -1">
                       <td class="col-num">
                         @if (player.currentTrack()?.id === track.id) {
                           <span class="playing-icon">
@@ -135,7 +137,8 @@
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
                         <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
-                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue">
+                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue"
+                          [attr.tabindex]="activeId() === track.id ? 0 : -1">
                           <app-icon name="plus" [size]="14" />
                         </button>
                       </td>

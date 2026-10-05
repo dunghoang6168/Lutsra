@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
@@ -6,6 +6,7 @@ import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
 import { Album, orderAlbumTracks, Playlist, Track, ScanProgress } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
+import { focusListItem, nextRowIndex } from '../../shared/utils/row-navigation';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
 import { albumFormatMap, formatCount, formatTrackFormat as trackFormatLabel, summarizeQuality, formatQualityLine } from './library-quality';
@@ -23,6 +24,8 @@ export class HomeComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   readonly player = inject(PlayerService);
+  private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
+  readonly activeId = signal<string | null>(null);
   private readonly queueActions = inject(QueueActionsService);
   readonly errorMessage = signal<string | null>(null);
   readonly addingFolder = signal(false);
@@ -58,6 +61,7 @@ export class HomeComponent implements OnInit {
   readonly recentTracks = computed(() => [...this.allTracksSignal()]
     .sort((a, b) => (b.lastModified ?? 0) - (a.lastModified ?? 0))
     .slice(0, 24));
+  readonly playableRecentTracks = computed(() => this.recentTracks().filter((track) => track.isAvailable));
   readonly albumFormats = computed(() => albumFormatMap(this.allAlbums(), this.allTracksSignal()));
   readonly qualityStats = computed(() => summarizeQuality(this.allTracksSignal()));
   readonly qualityLine = computed(() => formatQualityLine(this.qualityStats()));
@@ -74,6 +78,14 @@ export class HomeComponent implements OnInit {
   }
 
   constructor() {
+    effect(() => {
+      const tracks = this.playableRecentTracks();
+      untracked(() => {
+        if (!tracks.some((track) => track.id === this.activeId())) {
+          this.activeId.set(tracks[0]?.id ?? null);
+        }
+      });
+    });
     this.destroyRef.onDestroy(() => clearTimeout(this.scanToastTimer));
   }
 
@@ -144,6 +156,32 @@ export class HomeComponent implements OnInit {
       this.isLoading.set(false);
       this.isFirstLoad = false;
     }
+  }
+
+  onRecentKeyDown(event: KeyboardEvent): void {
+    if (this.layout() !== 'classic' || event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest<HTMLButtonElement>('button.console-play');
+    const row = button?.closest<HTMLElement>('tr[data-track-id]');
+    if (!button || button.disabled || !row || row.parentElement !== event.currentTarget) return;
+    const rows = this.playableRecentTracks();
+    const current = rows.findIndex((track) => track.id === row.dataset['trackId']);
+    if (current < 0) return;
+    let next = nextRowIndex(event.key, current, rows.length, 1);
+    if (next === null) return;
+    event.preventDefault();
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const viewport = row.closest<HTMLElement>('.main-content');
+      const rowHeight = row.getBoundingClientRect().height;
+      const clearance = Number.parseFloat(getComputedStyle(row).scrollMarginTop) || 0;
+      const pageSize = viewport && rowHeight > 0
+        ? Math.max(1, Math.floor((viewport.clientHeight - clearance) / rowHeight))
+        : 1;
+      next = nextRowIndex(event.key, current, rows.length, pageSize)!;
+    }
+    this.activeId.set(rows[next].id);
+    focusListItem(this.rowsContainer()?.nativeElement, 'data-track-id', rows[next].id, '.console-play');
   }
 
   playRecent(track: Track): void {

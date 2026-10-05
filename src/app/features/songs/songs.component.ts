@@ -14,7 +14,7 @@ import { SearchableFilterSelectComponent } from '../../shared/components/searcha
 import { compareNames } from '../library-browse';
 import { matchesQualityFilter } from '../home/library-quality';
 import { TrackSelectionService } from '../../core/layout/track-selection.service';
-import { nextRowIndex } from './row-navigation';
+import { nextRowIndex } from '../../shared/utils/row-navigation';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
 type SortDirection = 'asc' | 'desc';

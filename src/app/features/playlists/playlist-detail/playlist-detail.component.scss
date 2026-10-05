@@ -320,3 +320,23 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+// Keyboard navigation: keep the focused item clear of layout and table headers.
+.entry-row {
+  scroll-margin-top: calc(var(--page-pad-top) + var(--row-height) + var(--space-2));
+}
+
+.entry-row:focus-visible,
+.reorder-btn:focus-visible,
+.btn-queue-entry:focus-visible,
+.btn-remove-entry:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.reorder-btn[aria-disabled="true"],
+.reorder-btn[aria-disabled="true"]:hover {
+  color: var(--text-muted);
+  opacity: 0.5;
+  cursor: default;
+}

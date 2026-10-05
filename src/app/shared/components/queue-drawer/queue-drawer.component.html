@@ -45,7 +45,7 @@
             <span class="empty-subtext">Double click any song or album to start listening.</span>
           </div>
         } @else {
-          <div class="queue-list" role="list">
+          <div class="queue-list" role="list" #rowsContainer (keydown)="onRowsKeyDown($event)">
             @for (entry of player.queue(); track entry.id; let i = $index) {
               <div
                 class="queue-item"
@@ -54,13 +54,14 @@
                 [class.dragging]="draggingEntryId() === entry.id"
                 [class.drop-before]="dropTarget()?.entryId === entry.id && dropTarget()?.placement === 'before'"
                 [class.drop-after]="dropTarget()?.entryId === entry.id && dropTarget()?.placement === 'after'"
-                (click)="player.jumpToQueueIndex(i)"
+                (click)="onActivateEntry(entry.id, true); player.jumpToQueueIndex(i)"
                 (dragover)="onDragOver($event, entry.id)"
                 (dragleave)="onDragLeave($event, entry.id)"
                 (drop)="onDrop($event, entry.id)"
                 role="listitem"
-                tabindex="0"
-                (keydown.enter)="player.jumpToQueueIndex(i)">
+                (focusin)="onActivateEntry(entry.id)"
+                [attr.data-entry-id]="entry.id"
+                [attr.tabindex]="activeId() === entry.id ? 0 : -1">
                 <!-- Index or Playing Indicator -->
                 <div class="queue-item-index">
                   <span class="queue-index-display">
@@ -81,6 +82,7 @@
                   <button
                     type="button"
                     class="drag-handle"
+                    [attr.tabindex]="activeId() === entry.id ? 0 : -1"
                     draggable="true"
                     (dragstart)="onDragStart($event, entry.id)"
                     (dragend)="onDragEnd()"
@@ -120,6 +122,7 @@
                 <button
                   type="button"
                   class="remove-btn"
+                  [attr.tabindex]="activeId() === entry.id ? 0 : -1"
                   (click)="onRemove($event, entry.id)"
                   title="Remove from queue"
                   [attr.aria-label]="'Remove from queue: ' + entry.track.title">

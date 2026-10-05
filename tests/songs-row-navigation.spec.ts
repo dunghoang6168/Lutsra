@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextRowIndex } from '../src/app/features/songs/row-navigation';
+import { nextRowIndex } from '../src/app/shared/utils/row-navigation';
 
 describe('nextRowIndex', () => {
   it('moves one row with arrows and stops at either boundary', () => {

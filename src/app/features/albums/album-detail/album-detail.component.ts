@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -6,6 +6,8 @@ import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { QueueActionsService } from '../../../core/player/queue-actions.service';
+import { TrackSelectionService } from '../../../core/layout/track-selection.service';
+import { focusListItem, nextRowIndex } from '../../../shared/utils/row-navigation';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
@@ -26,6 +28,9 @@ export class AlbumDetailComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly selection = inject(TrackSelectionService);
+  private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
+  readonly activeId = signal<string | null>(null);
   private readonly queueActions = inject(QueueActionsService);
 
   readonly album = signal<Album | null>(null);
@@ -56,6 +61,17 @@ export class AlbumDetailComponent implements OnInit {
     const mins = Math.floor(totalSecs / 60);
     return `${mins} min`;
   });
+
+  constructor() {
+    effect(() => {
+      const rows = this.orderedAlbumTracks();
+      untracked(() => {
+        if (!rows.some((row) => row.id === this.activeId())) {
+          this.activeId.set(rows[0] ? rows[0].id : null);
+        }
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     let wasScanning = false;
@@ -96,6 +112,43 @@ export class AlbumDetailComponent implements OnInit {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  onActivateTrack(track: Track, moveFocus = false): void {
+    this.activeId.set(track.id);
+    this.selection.selected.set(track);
+    if (moveFocus) focusListItem(this.rowsContainer()?.nativeElement, 'data-track-id', track.id);
+  }
+
+  onRowsKeyDown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.closest(
+      'button, input, textarea, select, a, [contenteditable], [role="button"], [role="textbox"], [role="combobox"]',
+    )) return;
+    const row = target.closest<HTMLElement>('.track-row[data-track-id]');
+    if (!row || row.parentElement !== event.currentTarget) return;
+    const rows = this.orderedAlbumTracks();
+    const current = rows.findIndex((track) => track.id === row.dataset['trackId']);
+    if (current < 0) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.onPlayTrack(rows[current]);
+      return;
+    }
+    let next = nextRowIndex(event.key, current, rows.length, 1);
+    if (next === null) return;
+    event.preventDefault();
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const viewport = row.closest<HTMLElement>('.main-content');
+      const rowHeight = row.getBoundingClientRect().height;
+      const clearance = Number.parseFloat(getComputedStyle(row).scrollMarginTop) || 0;
+      const pageSize = viewport && rowHeight > 0
+        ? Math.max(1, Math.floor((viewport.clientHeight - clearance) / rowHeight))
+        : 1;
+      next = nextRowIndex(event.key, current, rows.length, pageSize)!;
+    }
+    this.onActivateTrack(rows[next], true);
   }
 
   onPlayAll(): void {

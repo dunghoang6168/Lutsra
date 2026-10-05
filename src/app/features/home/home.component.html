@@ -61,10 +61,10 @@
       <thead>
         <tr><th scope="col">Title</th><th scope="col">Artist</th><th scope="col">Album</th><th scope="col">Format</th><th scope="col">File</th></tr>
       </thead>
-      <tbody>
+      <tbody #rowsContainer (keydown)="onRecentKeyDown($event)">
         @for (track of recentTracks(); track track.id) {
-          <tr [class.missing]="!track.isAvailable" [class.playing]="player.currentTrack()?.id === track.id">
-            <td><button type="button" class="console-play" [disabled]="!track.isAvailable" (click)="playRecent(track)">{{ track.title }}</button></td>
+          <tr [attr.data-track-id]="track.id" [class.missing]="!track.isAvailable" [class.playing]="player.currentTrack()?.id === track.id">
+            <td><button type="button" class="console-play" [disabled]="!track.isAvailable" [attr.tabindex]="activeId() === track.id ? 0 : -1" (focus)="activeId.set(track.id)" (click)="activeId.set(track.id); playRecent(track)">{{ track.title }}</button></td>
             <td>{{ track.artist || 'Unknown Artist' }}</td>
             <td>{{ track.album || 'Unknown Album' }}</td>
             <td class="mono" [class.hires]="formatLabel(track)?.hires">{{ formatLabel(track)?.label ?? '—' }}</td>

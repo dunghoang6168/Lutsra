@@ -338,3 +338,14 @@
       text-decoration: none;
       font-weight: 600;
     }
+
+// Keyboard navigation: keep the focused item clear of layout and table headers.
+.track-row {
+  scroll-margin-top: calc(var(--page-pad-top) + var(--row-height) + var(--space-2));
+}
+
+.track-row:focus-visible,
+.queue-row-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}

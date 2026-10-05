@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, afterNextRender, computed, effect, ElementRef, Injector, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -7,6 +7,8 @@ import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../../core/contracts';
 import { Playlist, PlaylistEntry, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { QueueActionsService } from '../../../core/player/queue-actions.service';
+import { TrackSelectionService } from '../../../core/layout/track-selection.service';
+import { focusListItem, nextRowIndex } from '../../../shared/utils/row-navigation';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
@@ -28,6 +30,11 @@ export class PlaylistDetailComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
+  private readonly injector = inject(Injector);
+  private movePending = false;
+  private readonly selection = inject(TrackSelectionService);
+  private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
+  readonly activeId = signal<string | null>(null);
   private readonly queueActions = inject(QueueActionsService);
 
   readonly playlist = signal<Playlist | null>(null);
@@ -58,6 +65,17 @@ export class PlaylistDetailComponent implements OnInit {
     const mins = Math.floor(totalSecs / 60);
     return `${mins} min`;
   });
+
+  constructor() {
+    effect(() => {
+      const rows = this.trackRows();
+      untracked(() => {
+        if (!rows.some((row) => row.entry.id === this.activeId())) {
+          this.activeId.set(rows[0] ? rows[0].entry.id : null);
+        }
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     let wasScanning = false;
@@ -97,32 +115,58 @@ export class PlaylistDetailComponent implements OnInit {
     }
   }
 
-  async onMoveUp(index: number): Promise<void> {
-    const pl = this.playlist();
-    if (!pl || index <= 0) return;
-
-    const entries = [...pl.entries];
-    const temp = entries[index - 1];
-    entries[index - 1] = entries[index];
-    entries[index] = temp;
-
-    const entryIds = entries.map((e) => e.id);
-    const updated = await this.playlistGateway.reorderEntries(pl.id, entryIds);
-    this.playlist.set(updated);
+  onMoveUp(index: number, event?: MouseEvent): Promise<void> {
+    return this.moveRow(index, -1, event);
   }
 
-  async onMoveDown(index: number): Promise<void> {
+  onMoveDown(index: number, event?: MouseEvent): Promise<void> {
+    return this.moveRow(index, 1, event);
+  }
+
+  private async moveRow(index: number, direction: -1 | 1, event?: MouseEvent): Promise<void> {
     const pl = this.playlist();
-    if (!pl || index >= pl.entries.length - 1) return;
+    const row = this.trackRows()[index];
+    if (!pl || !row || this.movePending || index + direction < 0 || index + direction >= this.trackRows().length) return;
+    const entryIndex = pl.entries.findIndex((entry) => entry.id === row.entry.id);
+    if (entryIndex < 0 || !pl.entries[entryIndex + direction]) return;
 
-    const entries = [...pl.entries];
-    const temp = entries[index + 1];
-    entries[index + 1] = entries[index];
-    entries[index] = temp;
-
-    const entryIds = entries.map((e) => e.id);
-    const updated = await this.playlistGateway.reorderEntries(pl.id, entryIds);
-    this.playlist.set(updated);
+    const button = event?.currentTarget;
+    const restoreFocus = button instanceof HTMLElement && document.activeElement === button;
+    let focusMoved = false;
+    const onFocusChanged = (focusEvent: FocusEvent) => {
+      if (focusEvent.target !== button) focusMoved = true;
+    };
+    if (restoreFocus) document.addEventListener('focusin', onFocusChanged);
+    const cleanup = () => document.removeEventListener('focusin', onFocusChanged);
+    const unregisterDestroy = this.destroyRef.onDestroy(cleanup);
+    this.movePending = true;
+    try {
+      const entries = [...pl.entries];
+      [entries[entryIndex], entries[entryIndex + direction]] = [entries[entryIndex + direction], entries[entryIndex]];
+      const updated = await this.playlistGateway.reorderEntries(pl.id, entries.map((entry) => entry.id));
+      if (this.destroyRef.destroyed) return;
+      this.playlist.set(updated);
+      if (restoreFocus) {
+        afterNextRender(() => {
+          cleanup();
+          unregisterDestroy();
+          if (focusMoved || this.showAddTracksModal() || !this.trackRows().some((item) => item.entry.id === row.entry.id)) return;
+          this.activeId.set(row.entry.id);
+          focusListItem(this.rowsContainer()?.nativeElement, 'data-entry-id', row.entry.id,
+            direction < 0 ? '[data-move="up"]' : '[data-move="down"]');
+        }, { injector: this.injector });
+      }
+    } catch (error) {
+      cleanup();
+      unregisterDestroy();
+      throw error;
+    } finally {
+      this.movePending = false;
+      if (!restoreFocus || this.destroyRef.destroyed) {
+        cleanup();
+        unregisterDestroy();
+      }
+    }
   }
 
   async onRemoveEntry(entryId: string): Promise<void> {
@@ -137,6 +181,44 @@ export class PlaylistDetailComponent implements OnInit {
     if (!pl) return;
     const updated = await this.playlistGateway.addTracks(pl.id, [trackId]);
     this.playlist.set(updated);
+  }
+
+  onActivateRow(row: PlaylistTrackRow, moveFocus = false): void {
+    this.activeId.set(row.entry.id);
+    this.selection.selected.set(row.track);
+    if (moveFocus) focusListItem(this.rowsContainer()?.nativeElement, 'data-entry-id', row.entry.id);
+  }
+
+  onRowsKeyDown(event: KeyboardEvent): void {
+    if (this.showAddTracksModal()) return;
+    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.closest(
+      'button, input, textarea, select, a, [contenteditable], [role="button"], [role="textbox"], [role="combobox"]',
+    )) return;
+    const row = target.closest<HTMLElement>('.entry-row[data-entry-id]');
+    if (!row || row.parentElement !== event.currentTarget) return;
+    const rows = this.trackRows();
+    const current = rows.findIndex((item) => item.entry.id === row.dataset['entryId']);
+    if (current < 0) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.onPlayRow(current);
+      return;
+    }
+    let next = nextRowIndex(event.key, current, rows.length, 1);
+    if (next === null) return;
+    event.preventDefault();
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const viewport = row.closest<HTMLElement>('.main-content');
+      const rowHeight = row.getBoundingClientRect().height;
+      const clearance = Number.parseFloat(getComputedStyle(row).scrollMarginTop) || 0;
+      const pageSize = viewport && rowHeight > 0
+        ? Math.max(1, Math.floor((viewport.clientHeight - clearance) / rowHeight))
+        : 1;
+      next = nextRowIndex(event.key, current, rows.length, pageSize)!;
+    }
+    this.onActivateRow(rows[next], true);
   }
 
   onPlayAll(): void {
