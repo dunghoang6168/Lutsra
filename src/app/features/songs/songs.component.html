@@ -147,48 +147,61 @@
             }
           </div>
         } @else {
-          <table class="songs-table" role="grid" aria-label="Songs list">
+          <table class="songs-table" role="grid" aria-label="Songs list"
+            [attr.aria-rowcount]="filteredTracks().length + 1" aria-multiselectable="false">
             <thead>
               <tr>
                 <th class="col-index" [class.user-hidden]="isSongColumnHidden('index')">#</th>
-                <th class="col-title sortable" (click)="toggleSort('title')" [attr.aria-sort]="getAriaSort('title')">
-                  <span>Title</span>
-                  @if (sortColumn() === 'title') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
+                <th class="col-title sortable" [attr.aria-sort]="getAriaSort('title')">
+                  <button type="button" class="sort-btn" (click)="toggleSort('title')">
+                    <span>Title</span>
+                    @if (sortColumn() === 'title') {
+                      <span class="sort-indicator">
+                        <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                      </span>
+                    }
+                  </button>
                 </th>
                 @for (column of songColumns.songColumnOrder(); track column) {
                   @switch (column) {
                     @case ('artist') {
-                      <th class="col-artist sortable" [class.user-hidden]="isSongColumnHidden('artist')" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
-                        <span>Artist</span>
-                        @if (sortColumn() === 'artist') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      <th class="col-artist sortable" [class.user-hidden]="isSongColumnHidden('artist')" [attr.aria-sort]="getAriaSort('artist')">
+                        <button type="button" class="sort-btn" (click)="toggleSort('artist')">
+                          <span>Artist</span>
+                          @if (sortColumn() === 'artist') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                        </button>
                       </th>
                     }
                     @case ('album') {
-                      <th class="col-album sortable" [class.user-hidden]="isSongColumnHidden('album')" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
-                        <span>Album</span>
-                        @if (sortColumn() === 'album') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      <th class="col-album sortable" [class.user-hidden]="isSongColumnHidden('album')" [attr.aria-sort]="getAriaSort('album')">
+                        <button type="button" class="sort-btn" (click)="toggleSort('album')">
+                          <span>Album</span>
+                          @if (sortColumn() === 'album') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                        </button>
                       </th>
                     }
                     @case ('duration') {
-                      <th class="col-duration sortable" [class.user-hidden]="isSongColumnHidden('duration')" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
-                        <span>Time</span>
-                        @if (sortColumn() === 'duration') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      <th class="col-duration sortable" [class.user-hidden]="isSongColumnHidden('duration')" [attr.aria-sort]="getAriaSort('duration')">
+                        <button type="button" class="sort-btn" (click)="toggleSort('duration')">
+                          <span>Time</span>
+                          @if (sortColumn() === 'duration') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                        </button>
                       </th>
                     }
                     @case ('codec') {
-                      <th class="col-codec sortable" [class.user-hidden]="isSongColumnHidden('codec')" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
-                        <span>Codec</span>
-                        @if (sortColumn() === 'codec') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      <th class="col-codec sortable" [class.user-hidden]="isSongColumnHidden('codec')" [attr.aria-sort]="getAriaSort('codec')">
+                        <button type="button" class="sort-btn" (click)="toggleSort('codec')">
+                          <span>Codec</span>
+                          @if (sortColumn() === 'codec') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                        </button>
                       </th>
                     }
                     @case ('sampleRate') {
-                      <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
-                        <span>Sample Rate</span>
-                        @if (sortColumn() === 'sampleRate') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                      <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
+                        <button type="button" class="sort-btn" (click)="toggleSort('sampleRate')">
+                          <span>Sample Rate</span>
+                          @if (sortColumn() === 'sampleRate') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
+                        </button>
                       </th>
                     }
                     @case ('lyrics') {
@@ -199,18 +212,19 @@
                 <th class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody #songsBody (keydown)="onRowsKeyDown($event)">
               @for (track of filteredTracks(); track track.id; let i = $index) {
                 <tr
                   class="song-row"
                   [class.selected]="selectedTrackId() === track.id"
                   [class.playing]="player.currentTrack()?.id === track.id"
                   [class.unavailable]="!track.isAvailable"
-                  (click)="onSelectTrack(track)"
+                  (click)="onActivateTrack(track)"
                   (dblclick)="onPlayTrack(track, i)"
-                  (keydown.enter)="onPlayTrack(track, i)"
-                  tabindex="0"
-                  role="row">
+                  [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
+                  [attr.data-track-id]="track.id"
+                  [attr.aria-rowindex]="i + 2"
+                  [attr.aria-selected]="selectedTrackId() === track.id">
                   <!-- # Index / Playing Indicator -->
                   <td class="col-index" [class.user-hidden]="isSongColumnHidden('index')">
                     @if (player.currentTrack()?.id === track.id) {
@@ -298,6 +312,7 @@
                       <button
                         type="button"
                         class="row-action-btn"
+                        [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
                         (click)="onPlayNext(track)"
                         title="Play Next"
                         [attr.aria-label]="'Play next: ' + track.title">
@@ -306,6 +321,7 @@
                       <button
                         type="button"
                         class="row-action-btn"
+                        [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
                         (click)="onAddToQueue(track)"
                         [disabled]="!track.isAvailable"
                         title="Add to Queue"

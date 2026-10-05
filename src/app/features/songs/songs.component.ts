@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { SearchableFilterSelectComponent } from '../../shared/components/searcha
 import { compareNames } from '../library-browse';
 import { matchesQualityFilter } from '../home/library-quality';
 import { TrackSelectionService } from '../../core/layout/track-selection.service';
+import { nextRowIndex } from './row-navigation';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
 type SortDirection = 'asc' | 'desc';
@@ -51,6 +52,8 @@ export class SongsComponent implements OnInit {
   private readonly queueActions = inject(QueueActionsService);
   private readonly route = inject(Router);
   private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly songsBody = viewChild<ElementRef<HTMLTableSectionElement>>('songsBody');
+  private rowNavigationInitialized = false;
 
   readonly tracks = signal<Track[]>([]);
   readonly lyricTrackIds = signal<ReadonlySet<string>>(new Set());
@@ -85,9 +88,28 @@ export class SongsComponent implements OnInit {
   readonly activeFilterCount = computed(() => Number(Boolean(this.artistFilter())) + Number(Boolean(this.albumFilter())) + Number(Boolean(this.yearFilter())) + Number(Boolean(this.availabilityFilter())) + Number(Boolean(this.qualityFilter())));
   readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.activeFilterCount()));
   readonly selectedTrackId = signal<string | null>(null);
+  readonly activeTrackId = signal<string | null>(null);
   readonly noticeMessage = signal<string | null>(null);
 
   constructor() {
+    effect(() => {
+      const tracks = this.filteredTracks();
+      if (this.isLoading() || this.errorMessage()) return;
+      untracked(() => {
+        if (!this.rowNavigationInitialized) {
+          this.rowNavigationInitialized = true;
+          const selected = this.selection.selected();
+          if (selected && tracks.some((track) => track.id === selected.id)) {
+            this.selectedTrackId.set(selected.id);
+            this.activeTrackId.set(selected.id);
+            return;
+          }
+        }
+        if (!tracks.some((track) => track.id === this.activeTrackId())) {
+          this.activeTrackId.set(tracks[0]?.id ?? null);
+        }
+      });
+    });
     effect(() => {
       const tracks = this.tracks();
       const hidden = this.songColumns.isHidden('lyrics');
@@ -244,6 +266,55 @@ export class SongsComponent implements OnInit {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  onRowsKeyDown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.closest(
+      'button, input, textarea, select, a, [contenteditable], [role="button"], [role="textbox"], [role="combobox"]',
+    )) return;
+    const row = target.closest<HTMLTableRowElement>('.song-row[data-track-id]');
+    if (!row || row.parentElement !== this.songsBody()?.nativeElement) return;
+
+    const tracks = this.filteredTracks();
+    const current = tracks.findIndex((track) => track.id === row.dataset['trackId']);
+    if (current < 0) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.onPlayTrack(tracks[current], current);
+      return;
+    }
+
+    let next = nextRowIndex(event.key, current, tracks.length, 1);
+    if (next === null) return;
+    event.preventDefault();
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const scroller = row.closest<HTMLElement>('.table-scroll-container');
+      const rowHeight = row.getBoundingClientRect().height;
+      const pageSize = scroller && rowHeight > 0
+        ? Math.max(1, Math.floor(scroller.clientHeight / rowHeight) - 1)
+        : 1;
+      next = nextRowIndex(event.key, current, tracks.length, pageSize)!;
+    }
+    this.onActivateTrack(tracks[next]);
+  }
+
+  onActivateTrack(track: Track): void {
+    this.activeTrackId.set(track.id);
+    this.onSelectTrack(track);
+    // Click and key events refer to already-rendered rows, including tabindex=-1 rows.
+    const row = this.songsBody()?.nativeElement.querySelector<HTMLTableRowElement>(
+      `[data-track-id="${CSS.escape(track.id)}"]`,
+    );
+    const scroller = row?.closest<HTMLElement>('.table-scroll-container');
+    const header = row?.closest('table')?.tHead;
+    if (scroller && header) {
+      // Collapsed borders and fractional font metrics need the rendered header height.
+      scroller.style.setProperty('--songs-header-height', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    }
+    row?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: 'nearest' });
   }
 
   onSelectTrack(track: Track): void {

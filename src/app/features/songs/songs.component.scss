@@ -145,6 +145,7 @@
       min-width: 0;
       overflow-y: auto;
       overflow-x: hidden;
+      scroll-padding-top: var(--songs-header-height, calc(var(--font-size-xs) * 1.5 + var(--space-3) * 2));
     }
 
     .songs-table {
@@ -179,6 +180,24 @@
 
     .songs-table th.sortable:hover {
       color: var(--text-primary);
+    }
+
+    .sort-btn {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      letter-spacing: inherit;
+      text-align: inherit;
+    }
+
+    .sort-btn:focus-visible,
+    .song-row:focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: -2px;
     }
 
     .sort-indicator {
