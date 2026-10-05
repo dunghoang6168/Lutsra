@@ -15,6 +15,7 @@ import { QueueActionsService } from './core/player/queue-actions.service';
 import { LayoutPreferenceService } from './core/layout/layout-preference.service';
 import { ArtworkGlowPositionService } from './core/layout/artwork-glow-position.service';
 import { ArtworkEdgeGlowService, EDGE_GLOW_SPREAD } from './core/layout/artwork-edge-glow.service';
+import { RecentPlaysService } from './core/layout/recent-plays.service';
 import { AcrylicScrollbarService } from './core/layout/acrylic-scrollbar.service';
 import { LIBRARY_GATEWAY } from './core/contracts';
 import { getDesktopApi } from './core/desktop/desktop-api';
@@ -49,6 +50,7 @@ export class AppComponent implements AfterViewChecked {
   readonly artworkGlowPosition = inject(ArtworkGlowPositionService);
   private readonly artworkEdgeGlow = inject(ArtworkEdgeGlowService);
   private readonly acrylicScrollbars = inject(AcrylicScrollbarService);
+  private readonly recentPlays = inject(RecentPlaysService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   @ViewChild('onboardingDialog') private onboardingDialog?: ElementRef<HTMLElement>;

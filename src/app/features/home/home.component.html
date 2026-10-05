@@ -76,65 +76,79 @@
 
   } @else {
 
-    <!-- Library Health Report -->
-    <header class="home-header">
-      <div class="home-header-top">
-        <h1>Library</h1>
-        <button type="button" class="btn" [class.btn-primary]="!player.currentTrack()" [class.btn-secondary]="player.currentTrack()" (click)="shuffleAll()">
-          <app-icon name="shuffle" [size]="18" />
-          Shuffle Library
-        </button>
-      </div>
-      <div class="health-report">
-        <div class="health-metrics">
-          <div class="metric">
-            <span class="metric-value">{{ qualityStats().lossless | number }}</span>
-            <span class="metric-label">Lossless</span>
-          </div>
-          <div class="metric-divider" aria-hidden="true"></div>
-          <div class="metric">
-            <span class="metric-value">{{ qualityStats().hires | number }}</span>
-            <span class="metric-label">Hi-Res</span>
-          </div>
-          <div class="metric-divider" aria-hidden="true"></div>
-          <div class="metric">
-            <span class="metric-value">{{ qualityStats().lossy | number }}</span>
-            <span class="metric-label">Lossy</span>
-          </div>
-          @if (qualityStats().missing > 0) {
-            <div class="metric-divider" aria-hidden="true"></div>
-            <a routerLink="/songs" [queryParams]="{ availability: 'missing' }" class="metric metric-link">
-              <span class="metric-value metric-missing">{{ qualityStats().missing | number }}</span>
-              <span class="metric-label">Missing</span>
-            </a>
-          }
-        </div>
-        <div class="health-caption">Hi-Res: lossless at 24-bit or above 48 kHz</div>
-      </div>
-    </header>
-
-    <!-- Now Playing Mini Bar -->
-    @if (player.currentTrack(); as track) {
-      <a routerLink="/now-playing" class="now-playing-mini">
-        <div class="mini-artwork">
-          @if (track.artwork) {
-            <!-- impeccable-ignore broken-image Angular [src] binding guarded by @if -->
-            <img [src]="track.artwork" alt="" />
+    <h1 class="sr-only">Home</h1>
+    @if (hero(); as item) {
+      <section class="listening-hero" aria-labelledby="hero-title">
+        <div class="hero-artwork">
+          @if (item.artwork) {
+            <!-- impeccable-ignore broken-image Angular artwork binding guarded by @if -->
+            <img [src]="item.artwork" alt="" />
           } @else {
-            <div class="mini-placeholder" aria-hidden="true">
-              <app-icon name="music" [size]="24" />
-            </div>
+            <div class="hero-placeholder" aria-hidden="true"><app-icon name="music" [size]="48" /></div>
           }
         </div>
-        <div class="mini-info">
-          <h2 class="mini-track-title truncate">{{ track.title }}</h2>
-          <p class="mini-artist truncate">{{ track.artist || 'Unknown Artist' }}</p>
+        <div class="hero-info">
+          <p class="hero-status">{{ item.status }}</p>
+          <h2 id="hero-title">{{ item.title }}</h2>
+          @if (item.albumTitle) { <p class="hero-album">{{ item.albumTitle }}</p> }
+          <p class="hero-artist">{{ item.artist }}</p>
+          @if (item.format; as format) {
+            <p class="hero-format" [class.hires]="format.hires">{{ format.label }}</p>
+          }
+          <div class="hero-actions">
+            <button type="button" class="btn hero-play" [disabled]="!item.playable"
+              [attr.aria-label]="item.playLabel + ' ' + item.title" (click)="onPlayHero()">
+              <app-icon [name]="item.playLabel === 'Pause' ? 'pause' : 'play'" [size]="18" />
+              {{ item.playLabel }}
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="shuffleAll()">
+              <app-icon name="shuffle" [size]="18" /> Shuffle Library
+            </button>
+            @if (item.album; as album) {
+              <a [routerLink]="['/albums', album.id]" class="hero-link">View album</a>
+            }
+            @if (item.kind === 'current') {
+              <a routerLink="/now-playing" class="hero-link">Now playing</a>
+            }
+          </div>
         </div>
-        <div class="mini-meta">
-          <span class="mini-format now-playing-format" [class.hires]="formatLabel(track)?.hires">{{ formatLabel(track)?.label ?? '—' }}</span>
-          <span class="mini-status">{{ player.isPlaybackActive() ? 'Now Playing' : 'Paused' }}</span>
+      </section>
+    } @else {
+      <div><button type="button" class="btn btn-secondary" (click)="shuffleAll()">
+        <app-icon name="shuffle" [size]="18" /> Shuffle Library
+      </button></div>
+    }
+
+    <nav class="health-report" aria-label="Library quality">
+      <ul class="health-metrics">
+        <li><a routerLink="/songs" [queryParams]="{ quality: 'lossless' }"><span class="quality-count">{{ qualityStats().lossless | number }}</span> Lossless</a></li>
+        <li><a routerLink="/songs" [queryParams]="{ quality: 'hires' }"><span class="quality-count">{{ qualityStats().hires | number }}</span> Hi-Res</a></li>
+        <li><a routerLink="/songs" [queryParams]="{ quality: 'lossy' }"><span class="quality-count">{{ qualityStats().lossy | number }}</span> Lossy</a></li>
+        @if (qualityStats().missing > 0) {
+          <li><a routerLink="/songs" [queryParams]="{ availability: 'missing' }" class="quality-missing"><span class="quality-count">{{ qualityStats().missing | number }}</span> Missing</a></li>
+        }
+      </ul>
+      <p class="health-caption">Hi-Res: lossless at 24-bit or above 48 kHz</p>
+    </nav>
+
+    @if (recentlyPlayed().length > 0) {
+      <section class="home-section" aria-labelledby="recently-played-title">
+        <div class="section-header"><h2 id="recently-played-title">Recently played</h2></div>
+        <div class="albums-grid" #albumGrid>
+          @for (album of visibleRecentlyPlayed(); track album.id) {
+            <app-album-card
+              [item]="album"
+              [title]="album.title"
+              [subtitle]="album.artist || 'Unknown Artist'"
+              [imageUrl]="album.artwork || null"
+              [link]="['/albums', album.id]"
+              [format]="albumFormats().get(album.id) ?? null"
+              (play)="onPlayAlbum(album)"
+              (queue)="onAddAlbumToQueue(album)">
+            </app-album-card>
+          }
         </div>
-      </a>
+      </section>
     }
 
     <!-- Recently Modified -->
@@ -144,8 +158,8 @@
           <h2>Recently Modified</h2>
           <a routerLink="/albums" class="see-all-link">See all &rarr;</a>
         </div>
-        <div class="albums-grid">
-          @for (album of recentlyAddedAlbums(); track album.id) {
+        <div class="albums-grid" #albumGrid>
+          @for (album of visibleRecentlyModified(); track album.id) {
             <app-album-card
               [item]="album"
               [title]="album.title"
@@ -170,8 +184,8 @@
           <h2>Playlists</h2>
           <a routerLink="/playlists" class="see-all-link">See all &rarr;</a>
         </div>
-        <div class="albums-grid">
-          @for (playlist of limitedPlaylists(); track playlist.id) {
+        <div class="albums-grid" #albumGrid>
+          @for (playlist of visiblePlaylists(); track playlist.id) {
             <app-album-card
               [item]="playlist"
               [title]="playlist.name"

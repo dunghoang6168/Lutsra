@@ -34,13 +34,14 @@ export class AppHeaderComponent {
   readonly compactSearchOpen = signal(false);
 
   readonly navHistory = inject(NavigationHistoryService);
-  /** Gallery's section tabs; Folders lives in Settings › Music Library Folders. */
+  /** Gallery's section tabs, shared by the wide navigation and compact menu. */
   readonly tabs = [
     { path: '/home', label: 'Home' },
     { path: '/songs', label: 'Songs' },
     { path: '/albums', label: 'Albums' },
     { path: '/artists', label: 'Artists' },
     { path: '/playlists', label: 'Playlists' },
+    { path: '/folders', label: 'Folders' },
   ];
   readonly scanProgress = toSignal(this.gateway.scanProgress$, {
     initialValue: {

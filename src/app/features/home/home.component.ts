@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, ElementRef, inject, signal, untracked, viewChild, viewChildren, afterRenderEffect } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
@@ -10,6 +10,7 @@ import { focusListItem, nextRowIndex } from '../../shared/utils/row-navigation';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
 import { albumFormatMap, formatCount, formatTrackFormat as trackFormatLabel, summarizeQuality, formatQualityLine } from './library-quality';
+import { RecentPlaysService, findRecentPlayableTrack, recentlyPlayedAlbums, recentTrackCollection } from '../../core/layout/recent-plays.service';
 import { LayoutPreferenceService } from '../../core/layout/layout-preference.service';
 
 @Component({
@@ -24,6 +25,9 @@ export class HomeComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   readonly player = inject(PlayerService);
+  private readonly recentPlays = inject(RecentPlaysService);
+  private readonly albumGrids = viewChildren<ElementRef<HTMLElement>>('albumGrid');
+  private readonly visibleCardCount = signal(1);
   private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
   readonly activeId = signal<string | null>(null);
   private readonly queueActions = inject(QueueActionsService);
@@ -67,6 +71,47 @@ export class HomeComponent implements OnInit {
   readonly qualityLine = computed(() => formatQualityLine(this.qualityStats()));
   readonly limitedPlaylists = computed(() => this.playlists().slice(0, 6));
 
+  readonly hero = computed(() => {
+    const current = this.player.currentTrack();
+    const recent = current ? null : findRecentPlayableTrack(this.recentPlays.entries(), this.trackMapSignal());
+    const track = current ?? recent;
+    const album = track
+      ? this.allAlbums().find((item) => item.trackIds.includes(track.id)) ?? null
+      : this.recentlyAddedAlbums()[0] ?? null;
+    if (!track && !album) return null;
+    const kind = current ? 'current' : recent ? 'recent' : 'album';
+    const active = kind === 'current' && this.player.isPlaybackActive();
+    return {
+      kind, track, album,
+      title: track?.title ?? album!.title,
+      artist: track?.artist || album?.artist || 'Unknown Artist',
+      albumTitle: track ? track.album || album?.title || 'Unknown Album' : null,
+      artwork: track?.artwork || album?.artwork || null,
+      format: track ? trackFormatLabel(track) : this.albumFormats().get(album!.id) ?? null,
+      status: kind === 'current' ? active ? 'Now Playing' : 'Paused' : kind === 'recent' ? 'Continue listening' : 'Recently modified',
+      playLabel: kind === 'album' ? 'Play album' : active ? 'Pause' : 'Play',
+      playable: kind === 'current' || !!track?.isAvailable || !!album?.trackIds.some((id) => this.trackMapSignal().get(id)?.isAvailable),
+    };
+  });
+  readonly recentlyPlayed = computed(() => recentlyPlayedAlbums(this.recentPlays.entries(), this.allAlbums(), this.hero()?.album?.id ?? null));
+  readonly visibleRecentlyPlayed = computed(() => this.recentlyPlayed().slice(0, this.visibleCardCount()));
+  readonly visibleRecentlyModified = computed(() => this.recentlyAddedAlbums().slice(0, this.visibleCardCount()));
+  readonly visiblePlaylists = computed(() => this.layout() === 'classic'
+    ? this.limitedPlaylists() : this.limitedPlaylists().slice(0, this.visibleCardCount()));
+
+  onPlayHero(): void {
+    const hero = this.hero();
+    if (!hero?.playable) return;
+    if (hero.kind === 'current') {
+      void this.player.togglePlayPause();
+    } else if (hero.track) {
+      const collection = recentTrackCollection(hero.track, hero.album, this.trackMapSignal());
+      if (collection.tracks.length) void this.player.playCollection(collection.tracks, collection.startIndex);
+    } else if (hero.album) {
+      this.onPlayAlbum(hero.album);
+    }
+  }
+
   constructor() {
     effect(() => {
       const tracks = this.playableRecentTracks();
@@ -75,6 +120,21 @@ export class HomeComponent implements OnInit {
           this.activeId.set(tracks[0]?.id ?? null);
         }
       });
+    });
+    afterRenderEffect((onCleanup) => {
+      if (this.layout() === 'classic') return;
+      const grids = this.albumGrids().map((grid) => grid.nativeElement);
+      if (!grids.length) return;
+      const measure = () => {
+        // auto-fill exposes the real column count, including unused columns.
+        // Keeping only that many cards also removes overflow cards from Tab order.
+        const columns = getComputedStyle(grids[0]).gridTemplateColumns;
+        this.visibleCardCount.set(columns === 'none' ? 1 : Math.max(1, columns.trim().split(/\s+/).length));
+      };
+      const observer = new ResizeObserver(measure);
+      grids.forEach((grid) => observer.observe(grid));
+      measure();
+      onCleanup(() => observer.disconnect());
     });
     this.destroyRef.onDestroy(() => clearTimeout(this.scanToastTimer));
   }
