@@ -186,7 +186,7 @@
     }
 
     .crumb-btn {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       font-weight: 500;
     }
 
@@ -320,7 +320,7 @@
       overflow: hidden;
       border-radius: var(--radius-md);
       background: var(--bg-elevated);
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     .folder-cover img {
@@ -463,7 +463,7 @@
     }
     .col-lyrics { width: 88px; }
     .files-table th.col-lyrics, .files-table td.col-lyrics { text-align: center; }
-    .lyrics-check { color: var(--accent-primary); display: inline-flex; vertical-align: middle; }
+    .lyrics-check { color: var(--text-accent); display: inline-flex; vertical-align: middle; }
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
     .col-actions { width: 44px; text-align: right !important; }
     .queue-row-btn {
@@ -473,7 +473,7 @@
     }
     .file-row:hover .queue-row-btn, .file-row:focus-within .queue-row-btn { opacity: 1; }
     @media (hover: none) { .queue-row-btn { opacity: 1; } }
-    .queue-row-btn:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-surface-hover); }
+    .queue-row-btn:hover:not(:disabled) { color: var(--text-accent); background: var(--bg-surface-hover); }
 
     .file-name-cell {
       display: flex;

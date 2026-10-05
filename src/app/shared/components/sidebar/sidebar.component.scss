@@ -77,6 +77,8 @@
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
+.nav-item.active .nav-count,
+.nav-item:hover .nav-count { color: var(--text-secondary); }
 .nav-item.warning .nav-count,
 .nav-item.warning .nav-label { color: var(--status-warning-text); }
 

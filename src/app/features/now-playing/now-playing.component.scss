@@ -88,7 +88,7 @@
       cursor: pointer;
     }
     .lyrics-line:hover { color: var(--text-primary); }
-    .lyrics-line.active { color: var(--accent-primary); font-weight: 750; }
+    .lyrics-line.active { color: var(--text-accent); font-weight: 750; }
     .lyrics-message { color: var(--text-secondary); font-size: var(--font-size-sm); }
 
     .large-artwork-card {
@@ -173,7 +173,7 @@
     }
 
     .heading-queue-btn.active {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       background: var(--accent-muted);
       border-color: var(--accent-primary);
     }
@@ -322,7 +322,7 @@
     }
 
     .btn-icon.active {
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     .mode-repeat {
@@ -603,7 +603,7 @@
       opacity: 0.68;
     }
     .layout-liquid-glass .lyrics-line.active {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       font-size: 18px;
       font-weight: 800;
       opacity: 1;

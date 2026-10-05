@@ -57,7 +57,7 @@ let nextListId = 0;
     .option-search + .option-list { margin-top: 6px; }
     .option-item { display: block; width: 100%; min-height: 32px; padding: 6px 9px; border-radius: var(--radius-sm); color: var(--text-primary); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
     .option-item:hover, .option-item.active { background: var(--bg-surface-hover); }
-    .option-item.selected { color: var(--accent-primary); font-weight: 600; }
+    .option-item.selected { color: var(--text-accent); font-weight: 600; }
     .option-item.selected::after { content: '\\2713'; float: right; margin-left: 8px; }
     .no-options { padding: 9px; color: var(--text-muted); font-size: var(--font-size-sm); }
     .select-trigger:focus-visible, .option-search:focus-visible, .option-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }

@@ -21,7 +21,7 @@
     }
 
     .back-link:hover {
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     /* Hero */
@@ -70,7 +70,7 @@
     .type-tag {
       font-size: var(--font-size-xs);
       font-weight: 700;
-      color: var(--accent-primary);
+      color: var(--text-accent);
       letter-spacing: 0;
       margin-bottom: var(--space-1);
     }
@@ -203,11 +203,11 @@
     }
 
     .track-row.playing {
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     .track-row.playing .track-title {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       font-weight: 600;
     }
 
@@ -238,11 +238,11 @@
     }
     .track-row:hover .queue-row-btn, .track-row:focus-within .queue-row-btn { opacity: 1; }
     @media (hover: none) { .queue-row-btn { opacity: 1; } }
-    .queue-row-btn:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-surface-hover); }
+    .queue-row-btn:hover:not(:disabled) { color: var(--text-accent); background: var(--bg-surface-hover); }
     .queue-row-btn:disabled { cursor: not-allowed; }
 
     .playing-icon {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       font-size: var(--font-size-xs);
     }
 

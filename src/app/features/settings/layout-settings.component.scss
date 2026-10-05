@@ -67,7 +67,7 @@
   opacity: 1;
 }
 .waveform-playhead { stroke: var(--text-primary); stroke-width: 2; }
-.visualization-option.active .visualization-preview { color: var(--accent-primary); border-color: var(--accent-primary); }
+.visualization-option.active .visualization-preview { color: var(--text-accent); border-color: var(--accent-primary); }
 .visualization-option.active .waveform-bars { fill: var(--accent-primary); }
 .visualization-option.active .waveform-played-bars {
   fill: color-mix(in srgb, var(--accent-primary) 50%, #000000);

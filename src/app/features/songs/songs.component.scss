@@ -206,7 +206,7 @@
 
     .sort-indicator {
       margin-left: var(--space-1);
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     .song-row {
@@ -225,11 +225,11 @@
     }
 
     .song-row.playing {
-      color: var(--accent-primary);
+      color: var(--text-accent);
     }
 
     .song-row.playing .track-name {
-      color: var(--accent-primary);
+      color: var(--text-accent);
       font-weight: 600;
     }
 
@@ -250,7 +250,7 @@
     .col-codec { width: calc(6ch + var(--space-4) * 2); }
     .col-quality { width: calc(12ch + var(--space-4) * 2); font-family: var(--font-family-mono); }
     .col-lyrics { width: calc(var(--space-10) + var(--space-4)); text-align: center; }
-    .lyrics-check { color: var(--accent-primary); display: inline-flex; vertical-align: middle; }
+    .lyrics-check { color: var(--text-accent); display: inline-flex; vertical-align: middle; }
     .col-actions { width: calc(var(--space-8) * 2 + var(--space-4)); text-align: right; }
 
     .songs-table .user-hidden { display: none; }

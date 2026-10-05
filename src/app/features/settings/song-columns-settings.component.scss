@@ -27,7 +27,7 @@
 .song-column-position {
   flex: none;
   min-width: 22px;
-  color: var(--accent-primary);
+  color: var(--text-accent);
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-align: center;
@@ -45,7 +45,7 @@
   color: var(--text-secondary);
   font-size: 15px;
 }
-.song-column-move-controls button:hover:not([aria-disabled='true']) { border-color: var(--accent-primary); color: var(--accent-primary); }
+.song-column-move-controls button:hover:not([aria-disabled='true']) { border-color: var(--accent-primary); color: var(--text-accent); }
 .song-column-move-controls button[aria-disabled='true'] { opacity: 0.35; cursor: default; }
 .song-column-option input { flex: none; width: 18px; height: 18px; accent-color: var(--accent-primary); cursor: pointer; }
 .song-column-option input:disabled { cursor: default; }

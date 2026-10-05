@@ -109,7 +109,7 @@
     }
     .result-row:hover .result-queue-btn, .result-row:focus-within .result-queue-btn { opacity: 1; }
     @media (hover: none) { .result-queue-btn { opacity: 1; } }
-    .result-queue-btn:hover:not(:disabled) { color: var(--accent-primary); background: var(--bg-elevated); }
+    .result-queue-btn:hover:not(:disabled) { color: var(--text-accent); background: var(--bg-elevated); }
     .search-state { min-height: 92px; display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-secondary); text-align: center; }
     .error-state { flex-direction: column; color: var(--status-error); }
     .error-state button { min-height: 30px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-on-accent); background: var(--color-accent-fill); }
