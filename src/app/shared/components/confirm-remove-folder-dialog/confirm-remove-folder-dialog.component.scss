@@ -15,9 +15,9 @@
 .modal-card h3 { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--space-2); }
 .modal-desc { font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: var(--space-4); }
 .warning-box {
-  background: rgba(245, 158, 11, 0.12);
+  background: color-mix(in srgb, var(--status-warning) 12%, transparent);
   border: 1px solid var(--status-warning);
-  color: color-mix(in srgb, var(--status-warning) 50%, var(--color-text));
+  color: var(--status-warning-text);
   padding: var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);

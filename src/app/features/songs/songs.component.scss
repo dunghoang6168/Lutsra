@@ -247,7 +247,7 @@
     .col-artist { width: 14%; }
     .col-album { width: 15%; }
     .col-duration { width: calc(6ch + var(--space-4) * 2); font-family: var(--font-family-mono); }
-    .col-codec { width: calc(8ch + var(--space-4) * 2); }
+    .col-codec { width: calc(6ch + var(--space-4) * 2); }
     .col-quality { width: calc(12ch + var(--space-4) * 2); font-family: var(--font-family-mono); }
     .col-lyrics { width: calc(var(--space-10) + var(--space-4)); text-align: center; }
     .lyrics-check { color: var(--accent-primary); display: inline-flex; vertical-align: middle; }
@@ -477,7 +477,7 @@
       .col-title { width: auto; }
       .col-artist { width: 18%; }
       .col-duration { width: calc(6ch + var(--space-2) * 2); }
-      .col-codec { width: calc(8ch + var(--space-2) * 2); }
+      .col-codec { width: calc(6ch + var(--space-2) * 2); }
       .col-quality { width: calc(12ch + var(--space-2) * 2); }
       .col-actions { width: calc(var(--space-10) + var(--space-4)); }
       .songs-table .col-actions, .songs-table .col-index { padding-inline: var(--space-1); }

@@ -421,7 +421,7 @@ function playbackError(code: PlaybackErrorCode, message: string): Error & { code
 function outputActivationError(error: unknown): Error & { code: PlaybackErrorCode } {
   const name = error instanceof DOMException ? error.name : error instanceof Error ? error.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return playbackError('OUTPUT_DEVICE_PERMISSION_DENIED', 'Chromium denied permission to use this audio output. Restart Lutsra and try again.');
+    return playbackError('OUTPUT_DEVICE_PERMISSION_DENIED', 'Chromium denied permission to use this audio output. Restart Lutstra and try again.');
   }
   if (name === 'NotFoundError') {
     return playbackError('OUTPUT_DEVICE_UNAVAILABLE', 'The selected audio endpoint is no longer available.');

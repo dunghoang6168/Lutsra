@@ -37,7 +37,7 @@ function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackErr
     OUTPUT_DEVICE_UNAVAILABLE: 'The selected audio output is disconnected.',
     OUTPUT_DEVICE_BUSY: 'The selected audio output is in use. Close the other app and try again.',
     OUTPUT_FORMAT_UNSUPPORTED: 'The selected audio output format is not supported.',
-    OUTPUT_DEVICE_PERMISSION_DENIED: 'Chromium denied permission to use this audio output. Restart Lutsra and try again.',
+    OUTPUT_DEVICE_PERMISSION_DENIED: 'Chromium denied permission to use this audio output. Restart Lutstra and try again.',
     OUTPUT_DEVICE_UNSUPPORTED: 'This runtime cannot select a specific audio output.',
     OUTPUT_MODE_UNSUPPORTED: 'This output mode requires the Native Audio Host.',
     AUDIO_HOST_UNAVAILABLE: 'Native Audio Host is unavailable. Playback has returned to Chromium and remains paused.',
@@ -123,7 +123,7 @@ export class PlayerService implements OnDestroy {
         this.outputInterrupted = true;
         this.playbackNotice.set(reason === 'device-busy'
           ? 'The selected audio output is in use. Playback has been paused.'
-          : 'The audio output was interrupted. Lutsra is reconnecting.');
+          : 'The audio output was interrupted. Lutstra is reconnecting.');
       }));
     }
     const advanced = this.engine.trackAutoAdvanced$;
