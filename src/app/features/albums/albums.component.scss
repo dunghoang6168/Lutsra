@@ -105,7 +105,7 @@
     .album-card:hover {
       background: var(--bg-surface-hover);
       transform: translateY(-4px);
-      border-color: var(--color-accent-glow);
+      border-color: var(--border-default);
     }
 
     .cover-wrapper {
@@ -145,7 +145,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px var(--accent-glow);
+      box-shadow: var(--shadow-md);
       opacity: 0;
       transform: translateY(8px);
       transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);

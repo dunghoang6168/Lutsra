@@ -55,14 +55,14 @@
     .playlist-card:hover {
       background: var(--bg-surface-hover);
       transform: translateY(-3px);
-      border-color: var(--color-accent-glow);
+      border-color: var(--border-default);
     }
 
     .playlist-icon-box {
       width: 100%;
       aspect-ratio: 16 / 9;
       border-radius: var(--radius-md);
-      background: linear-gradient(135deg, #1e1b4b, #31102f);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 28%, var(--bg-elevated)), var(--bg-elevated));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -82,7 +82,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px var(--accent-glow);
+      box-shadow: var(--shadow-md);
       opacity: 0;
       transform: translateY(4px);
       transition: opacity var(--transition-fast), transform var(--transition-fast);
@@ -176,7 +176,7 @@
     }
 
     .safe-note {
-      background: rgba(16, 185, 129, 0.1);
+      background: color-mix(in srgb, var(--status-success) 10%, transparent);
       border: 1px solid var(--status-success);
       color: color-mix(in srgb, var(--status-success) 50%, var(--color-text));
       padding: var(--space-3);

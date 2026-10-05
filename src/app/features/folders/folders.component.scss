@@ -88,8 +88,8 @@
     }
 
     .scan-banner.has-error {
-      border-color: var(--status-warning);
-      background: rgba(245, 158, 11, 0.1);
+      border-color: var(--status-error);
+      background: color-mix(in srgb, var(--status-error) 10%, transparent);
     }
 
     .scan-title-row {
@@ -216,7 +216,7 @@
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       overflow: hidden;
-      background: linear-gradient(125deg, var(--accent-primary), #1c2635 74%);
+      background: linear-gradient(125deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 18%, black) 74%);
       color: #ffffff;
       flex-shrink: 0;
     }
@@ -459,7 +459,7 @@
     .badge-codec.hi-res {
       background: var(--color-accent-muted);
       color: var(--color-text-accent);
-      border: 1px solid var(--color-accent-glow);
+      border: 1px solid var(--border-default);
     }
     .col-lyrics { width: 88px; }
     .files-table th.col-lyrics, .files-table td.col-lyrics { text-align: center; }

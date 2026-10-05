@@ -303,7 +303,7 @@
 
     .remove-btn:hover {
       color: var(--status-error);
-      background: rgba(239, 68, 68, 0.15);
+      background: color-mix(in srgb, var(--status-error) 15%, transparent);
     }
 
     /* Animated equalizer bars */
