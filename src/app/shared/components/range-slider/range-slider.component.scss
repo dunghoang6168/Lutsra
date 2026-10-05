@@ -70,7 +70,7 @@ input::-webkit-slider-thumb {
   border: 2px solid var(--bg-surface);
   border-radius: var(--radius-full);
   background: var(--range-fill-color);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 5px var(--scrim-soft);
   transition: box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
@@ -82,13 +82,13 @@ input::-moz-range-thumb {
   border: 2px solid var(--bg-surface);
   border-radius: var(--radius-full);
   background: var(--range-fill-color);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 5px var(--scrim-soft);
 }
 
 input:hover::-webkit-slider-thumb,
 input:focus-visible::-webkit-slider-thumb,
 input:active::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 4px var(--color-accent-muted), 0 1px 5px var(--scrim-soft);
 }
 
 input:focus-visible::-webkit-slider-thumb {

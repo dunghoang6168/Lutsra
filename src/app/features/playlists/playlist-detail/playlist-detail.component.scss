@@ -35,7 +35,7 @@
       align-items: center;
       justify-content: center;
       color: var(--text-accent);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--shadow-lg);
       border: 1px solid var(--border-default);
       flex-shrink: 0;
     }
@@ -46,14 +46,6 @@
       min-width: 260px;
       display: flex;
       flex-direction: column;
-    }
-
-    .type-tag {
-      font-size: var(--font-size-xs);
-      font-weight: 700;
-      color: var(--text-accent);
-      letter-spacing: 0;
-      margin-bottom: var(--space-1);
     }
 
     .playlist-name {
@@ -190,7 +182,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: var(--font-size-md);
     }
 
     .badge-unavailable {
@@ -234,7 +226,7 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
+      background: var(--scrim-heavy);
       display: flex;
       align-items: center;
       justify-content: center;

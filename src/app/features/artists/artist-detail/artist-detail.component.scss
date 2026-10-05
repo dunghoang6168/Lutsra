@@ -55,14 +55,6 @@
       flex-direction: column;
     }
 
-    .type-tag {
-      font-size: var(--font-size-xs);
-      font-weight: 700;
-      color: var(--text-accent);
-      letter-spacing: 0;
-      margin-bottom: var(--space-1);
-    }
-
     .artist-name {
       font-size: var(--font-size-3xl);
       font-weight: 800;
@@ -122,7 +114,7 @@
     .about-sources { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: var(--space-4); font-size: var(--font-size-xs); color: var(--text-muted); }
     .about-sources button { color: var(--text-accent); text-decoration: underline; }
 
-    .metadata-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: var(--space-5); background: rgba(0, 0, 0, 0.68); }
+    .metadata-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: var(--space-5); background: var(--scrim-strong); }
     .metadata-modal-card { width: min(620px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-lg); padding: var(--space-5); }
     .metadata-modal-header { display: flex; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
     .metadata-modal-header h2 { font-size: var(--font-size-xl); }

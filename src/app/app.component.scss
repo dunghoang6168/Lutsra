@@ -148,7 +148,7 @@
   display: grid;
   place-items: center;
   padding: var(--space-4);
-  background: rgba(0, 0, 0, 0.68);
+  background: var(--scrim-strong);
 }
 
 .onboarding-dialog {

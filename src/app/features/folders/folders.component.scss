@@ -154,7 +154,7 @@
       padding: var(--space-2) var(--space-3);
       border-radius: var(--radius-md);
       border: 1px solid rgba(255, 255, 255, 0.38);
-      background: rgba(0, 0, 0, 0.35);
+      background: var(--scrim-soft);
       flex-shrink: 0;
       position: relative;
       z-index: 2;
@@ -162,7 +162,7 @@
     }
 
     .btn-remove-root:hover {
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--scrim-strong);
     }
 
     /* Breadcrumbs */
@@ -247,15 +247,8 @@
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
     }
 
-    .folder-hero-eyebrow {
-      font-size: var(--font-size-xs);
-      font-weight: 700;
-      font-variant-caps: var(--type-label-variant);
-      letter-spacing: var(--type-label-tracking);
-    }
-
     .folder-hero h2 {
-      margin: var(--space-2) 0;
+      margin: 0 0 var(--space-2);
       font-size: clamp(24px, 4vw, 38px);
       line-height: 1.12;
       overflow-wrap: anywhere;

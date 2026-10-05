@@ -6,8 +6,8 @@
           <h1>Folders</h1>
         </div>
 
-        <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
-          @if (selectedRootId()) {
+        @if (selectedRootId()) {
+          <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
             <button type="button" class="crumb-btn" (click)="onNavigateOverview()">Music roots</button>
             @for (crumb of nodeStack(); track crumb.id; let idx = $index; let last = $last) {
               <span class="crumb-sep" aria-hidden="true">/</span>
@@ -17,10 +17,8 @@
                 <span class="crumb-current" aria-current="page">{{ crumb.name }}</span>
               }
             }
-          } @else {
-            <span class="crumb-current" aria-current="page">Music roots</span>
-          }
-        </nav>
+          </nav>
+        }
 
         <div class="toolbar">
           @if (nodeStack().length > 1) {
@@ -103,7 +101,6 @@
               <img class="folder-hero-artwork" [src]="artwork" alt="" (error)="onArtworkError(artwork)" />
             }
             <div class="folder-hero-content">
-              <span class="folder-hero-eyebrow">Folder</span>
               <h2 [title]="node.name">{{ node.name }}</h2>
               <p>{{ summary.trackCount }} tracks <span aria-hidden="true">·</span> {{ summary.duration | duration }}</p>
             </div>
@@ -114,7 +111,6 @@
         } @else {
           <section class="folder-hero overview-hero">
             <div class="folder-hero-content">
-              <span class="folder-hero-eyebrow">Library</span>
               <h2>Music roots</h2>
               <p>{{ roots().length }} folders</p>
             </div>

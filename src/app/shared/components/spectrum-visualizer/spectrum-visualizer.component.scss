@@ -41,7 +41,7 @@
 
     :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .spectrum-label {
       padding: 2px 5px;
-      border-radius: 5px;
+      border-radius: var(--radius-sm);
       color: var(--text-secondary);
       background: var(--glass-readable-surface);
       font-size: var(--font-size-xs);

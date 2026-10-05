@@ -32,7 +32,7 @@
 
     :host-context(.layout-liquid-glass) .queue-drawer {
       border-color: var(--glass-border);
-      border-radius: 18px;
+      border-radius: var(--radius-xl);
       background: var(--glass-elevated);
       box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
       backdrop-filter: blur(var(--glass-blur)) saturate(1.28);
@@ -258,7 +258,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: var(--font-size-md);
     }
 
     .queue-item-meta {
