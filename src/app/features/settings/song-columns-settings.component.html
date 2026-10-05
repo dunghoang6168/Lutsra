@@ -1,7 +1,7 @@
 <section class="settings-card card-base" aria-labelledby="songs-settings-title">
   <div class="card-header">
-    <h2 id="songs-settings-title">Songs</h2>
-    <span class="card-desc">Choose which columns appear and use the arrows to change their order. Hidden columns keep their position. Narrow windows may hide additional columns.</span>
+    <h2 id="songs-settings-title">Songs list</h2>
+    <span class="card-desc">Choose columns and reorder them with the arrows. Narrow windows hide some columns automatically.</span>
   </div>
   @if (errorMessage()) {
     <p class="song-columns-error" role="alert">{{ errorMessage() }}</p>
@@ -10,12 +10,12 @@
     <div class="song-column-option fixed" data-column="index">
       <span class="song-column-position">1</span>
       <div class="song-column-copy">
-        <span class="song-column-name">Track number</span>
+        <span class="song-column-name">Row number</span>
         <span class="song-column-desc">Position in the current list</span>
       </div>
       <input type="checkbox" [checked]="isSongColumnVisible('index')" [disabled]="isLoading()"
         (change)="onSongColumnChange('index', $any($event.target).checked)"
-        aria-label="Show Track number column" />
+        aria-label="Show Row number column" />
     </div>
     <div class="song-column-option locked" data-column="title">
       <span class="song-column-position">2</span>

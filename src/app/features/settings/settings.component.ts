@@ -36,13 +36,13 @@ export interface ThemePresetOption {
 })
 export class SettingsComponent implements OnInit {
   readonly repeatOptions = [
-    { value: 'off', label: 'Off (Stop at end of queue)' },
-    { value: 'all', label: 'Repeat All (Cycle entire queue)' },
-    { value: 'one', label: 'Repeat One (Loop single track)' },
+    { value: 'off', label: 'Off: stop at the end of the queue' },
+    { value: 'all', label: 'All: repeat the queue' },
+    { value: 'one', label: 'One: repeat the current track' },
   ] as const;
   readonly audioEngineOptions = [
-    { value: 'native-shared', label: 'Native Shared (Default)' },
-    { value: 'chromium', label: 'Chromium Shared (Fallback)' },
+    { value: 'native-shared', label: 'Native Shared (recommended)' },
+    { value: 'chromium', label: 'Chromium Shared (fallback)' },
   ] as const;
 
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
@@ -57,7 +57,7 @@ export class SettingsComponent implements OnInit {
     {
       id: 'dark',
       label: 'Dark',
-      description: 'A calm charcoal look for focused listening',
+      description: 'Easier on the eyes in dim rooms',
       canvas: '#121417',
       sidebar: '#0b0d0f',
       surface: '#1a1d22',
@@ -67,7 +67,7 @@ export class SettingsComponent implements OnInit {
     {
       id: 'light',
       label: 'Light',
-      description: 'A soft, bright look for your collection',
+      description: 'Easier to read in bright rooms',
       canvas: '#f8fafc',
       sidebar: '#f1f5f9',
       surface: '#ffffff',
@@ -119,7 +119,7 @@ export class SettingsComponent implements OnInit {
         }
       }
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to load settings');
+      this.errorMessage.set(err?.message || 'Couldn’t load your settings. Restart Lutstra to try again.');
     }
   }
 
@@ -130,7 +130,7 @@ export class SettingsComponent implements OnInit {
       const lib = await this.libraryGateway.getLibrary();
       this.folders.set(lib.folders);
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to load library folders');
+      this.errorMessage.set(err?.message || 'Couldn’t load your library folders.');
     } finally {
       this.isLoading.set(false);
     }
@@ -144,7 +144,7 @@ export class SettingsComponent implements OnInit {
         await this.loadFolders();
       }
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to select or add folder');
+      this.errorMessage.set(err?.message || 'Couldn’t add that folder. Check that it still exists and try again.');
     }
   }
 
@@ -158,7 +158,7 @@ export class SettingsComponent implements OnInit {
       this.pendingRemoveFolder.set(null);
       await this.loadFolders();
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to remove folder');
+      this.errorMessage.set(err?.message || 'Couldn’t remove the folder. Try again.');
     } finally {
       this.removingFolder.set(false);
     }
@@ -168,7 +168,7 @@ export class SettingsComponent implements OnInit {
     try {
       await this.libraryGateway.requestScan();
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to request scan');
+      this.errorMessage.set(err?.message || 'Couldn’t start the rescan. Try again.');
     }
   }
 
@@ -177,7 +177,7 @@ export class SettingsComponent implements OnInit {
     try {
       await this.settingsGateway.saveSettings({ defaultVolume: val });
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to save volume preference');
+      this.errorMessage.set(err?.message || 'Couldn’t save the volume.');
     }
   }
 
@@ -186,7 +186,7 @@ export class SettingsComponent implements OnInit {
     try {
       await this.settingsGateway.saveSettings({ repeatMode: mode });
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to save repeat preference');
+      this.errorMessage.set(err?.message || 'Couldn’t save the repeat setting.');
     }
   }
 

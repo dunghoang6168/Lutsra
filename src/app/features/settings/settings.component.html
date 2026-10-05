@@ -2,9 +2,6 @@
     <div class="settings-page">
       <header class="settings-header">
         <h1>Settings</h1>
-        <p class="subtitle">
-          Configure appearance, library folders, playback preferences, and Songs columns
-        </p>
       </header>
 
       @if (errorMessage()) {
@@ -13,7 +10,7 @@
             <app-icon name="alert-triangle" [size]="18" />
           </div>
           <div class="notice-content">
-            <h3>Settings Error</h3>
+            <h3>Something went wrong</h3>
             <p>{{ errorMessage() }}</p>
           </div>
           <button type="button" class="btn-dismiss-err" (click)="errorMessage.set(null)" aria-label="Dismiss error">
@@ -22,35 +19,27 @@
         </div>
       }
 
-      <!-- Runtime / Persistence Notice -->
-      <div class="integration-notice-card">
-        <div class="notice-icon">
-          <app-icon [name]="isDesktop ? 'sparkles' : 'info'" [size]="18" />
-        </div>
-        <div class="notice-content">
-          @if (isDesktop) {
-            <h3>Electron Desktop Environment</h3>
+      @if (!isDesktop) {
+        <div class="integration-notice-card">
+          <div class="notice-icon">
+            <app-icon name="info" [size]="18" />
+          </div>
+          <div class="notice-content">
+            <h3>Browser preview</h3>
             <p>
-              Music folders, library metadata, playlists and playback settings are persisted locally with SQLite.
-              Audio playback and folder scanning use the desktop integration completed in <strong>Phase 2</strong>.
+              Layout and visualization choices are saved in this browser. Folders, playlists and other settings reset
+              when you reload. Adding folders needs the desktop app.
             </p>
-          } @else {
-            <h3>Mock Environment (Browser Mode)</h3>
-            <p>
-              Layout and audio visualization preferences are saved in this browser. Other settings, folder modifications and playlists are
-              preserved in-memory across route navigation and reset on reload; native filesystem access is only available in Electron.
-            </p>
-          }
+          </div>
         </div>
-      </div>
+      }
 
       <div class="settings-sections">
         <!-- Section 0: Appearance & Theme -->
         <section class="settings-card card-base appearance-card">
           <div class="card-header appearance-header">
             <div>
-              <h2>Appearance & Theme</h2>
-              <span class="card-desc">Choose a light or dark look and your favorite accent color</span>
+              <h2>Appearance</h2>
             </div>
             <!-- Theme Save State Feedback -->
             <div class="theme-status-indicator" [attr.aria-live]="'polite'">
@@ -71,7 +60,7 @@
           @if (themeService.saveState() === 'error') {
             <div class="theme-error-banner" role="alert">
               <app-icon name="alert-triangle" [size]="16" />
-              <span>{{ themeService.errorMessage() || 'Failed to persist theme settings.' }}</span>
+              <span>{{ themeService.errorMessage() || 'Couldn’t save your theme. Choose it again to retry.' }}</span>
             </div>
           }
 
@@ -132,11 +121,11 @@
                 <span class="group-icon accent-icon" aria-hidden="true">
                   <app-icon name="sparkles" [size]="15" />
                 </span>
-                <span class="group-title">Accent Color</span>
-                <span class="group-desc-inline">Active items, sliders, buttons, and focus rings</span>
+                <span class="group-title">Accent color</span>
+                <span class="group-desc-inline">Marks Hi-Res files, active items, progress and focus</span>
               </div>
 
-              <div class="accent-palette-row" role="radiogroup" aria-label="Accent Color">
+              <div class="accent-palette-row" role="radiogroup" aria-label="Accent color">
                 @for (color of accentColors; track color.id) {
                   <button
                     type="button"
@@ -166,8 +155,8 @@
         <!-- Section 1: Music Folders & Library Management -->
         <section class="settings-card card-base">
           <div class="card-header">
-            <h2>Music Library Folders</h2>
-            <span class="card-desc">Directories scanned for audio files and metadata</span>
+            <h2>Library folders</h2>
+            <span class="card-desc">Lutstra reads music and tags from these folders.</span>
             <a routerLink="/folders" class="browse-folders-link">Browse folders<app-icon name="chevron-right" [size]="14" /></a>
           </div>
 
@@ -183,7 +172,7 @@
                   class="btn-remove-folder"
                   (click)="errorMessage.set(null); pendingRemoveFolder.set(folder)"
                   [disabled]="removingFolder()"
-                  title="Remove folder from library">
+                  [attr.aria-label]="'Remove ' + folder.name + ' from library'">
                   Remove
                 </button>
               </div>
@@ -192,10 +181,11 @@
 
           <div class="folder-actions">
             <button type="button" class="btn btn-primary" (click)="onAddFolder()">
-              + Add Music Folder
+              <app-icon name="plus" [size]="16" />
+              Add folder
             </button>
             <button type="button" class="btn btn-secondary" (click)="onRescanLibrary()">
-              Rescan All Folders
+              Rescan library
             </button>
           </div>
         </section>
@@ -203,16 +193,15 @@
         <!-- Section 2: Audio Playback Preferences -->
         <section class="settings-card card-base">
           <div class="card-header">
-            <h2>Playback Preferences</h2>
-            <span class="card-desc">Default behavior for audio controls</span>
+            <h2>Playback</h2>
           </div>
 
           <div class="pref-rows">
             <!-- Default Volume -->
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Default Volume</span>
-                <span class="pref-desc">Audio volume when starting the player</span>
+                <span class="pref-title">Default volume</span>
+                <span class="pref-desc">Volume when Lutstra starts</span>
               </div>
               <div class="pref-control">
                 <app-range-slider
@@ -221,7 +210,7 @@
                   [max]="1"
                   [step]="0.05"
                   [value]="player.volume()"
-                  ariaLabel="Default Volume"
+                  ariaLabel="Default volume"
                   [ariaValueText]="((player.volume() * 100) | number:'1.0-0') + ' percent'"
                   (valueChange)="onVolumeChange($event)" />
                 <span class="pref-val">{{ (player.volume() * 100) | number:'1.0-0' }}%</span>
@@ -231,11 +220,10 @@
             <!-- Repeat Mode Default -->
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Repeat Mode</span>
-                <span class="pref-desc">Queue looping behavior upon track completion</span>
+                <span class="pref-title">Repeat</span>
               </div>
               <div class="pref-control">
-                <app-searchable-filter-select class="repeat-mode-select" label="Repeat Mode" [options]="repeatOptions" [allLabel]="null"
+                <app-searchable-filter-select class="repeat-mode-select" label="Repeat" [options]="repeatOptions" [allLabel]="null"
                   [value]="player.repeatMode()" (valueChange)="onRepeatChange($event)" />
               </div>
             </div>
@@ -243,17 +231,18 @@
             <!-- Shuffle Default -->
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Shuffle Mode</span>
-                <span class="pref-desc">Randomize track playback order</span>
+                <span class="pref-title">Shuffle</span>
+                <span class="pref-desc">Play the queue in random order</span>
               </div>
               <div class="pref-control">
                 <button
                   type="button"
                   class="btn-toggle"
                   [class.active]="player.isShuffle()"
+                  aria-label="Shuffle"
                   [attr.aria-pressed]="player.isShuffle()"
                   (click)="player.toggleShuffle()">
-                  {{ player.isShuffle() ? 'Shuffle ON' : 'Shuffle OFF' }}
+                  {{ player.isShuffle() ? 'On' : 'Off' }}
                 </button>
               </div>
             </div>
@@ -263,21 +252,22 @@
                   <span class="pref-title">Crossfade</span>
                   <span class="beta-tag">Beta</span>
                 </div>
-                <span class="pref-desc">Blend songs when playback advances automatically</span>
+                <span class="pref-desc">Overlap tracks when one ends on its own. Skipping doesn’t crossfade.</span>
               </div>
               <div class="pref-control">
                 <button type="button" class="btn-toggle" [class.active]="player.crossfadeEnabled()"
                   (click)="player.setCrossfadeEnabled(!player.crossfadeEnabled())"
+                  aria-label="Crossfade"
                   [attr.aria-pressed]="player.crossfadeEnabled()">
-                  {{ player.crossfadeEnabled() ? 'Crossfade ON' : 'Crossfade OFF' }}
+                  {{ player.crossfadeEnabled() ? 'On' : 'Off' }}
                 </button>
               </div>
             </div>
             @if (player.crossfadeEnabled()) {
               <div class="pref-row crossfade-duration-row">
                 <div class="pref-label">
-                  <label class="pref-title" for="crossfade-duration">Crossfade Duration</label>
-                  <span class="pref-desc">How long the two songs overlap</span>
+                  <label class="pref-title" for="crossfade-duration">Crossfade length</label>
+                  <span class="pref-desc">How long tracks overlap</span>
                 </div>
                 <div class="pref-control">
                   <app-range-slider
@@ -298,57 +288,58 @@
 
         <section class="settings-card card-base audio-output-card">
           <div class="card-header">
-            <h2>Audio Output</h2>
-            <span class="card-desc">Choose where Shared Mode playback is sent</span>
+            <h2>Audio output</h2>
+            <span class="card-desc">Choose the engine and device Lutstra plays through.</span>
           </div>
           <div class="pref-rows">
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Playback Engine</span>
-                <span class="pref-desc">Native Shared is the Windows default; Chromium Shared stays as a fallback. Switching always pauses playback</span>
+                <span class="pref-title">Playback engine</span>
+                <span class="pref-desc">Use Native Shared unless it has problems on your system. Switching pauses playback.</span>
               </div>
               <div class="pref-control output-device-control">
-                <app-searchable-filter-select label="Playback Engine" [options]="audioEngineOptions" [allLabel]="null"
+                <app-searchable-filter-select label="Playback engine" [options]="audioEngineOptions" [allLabel]="null"
                   [value]="player.audioEngineBackend()" (valueChange)="onAudioBackendChange($event)" />
               </div>
             </div>
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Preferred Device</span>
-                <span class="pref-desc">Saved separately for Chromium and WASAPI endpoint IDs</span>
+                <span class="pref-title">Output device</span>
+                <span class="pref-desc">Each engine remembers its own device.</span>
               </div>
               <div class="pref-control output-device-control">
-                <app-searchable-filter-select label="Audio Output" [options]="audioOutputOptions()" [allLabel]="null"
+                <app-searchable-filter-select label="Output device" [options]="audioOutputOptions()" [allLabel]="null"
                   [value]="player.preferredAudioOutputId()" (valueChange)="onAudioOutputChange($event)" />
               </div>
             </div>
             <div class="pref-row">
               <div class="pref-label">
-                <span class="pref-title">Fallback to System Default</span>
-                <span class="pref-desc">Switch safely when the preferred DAC disconnects; playback remains paused</span>
+                <span class="pref-title">Fall back to Windows default</span>
+                <span class="pref-desc">If your output device disconnects, switch to the Windows default. Playback stays paused.</span>
               </div>
               <div class="pref-control">
                 <button type="button" class="btn-toggle" [class.active]="player.audioOutputFallbackEnabled()"
+                  aria-label="Fall back to Windows default"
                   [attr.aria-pressed]="player.audioOutputFallbackEnabled()"
                   (click)="player.setAudioOutputFallbackEnabled(!player.audioOutputFallbackEnabled())">
-                  {{ player.audioOutputFallbackEnabled() ? 'Fallback ON' : 'Fallback OFF' }}
+                  {{ player.audioOutputFallbackEnabled() ? 'On' : 'Off' }}
                 </button>
               </div>
             </div>
           </div>
           @if (player.audioPathStatus(); as path) {
             <div class="audio-path-status" [class.disconnected]="!path.isConnected">
-              <div><span>Preferred</span><strong>{{ player.preferredAudioOutputName() }}</strong></div>
-              <div><span>Active</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
-              <div><span>Mode</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared' : 'WASAPI Shared (Chromium)' }}</strong></div>
-              <div><span>Host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
+              <div><span>Chosen device</span><strong>{{ player.preferredAudioOutputName() }}</strong></div>
+              <div><span>Playing on</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
+              <div><span>Engine</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared' : 'Chromium Shared' }}</strong></div>
+              <div><span>Audio host</span><strong>{{ path.backend === 'native-shared' ? path.hostState : 'Not used' }}</strong></div>
               <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
-              <div><span>Source</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
-              <div><span>{{ path.backend === 'native-shared' ? 'Engine mix' : 'Output format' }}</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit{{ path.outputSampleType === 'float' ? ' float' : '' }} / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Unavailable until Native Audio Host }</strong></div>
+              <div><span>Source file</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
+              <div><span>{{ path.backend === 'native-shared' ? 'Engine mix' : 'Output format' }}</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit{{ path.outputSampleType === 'float' ? ' float' : '' }} / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Shown with Native Shared only }</strong></div>
               @if (path.deviceFormat) {
                 <div><span>Device format</span><strong>{{ path.deviceFormat.sampleRate || 'Unknown' }} Hz / {{ path.deviceFormat.bitDepth || 'Unknown' }}-bit / {{ path.deviceFormat.channels || 'Unknown' }} ch</strong></div>
               }
-              <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Shared Mode (Processed)' }}</strong></div>
+              <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Windows shared mixer' }}</strong></div>
               <div><span>Conversion</span><strong>{{ path.resamplingActive ? 'Resampling' : 'No resampling' }} / {{ path.channelConversionActive ? 'Channel conversion' : 'No channel conversion' }}</strong></div>
             </div>
           }
@@ -362,35 +353,15 @@
         <!-- Section 3: About -->
         <section class="settings-card card-base">
           <div class="card-header">
-            <h2>About Lutsra</h2>
-            <span class="card-desc">Your music library, all in one place</span>
+            <h2>About Lutstra</h2>
           </div>
 
-          <p class="about-description">
-            Lutsra helps you enjoy the music stored on your computer. Add your music folders,
-            explore your collection, and keep your favorite tracks close at hand.
-          </p>
+          <p class="about-description">A local-first player for lossless and hi-res libraries.</p>
 
           <div class="about-grid">
             <div class="about-item">
-              <span class="about-label">Your library</span>
-              <span class="about-value">Browse songs, albums, artists, and folders</span>
-            </div>
-            <div class="about-item">
-              <span class="about-label">Playlists</span>
-              <span class="about-value">Collect and organize the tracks you love</span>
-            </div>
-            <div class="about-item">
-              <span class="about-label">Playback</span>
-              <span class="about-value">Control your queue, shuffle, and repeat</span>
-            </div>
-            <div class="about-item">
-              <span class="about-label">Native Audio</span>
-              <span class="about-value">Dynamically links an LGPL-shared FFmpeg build; notices and corresponding source ship with the app</span>
-            </div>
-            <div class="about-item">
-              <span class="about-label">Make it yours</span>
-              <span class="about-value">Choose a theme and accent color</span>
+              <span class="about-label">Third-party audio</span>
+              <span class="about-value">Dynamically links an LGPL-licensed FFmpeg build. Notices and corresponding source ship with the app.</span>
             </div>
           </div>
         </section>
