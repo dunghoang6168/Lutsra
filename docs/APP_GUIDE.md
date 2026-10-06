@@ -75,6 +75,7 @@ Responsive tính theo **container** `.main-content` (`@container main-content`, 
   - `nextQueueEntries`: lấy các bài cho Up next.
 - **`player-bar`:** gồm cả ba dạng player. Up next trong rail Gallery chỉ vẽ những dòng vừa khít, và ẩn khi cửa sổ nhỏ hơn 1101×701.
 - **`track-details-panel`:** inspector của Console. Hiển thị khối chất lượng file trước, rồi mới đến tag.
+- **Xóa có hoàn tác:** xóa playlist không còn hộp xác nhận. Playlist ẩn ngay, toast "Deleted … · Undo" hiện 6 giây. Gateway chỉ xóa thật khi hết giờ, khi xóa playlist khác, hoặc khi rời trang. Xóa queue cũng có Undo (`QueueActionsService.clearWithUndo`).
 - **`spectrum-visualizer`:** khi tạm dừng, vẽ đường phẳng kèm chữ "Paused", và giữ nguyên chiều cao khung.
 
 ## 7. Bảng track và bàn phím

@@ -4,7 +4,7 @@
         <div class="title-group">
           <h1>Playlists</h1>
           <span class="title-separator" aria-hidden="true">-</span>
-          <span class="count-badge">{{ playlists().length }} playlists</span>
+          <span class="count-badge">{{ visiblePlaylists().length }} {{ visiblePlaylists().length === 1 ? 'playlist' : 'playlists' }}</span>
         </div>
 
         <button type="button" class="btn-create" (click)="showCreateModal.set(true)" aria-label="New playlist">
@@ -25,7 +25,7 @@
           <div class="spinner"></div>
           <p>Loading playlists...</p>
         </div>
-      } @else if (playlists().length === 0) {
+      } @else if (visiblePlaylists().length === 0) {
         <div class="state-empty">
           <app-icon name="list-music" [size]="48" class="empty-icon" />
           <p class="empty-title">No playlists yet</p>
@@ -34,8 +34,9 @@
         </div>
       } @else {
         <div class="playlists-grid">
-          @for (playlist of playlists(); track playlist.id) {
+          @for (playlist of visiblePlaylists(); track playlist.id) {
             <app-album-card
+              [attr.data-playlist-id]="playlist.id"
               [item]="playlist"
               [imageUrls]="playlistArtwork(playlist.entries, allTracks())"
               [title]="playlist.name"
@@ -58,7 +59,7 @@
                 <button
                   type="button"
                   class="btn-icon delete"
-                  (click)="onOpenDelete($event, playlist)"
+                  (click)="onDeletePlaylist($event, playlist)"
                   title="Delete playlist"
                   aria-label="Delete playlist">
                   <app-icon name="trash" [size]="14" />
@@ -109,23 +110,10 @@
         </div>
       }
 
-      <!-- Delete Confirmation Modal -->
-      @if (playlistToDelete()) {
-        <div class="modal-backdrop" (click)="playlistToDelete.set(null)">
-          <div class="modal-card danger" (click)="$event.stopPropagation()">
-            <h3>Delete playlist</h3>
-            <p class="modal-desc">
-              Are you sure you want to delete <strong>{{ playlistToDelete()?.name }}</strong>?
-            </p>
-            <div class="safe-note">
-              <app-icon name="check" [size]="16" class="safe-icon" />
-              <span><strong>Safe:</strong> This will delete the playlist. Your music library files will not be touched.</span>
-            </div>
-            <div class="modal-actions">
-              <button type="button" class="btn-cancel" (click)="playlistToDelete.set(null)">Cancel</button>
-              <button type="button" class="btn-danger" (click)="onConfirmDelete()">Delete playlist</button>
-            </div>
-          </div>
+      @if (pendingDelete(); as pending) {
+        <div class="playlist-undo-toast" role="status" aria-live="polite">
+          <span>Deleted “{{ pending.name }}”</span>
+          <button type="button" class="btn-undo" (click)="onUndoDelete()">Undo</button>
         </div>
       }
     </div>
