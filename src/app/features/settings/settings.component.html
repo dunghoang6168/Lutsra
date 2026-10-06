@@ -122,7 +122,7 @@
                   <app-icon name="sparkles" [size]="15" />
                 </span>
                 <span class="group-title">Accent color</span>
-                <span class="group-desc-inline">Marks Hi-Res files, active items, progress and focus</span>
+                <span class="group-desc-inline">Marks Hi-Res files (lossless, 24-bit or above 48 kHz), active items, progress and focus</span>
               </div>
 
               <div class="accent-palette-row" role="radiogroup" aria-label="Accent color">
@@ -295,7 +295,7 @@
             <div class="pref-row">
               <div class="pref-label">
                 <span class="pref-title">Playback engine</span>
-                <span class="pref-desc">Use Native Shared unless it has problems on your system. Switching pauses playback.</span>
+                <span class="pref-desc">Native Shared decodes in Lutstra and reports the exact mix format; Chromium Shared uses the built-in browser audio. Use Native Shared unless it has problems on your system. Switching pauses playback.</span>
               </div>
               <div class="pref-control output-device-control">
                 <app-searchable-filter-select label="Playback engine" [options]="audioEngineOptions" [allLabel]="null"
@@ -342,6 +342,7 @@
               <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Windows shared mixer' }}</strong></div>
               <div><span>Conversion</span><strong>{{ path.resamplingActive ? 'Resampling' : 'No resampling' }} / {{ path.channelConversionActive ? 'Channel conversion' : 'No channel conversion' }}</strong></div>
             </div>
+            <p class="audio-path-note">Both engines play through the Windows shared mixer. Windows mixes every app's sound at the device format, so a file at a different sample rate is resampled before it reaches your device.</p>
           }
           @if (player.playbackNotice()) {
             <p class="audio-output-notice" role="status">{{ player.playbackNotice() }}</p>

@@ -136,6 +136,7 @@
     .audio-path-status div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .audio-path-status span { color: var(--text-muted); font-size: var(--font-size-xs); font-variant-caps: var(--type-label-variant); letter-spacing: var(--type-label-tracking); }
     .audio-path-status strong { color: var(--text-primary); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+    .audio-path-note { margin-top: var(--space-3); color: var(--text-muted); font-size: var(--font-size-xs); }
     .audio-output-notice { margin-top: var(--space-3); color: var(--status-warning-text); font-size: var(--font-size-sm); }
 
     @media (max-width: 650px) {

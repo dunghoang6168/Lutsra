@@ -4,6 +4,13 @@ import { formatKhz, formatTrackFormat } from '../../../features/home/library-qua
 
 type PathState = 'bit-perfect' | 'converted' | 'shared' | 'disconnected';
 
+const STATE_HELP: Record<PathState, string> = {
+  'bit-perfect': 'Bit-perfect: samples reach the device unchanged.',
+  converted: 'Converted: the sample rate or channel layout is changed before output.',
+  shared: 'Shared mixer: Windows mixes all app sound at the device format.',
+  disconnected: 'The output device is disconnected.',
+};
+
 /** Source format plus what the output path does to it, stated only as far as the engine reports. */
 @Component({
   selector: 'app-signal-path',
@@ -81,6 +88,6 @@ export class SignalPathComponent {
     const source = this.source()?.label ?? '';
     if (!path) return `Source ${source}`;
     const reasons = path.processingReasons.join(', ');
-    return `Source ${source} · ${path.deviceName}${reasons ? ` · ${reasons}` : ''}`;
+    return `Source ${source} · ${path.deviceName}${reasons ? ` · ${reasons}` : ''}\n${STATE_HELP[this.state()]}`;
   });
 }
