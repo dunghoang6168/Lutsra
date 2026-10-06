@@ -132,9 +132,7 @@
 
                       <td class="col-spec">
                         <span class="spec-tag">{{ track.codec }}</span>
-                        @if (track.sampleRate) {
-                          <span class="spec-detail">{{ track.sampleRate / 1000 }} kHz</span>
-                        }
+                        <span class="spec-detail" [class.hires]="trackQuality(track) === 'hires'">{{ formatResolution(track) }}</span>
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
                         <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"

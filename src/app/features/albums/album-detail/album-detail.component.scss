@@ -264,6 +264,9 @@
       margin-left: var(--space-1);
     }
 
+    .spec-tag, .spec-detail { font-variant-numeric: tabular-nums; }
+    .spec-detail.hires { color: var(--text-accent); }
+
     .spinner {
       width: 32px;
       height: 32px;

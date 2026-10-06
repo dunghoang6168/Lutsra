@@ -28,6 +28,10 @@ export class ArtistDetailComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly artistMetadata = inject(ARTIST_METADATA_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private currentId: string | null | undefined;
+  private loadToken = 0;
+  private routeVersion = 0;
   readonly player = inject(PlayerService);
   private readonly selection = inject(TrackSelectionService);
   private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
@@ -100,78 +104,95 @@ export class ArtistDetailComponent implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
-    const artistId = this.route.snapshot.paramMap.get('id');
-    if (!artistId) {
-      this.isLoading.set(false);
-      return;
-    }
+  ngOnInit(): void {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params.get('id');
+      if (id === this.currentId) return;
+      this.currentId = id;
+      ++this.routeVersion;
+      this.activeId.set(null);
+      this.selection.selected.set(null);
+      this.artist.set(null);
+      this.artistAlbums.set([]);
+      this.artistTracks.set([]);
+      this.allTracks.set([]);
+      this.metadataStatus.set('idle');
+      this.metadataError.set(null);
+      this.biographyExpanded.set(false);
+      this.failedAvatars.set(new Set());
+      this.aboutImageFailed.set(false);
+      this.showMetadataEditor.set(false);
+      this.candidateQuery.set('');
+      this.candidates.set([]);
+      this.selectedCandidateId.set(null);
+      this.wikipediaOverride.set('');
+      this.editorLoading.set(false);
+      this.editorError.set(null);
+      this.isLoading.set(Boolean(id));
+      const viewport = this.host.nativeElement.closest<HTMLElement>('.main-content');
+      if (viewport) { viewport.scrollTop = 0; viewport.scrollLeft = 0; }
+      void this.loadArtist(true);
+    });
 
     let wasScanning = false;
     this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
       const justFinished = wasScanning && !progress.isScanning;
       wasScanning = progress.isScanning;
-      if (justFinished) void this.refreshLibraryArtwork(artistId);
+      if (justFinished) void this.loadArtist();
     });
-    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.refreshLibraryArtwork(artistId));
+    this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadArtist());
 
     this.artistMetadata.updates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((update) => {
-      if (update.artistId !== artistId) return;
+      if (update.artistId !== this.currentId || this.artist()?.id !== update.artistId) return;
       this.artist.update((artist) => artist ? { ...artist, onlineMetadata: update.metadata, customAvatar: update.customAvatar === undefined ? artist.customAvatar : update.customAvatar } : artist);
       this.metadataStatus.set(update.status);
       this.metadataError.set(update.error ?? null);
     });
+  }
 
+  private async loadArtist(ensureMetadata = false): Promise<void> {
+    const artistId = this.currentId;
+    const token = ++this.loadToken;
+    const routeVersion = this.routeVersion;
+    if (!artistId) { this.isLoading.set(false); return; }
     try {
-      const lib = await this.libraryGateway.getLibrary();
-      this.allTracks.set(lib.tracks);
-      const foundArtist = lib.artists.find((a) => a.id === artistId) || null;
-      this.artist.set(foundArtist);
-
-      if (foundArtist) {
-        this.metadataStatus.set(foundArtist.onlineMetadata ? 'available' : 'loading');
-        // Albums by this artist
-        const albums = lib.albums.filter((a) => foundArtist.albumIds.includes(a.id));
-        this.artistAlbums.set(albums);
-
-        // Tracks by this artist, in album playback order.
-        this.artistTracks.set(orderArtistTracks(foundArtist, albums, lib.tracks));
-        void this.artistMetadata.ensureArtist(foundArtist.id).catch((error: unknown) => {
+      const library = await this.libraryGateway.getLibrary();
+      if (token !== this.loadToken || this.destroyRef.destroyed) return;
+      const artist = library.artists.find((item) => item.id === artistId) ?? null;
+      const albums = artist ? library.albums.filter((album) => artist.albumIds.includes(album.id)) : [];
+      this.allTracks.set(library.tracks);
+      this.artist.set(artist);
+      this.artistAlbums.set(albums);
+      this.artistTracks.set(artist ? orderArtistTracks(artist, albums, library.tracks) : []);
+      if (artist && ensureMetadata) {
+        this.metadataStatus.set(artist.onlineMetadata ? 'available' : 'loading');
+        void this.artistMetadata.ensureArtist(artist.id).catch((error: unknown) => {
+          if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
           this.metadataStatus.set('error');
           this.metadataError.set(errorMessage(error));
         });
       }
+    } catch (error) {
+      if (token === this.loadToken && !this.destroyRef.destroyed) console.error('Could not load artist', error);
     } finally {
-      this.isLoading.set(false);
+      if (token === this.loadToken && !this.destroyRef.destroyed) this.isLoading.set(false);
     }
-  }
-
-  private async refreshLibraryArtwork(artistId: string): Promise<void> {
-    const library = await this.libraryGateway.getLibrary();
-    const artist = library.artists.find((item) => item.id === artistId);
-    this.allTracks.set(library.tracks);
-    this.artist.set(artist ?? null);
-    if (!artist) {
-      this.artistAlbums.set([]);
-      this.artistTracks.set([]);
-      return;
-    }
-    const albums = library.albums.filter((album) => artist.albumIds.includes(album.id));
-    this.artistAlbums.set(albums);
-    this.artistTracks.set(orderArtistTracks(artist, albums, library.tracks));
   }
 
   async retryMetadata(): Promise<void> {
     const artist = this.artist();
     if (!artist) return;
+    const routeVersion = this.routeVersion;
     this.metadataStatus.set('loading');
     this.metadataError.set(null);
     try {
       const metadata = await this.artistMetadata.refreshArtist(artist.id);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       this.artist.update((value) => value ? { ...value, onlineMetadata: metadata } : value);
       if (metadata) this.metadataStatus.set('available');
       else if (this.metadataStatus() === 'loading') this.metadataStatus.set('not-found');
     } catch (error) {
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       this.metadataStatus.set('error');
       this.metadataError.set(errorMessage(error));
     }
@@ -184,7 +205,12 @@ export class ArtistDetailComponent implements OnInit {
     this.candidateQuery.set(artist.name);
     this.selectedCandidateId.set(artist.onlineMetadata?.musicBrainzId ?? null);
     this.wikipediaOverride.set('');
-    setTimeout(() => document.querySelector<HTMLElement>('.metadata-modal-card input')?.focus());
+    const routeVersion = this.routeVersion;
+    setTimeout(() => {
+      if (routeVersion === this.routeVersion && !this.destroyRef.destroyed && this.showMetadataEditor()) {
+        this.host.nativeElement.querySelector<HTMLElement>('.metadata-modal-card input')?.focus();
+      }
+    });
     await this.searchMetadataCandidates();
   }
 
@@ -196,48 +222,69 @@ export class ArtistDetailComponent implements OnInit {
   async chooseCustomAvatar(): Promise<void> {
     const artist = this.artist();
     if (!artist) return;
+    const routeVersion = this.routeVersion;
     this.editorError.set(null);
     try {
       const avatar = await this.artistMetadata.selectCustomAvatar(artist.id);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       if (avatar) this.artist.update((value) => value ? { ...value, customAvatar: avatar } : value);
-    } catch (error) { this.editorError.set(errorMessage(error)); }
+    } catch (error) {
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.editorError.set(errorMessage(error));
+    }
   }
 
   async removeCustomAvatar(): Promise<void> {
     const artist = this.artist();
     if (!artist) return;
+    const routeVersion = this.routeVersion;
     this.editorError.set(null);
     try {
       await this.artistMetadata.clearCustomAvatar(artist.id);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       this.artist.update((value) => value ? { ...value, customAvatar: null } : value);
-    } catch (error) { this.editorError.set(errorMessage(error)); }
+    } catch (error) {
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.editorError.set(errorMessage(error));
+    }
   }
 
   async searchMetadataCandidates(): Promise<void> {
     const query = this.candidateQuery().trim();
     if (!query) return;
+    const routeVersion = this.routeVersion;
     this.editorLoading.set(true);
     this.editorError.set(null);
-    try { this.candidates.set(await this.artistMetadata.searchCandidates(query)); }
-    catch (error) { this.editorError.set(errorMessage(error)); }
-    finally { this.editorLoading.set(false); }
+    try {
+      const candidates = await this.artistMetadata.searchCandidates(query);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.candidates.set(candidates);
+    } catch (error) {
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.editorError.set(errorMessage(error));
+    } finally { if (routeVersion === this.routeVersion && !this.destroyRef.destroyed) this.editorLoading.set(false); }
   }
 
   async saveMetadataMatch(): Promise<void> {
     const artist = this.artist();
     const mbid = this.selectedCandidateId();
+    const wikipedia = this.wikipediaOverride().trim();
     if (!artist || !mbid) { this.editorError.set('Select a MusicBrainz artist.'); return; }
+    const routeVersion = this.routeVersion;
     this.editorLoading.set(true);
     this.editorError.set(null);
     try {
       let metadata = await this.artistMetadata.setArtistMatch(artist.id, mbid);
-      const wikipedia = this.wikipediaOverride().trim();
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       if (wikipedia) metadata = await this.artistMetadata.setWikipediaOverride(artist.id, wikipedia);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
       this.artist.update((value) => value ? { ...value, onlineMetadata: metadata } : value);
       this.metadataStatus.set(metadata ? 'available' : 'matched-empty');
       this.closeMetadataEditor();
-    } catch (error) { this.editorError.set(errorMessage(error)); }
-    finally { this.editorLoading.set(false); }
+    } catch (error) {
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.editorError.set(errorMessage(error));
+    } finally { if (routeVersion === this.routeVersion && !this.destroyRef.destroyed) this.editorLoading.set(false); }
   }
 
   onEditorKeydown(event: KeyboardEvent): void {

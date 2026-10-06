@@ -31,6 +31,10 @@ export class PlaylistDetailComponent implements OnInit {
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private currentId: string | null | undefined;
+  private loadToken = 0;
+  private routeVersion = 0;
   readonly player = inject(PlayerService);
   private readonly injector = inject(Injector);
   private movePending = false;
@@ -79,7 +83,23 @@ export class PlaylistDetailComponent implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params.get('id');
+      if (id === this.currentId) return;
+      this.currentId = id;
+      ++this.routeVersion;
+      this.activeId.set(null);
+      this.selection.selected.set(null);
+      this.playlist.set(null);
+      this.allLibraryTracks.set([]);
+      this.entryTracks.set(new Map());
+      this.showAddTracksModal.set(false);
+      this.isLoading.set(Boolean(id));
+      const viewport = this.host.nativeElement.closest<HTMLElement>('.main-content');
+      if (viewport) { viewport.scrollTop = 0; viewport.scrollLeft = 0; }
+      void this.loadPlaylist();
+    });
     let wasScanning = false;
     this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
       const justFinished = wasScanning && !progress.isScanning;
@@ -87,33 +107,36 @@ export class PlaylistDetailComponent implements OnInit {
       if (justFinished) void this.loadPlaylist();
     });
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadPlaylist());
-    await this.loadPlaylist();
   }
 
   async loadPlaylist(): Promise<void> {
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = this.currentId;
+    const token = ++this.loadToken;
     if (!id) {
       this.isLoading.set(false);
       return;
     }
 
-    this.isLoading.set(true);
     try {
       const [playlists, lib] = await Promise.all([
         this.playlistGateway.getPlaylists(),
         this.libraryGateway.getLibrary(),
       ]);
+      if (token !== this.loadToken || this.destroyRef.destroyed) return;
       const found = playlists.find((p) => p.id === id) || null;
       const libraryTracks = new Map(lib.tracks.map((track) => [track.id, track]));
       const missingIds = [...new Set(found?.entries.map((entry) => entry.trackId) ?? [])]
         .filter((trackId) => !libraryTracks.has(trackId));
       const missingTracks = await Promise.all(missingIds.map((trackId) => this.libraryGateway.getTrackById(trackId)));
+      if (token !== this.loadToken || this.destroyRef.destroyed) return;
       missingTracks.forEach((track) => { if (track) libraryTracks.set(track.id, track); });
       this.playlist.set(found);
       this.allLibraryTracks.set(lib.tracks);
       this.entryTracks.set(libraryTracks);
+    } catch (error) {
+      if (token === this.loadToken && !this.destroyRef.destroyed) console.error('Could not load playlist', error);
     } finally {
-      this.isLoading.set(false);
+      if (token === this.loadToken && !this.destroyRef.destroyed) this.isLoading.set(false);
     }
   }
 
@@ -132,6 +155,7 @@ export class PlaylistDetailComponent implements OnInit {
     const entryIndex = pl.entries.findIndex((entry) => entry.id === row.entry.id);
     if (entryIndex < 0 || !pl.entries[entryIndex + direction]) return;
 
+    const routeVersion = this.routeVersion;
     const button = event?.currentTarget;
     const restoreFocus = button instanceof HTMLElement && document.activeElement === button;
     let focusMoved = false;
@@ -146,13 +170,13 @@ export class PlaylistDetailComponent implements OnInit {
       const entries = [...pl.entries];
       [entries[entryIndex], entries[entryIndex + direction]] = [entries[entryIndex + direction], entries[entryIndex]];
       const updated = await this.playlistGateway.reorderEntries(pl.id, entries.map((entry) => entry.id));
-      if (this.destroyRef.destroyed) return;
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) { cleanup(); unregisterDestroy(); return; }
       this.playlist.set(updated);
       if (restoreFocus) {
         afterNextRender(() => {
           cleanup();
           unregisterDestroy();
-          if (focusMoved || this.showAddTracksModal() || !this.trackRows().some((item) => item.entry.id === row.entry.id)) return;
+          if (routeVersion !== this.routeVersion || this.destroyRef.destroyed || focusMoved || this.showAddTracksModal() || !this.trackRows().some((item) => item.entry.id === row.entry.id)) return;
           this.activeId.set(row.entry.id);
           focusListItem(this.rowsContainer()?.nativeElement, 'data-entry-id', row.entry.id,
             direction < 0 ? '[data-move="up"]' : '[data-move="down"]');
@@ -161,7 +185,7 @@ export class PlaylistDetailComponent implements OnInit {
     } catch (error) {
       cleanup();
       unregisterDestroy();
-      throw error;
+      if (routeVersion === this.routeVersion && !this.destroyRef.destroyed) throw error;
     } finally {
       this.movePending = false;
       if (!restoreFocus || this.destroyRef.destroyed) {
@@ -174,14 +198,18 @@ export class PlaylistDetailComponent implements OnInit {
   async onRemoveEntry(entryId: string): Promise<void> {
     const pl = this.playlist();
     if (!pl) return;
+    const routeVersion = this.routeVersion;
     const updated = await this.playlistGateway.removeEntry(pl.id, entryId);
+    if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
     this.playlist.set(updated);
   }
 
   async onAddSingleTrack(trackId: string): Promise<void> {
     const pl = this.playlist();
     if (!pl) return;
+    const routeVersion = this.routeVersion;
     const updated = await this.playlistGateway.addTracks(pl.id, [trackId]);
+    if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
     this.playlist.set(updated);
   }
 

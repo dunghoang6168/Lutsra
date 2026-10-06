@@ -121,8 +121,8 @@
           <span class="up-next-measure" aria-hidden="true"></span>
           <div class="up-next-list">
             @for (item of visibleUpNext(); track item.entry.id) {
-              <button type="button" class="up-next-track" (click)="player.jumpToQueueIndex(item.index)"
-                [attr.aria-label]="'Play ' + item.entry.track.title + ' next in queue'">
+              <button type="button" class="up-next-track" [class.unavailable]="item.entry.track.isAvailable === false" (click)="player.jumpToQueueIndex(item.index)"
+                [attr.aria-label]="'Play ' + item.entry.track.title + ' next in queue' + (item.entry.track.isAvailable === false ? ', unavailable' : '')">
                 <span class="up-next-cover" aria-hidden="true">
                   @if (item.entry.track.artwork) {
                     <img [src]="item.entry.track.artwork" alt="" />
@@ -131,7 +131,9 @@
                 <span class="up-next-copy">
                   <span class="up-next-title">{{ item.entry.track.title }}</span>
                   <span class="up-next-artist">{{ item.entry.track.artist || 'Unknown Artist' }}</span>
-                  @if (formatTrackFormat(item.entry.track); as format) {
+                  @if (item.entry.track.isAvailable === false) {
+                    <span class="badge-unavailable">Unavailable</span>
+                  } @else if (formatTrackFormat(item.entry.track); as format) {
                     <span class="up-next-format" [class.hires]="format.hires">{{ format.label }}</span>
                   }
                 </span>

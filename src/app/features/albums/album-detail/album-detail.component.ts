@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../../core/models';
+import { formatResolution, trackQuality } from '../../home/library-quality';
 import { PlayerService } from '../../../core/player/player.service';
 import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { TrackSelectionService } from '../../../core/layout/track-selection.service';
@@ -24,9 +25,14 @@ interface DiscGroup {
   styleUrl: './album-detail.component.scss'
 })
 export class AlbumDetailComponent implements OnInit {
+  readonly formatResolution = formatResolution;
+  readonly trackQuality = trackQuality;
   private readonly route = inject(ActivatedRoute);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private currentId: string | null | undefined;
+  private loadToken = 0;
   readonly player = inject(PlayerService);
   private readonly selection = inject(TrackSelectionService);
   private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
@@ -73,7 +79,20 @@ export class AlbumDetailComponent implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params.get('id');
+      if (id === this.currentId) return;
+      this.currentId = id;
+      this.activeId.set(null);
+      this.selection.selected.set(null);
+      this.album.set(null);
+      this.albumTracks.set([]);
+      this.isLoading.set(Boolean(id));
+      const viewport = this.host.nativeElement.closest<HTMLElement>('.main-content');
+      if (viewport) { viewport.scrollTop = 0; viewport.scrollLeft = 0; }
+      void this.loadAlbum();
+    });
     let wasScanning = false;
     this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
       const justFinished = wasScanning && !progress.isScanning;
@@ -81,11 +100,11 @@ export class AlbumDetailComponent implements OnInit {
       if (justFinished) void this.loadAlbum();
     });
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadAlbum());
-    await this.loadAlbum();
   }
 
   private async loadAlbum(): Promise<void> {
-    const albumId = this.route.snapshot.paramMap.get('id');
+    const albumId = this.currentId;
+    const token = ++this.loadToken;
     if (!albumId) {
       this.isLoading.set(false);
       return;
@@ -93,6 +112,7 @@ export class AlbumDetailComponent implements OnInit {
 
     try {
       const lib = await this.libraryGateway.getLibrary();
+      if (token !== this.loadToken || this.destroyRef.destroyed) return;
       const foundAlbum = lib.albums.find((a) => a.id === albumId) || null;
       this.album.set(foundAlbum);
       if (!foundAlbum) this.albumTracks.set([]);
@@ -109,8 +129,10 @@ export class AlbumDetailComponent implements OnInit {
 
         this.albumTracks.set(tracks);
       }
+    } catch (error) {
+      if (token === this.loadToken && !this.destroyRef.destroyed) console.error('Could not load album', error);
     } finally {
-      this.isLoading.set(false);
+      if (token === this.loadToken && !this.destroyRef.destroyed) this.isLoading.set(false);
     }
   }
 

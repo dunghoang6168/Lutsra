@@ -299,6 +299,17 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   border-radius: var(--radius-sm);
   color: var(--text-primary);
 }
+.up-next-track.unavailable { opacity: 0.45; }
+.up-next-copy > .badge-unavailable {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  font-variant-caps: var(--type-label-variant);
+  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+  color: var(--status-warning-text);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+}
 .up-next-track:hover { background: var(--bg-surface-hover); }
 .up-next-track:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
 .up-next-cover { display: flex; align-items: center; justify-content: center; inline-size: var(--space-10); aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-muted); }
