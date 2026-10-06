@@ -9,7 +9,6 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
 const PADDING = 12;
 const BAR_WIDTH = 4;
 const BAR_GAP = 2;
-const SEEK_INTERVAL_MS = 100;
 const MAX_INTERPOLATION_SECONDS = 1.25;
 
 @Component({
@@ -49,7 +48,6 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
   private loadedKey: string | null = null;
   private activePointerId: number | null = null;
   private previewTime: number | null = null;
-  private lastSeekAt = Number.NEGATIVE_INFINITY;
   private anchorTime = 0;
   private anchorClock = 0;
   private frameId: number | null = null;
@@ -111,7 +109,7 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
     this.stopAnimation();
     const target = event.currentTarget as HTMLElement;
     try { target.setPointerCapture(event.pointerId); } catch { /* Synthetic pointers may not own capture. */ }
-    this.previewFromPointer(event, target, true);
+    this.previewFromPointer(event, target, false);
     event.preventDefault();
   }
 
@@ -127,8 +125,9 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
 
   onPointerCancel(event: PointerEvent): void {
     if (this.activePointerId !== event.pointerId) return;
-    if (this.previewTime !== null) this.player.seek(this.previewTime);
+    this.previewTime = null; // Cancel aborts the gesture without seeking.
     this.finishScrub(event);
+    this.updateProgress(this.player.currentTime());
   }
 
   onKeyDown(event: KeyboardEvent): void {
@@ -319,7 +318,9 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
     this.cursor.nativeElement.style.transform = `translate3d(${progress * this.plotWidth}px, 0, 0)`;
   }
 
-  private previewFromPointer(event: PointerEvent, target: HTMLElement, forceSeek: boolean): void {
+  // Dragging only previews; release commits one seek. Seeking on pointerdown and
+  // again on pointerup replays the audio heard while the button was held.
+  private previewFromPointer(event: PointerEvent, target: HTMLElement, commit: boolean): void {
     const rect = target.getBoundingClientRect();
     if (rect.width <= 0) return;
     const padding = this.state() === 'ready' || this.state() === 'partial' ? PADDING : 0;
@@ -328,11 +329,7 @@ export class WaveformSeekComponent implements AfterViewInit, OnDestroy {
     const time = progress * this.player.duration();
     this.previewTime = time;
     this.updateProgress(time);
-    const now = performance.now();
-    if (forceSeek || now - this.lastSeekAt >= SEEK_INTERVAL_MS) {
-      this.player.seek(time);
-      this.lastSeekAt = now;
-    }
+    if (commit) this.player.seek(time);
   }
 
   private finishScrub(event: PointerEvent): void {
