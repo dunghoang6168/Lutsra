@@ -323,7 +323,7 @@
                 @for (mode of outputModes; track mode.value) {
                   <button type="button" class="btn-toggle" [class.active]="player.outputMode() === mode.value"
                     [attr.aria-pressed]="player.outputMode() === mode.value"
-                    [disabled]="!!player.exclusiveModeDisabledReason() || changingOutputMode()"
+                    [disabled]="(mode.value === 'exclusive-dsp' && !!player.exclusiveModeDisabledReason()) || changingOutputMode()"
                     [attr.aria-describedby]="player.exclusiveModeDisabledReason() ? 'output-mode-disabled' : 'output-mode-help'"
                     (click)="onOutputModeChange(mode.value)">{{ mode.label }}</button>
                 }
