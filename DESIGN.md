@@ -1,5 +1,5 @@
 ---
-name: Lutsra
+name: Lutstra
 description: Local-first desktop player for lossless and hi-res libraries, where file truth stays visible in every listening shell.
 colors:
   accent: "#8b5cf6"
@@ -27,11 +27,15 @@ colors:
   cloud-surface-elevated: "#f8fafc"
   cloud-text: "#0f172a"
   cloud-text-secondary: "#475569"
-  cloud-text-muted: "#5d6b7f"
+  cloud-text-muted: "#566376"
   cloud-border: "rgba(15, 23, 42, 0.12)"
   cloud-border-subtle: "rgba(15, 23, 42, 0.06)"
   status-warning: "#f59e0b"
   status-error: "#ef4444"
+  status-warning-text: "#f59e0b"
+  status-warning-text-light: "#92400e"
+  status-error-fill: "#dc2626"
+  status-error-fill-hover: "#b91c1c"
 typography:
   display-gallery:
     fontFamily: "'Manrope Variable', system-ui, 'Segoe UI', sans-serif"
@@ -188,13 +192,13 @@ components:
     typography: "{typography.measure}"
 ---
 
-# Design System: Lutsra
+# Design System: Lutstra
 
 ## Overview
 
 **Creative North Star: "One Library, Three Listening Rooms"**
 
-Lutsra is one palette and one typeface carried by three shells that differ in topology, not in skin. Gallery (layout id `inset`) is the listening room: text tabs in the header, a single inset sheet with wide gutters and 800-weight display type, chrome-free covers, and a 300px now-playing rail. Console (id `classic`) is the archivist's workstation: a library tree with a Quality group, flush panes split by hairlines, 30px rows, a docked inspector and a 52px instrument strip whose signal path is set in mono. Ambient (id `liquid-glass`) lets chrome recede over the playing artwork: an icon rail, floating header clusters, a glass sheet over blurred cover art and one centred pill dock.
+Lutstra is one palette and one typeface carried by three shells that differ in topology, not in skin. Gallery (layout id `inset`) is the listening room: text tabs in the header, a single inset sheet with wide gutters and 800-weight display type, chrome-free covers, and a 300px now-playing rail. Console (id `classic`) is the archivist's workstation: a library tree with a Quality group, flush panes split by hairlines, 30px rows, a docked inspector and a 52px instrument strip whose signal path is set in mono. Ambient (id `liquid-glass`) lets chrome recede over the playing artwork: an icon rail, floating header clusters, a glass sheet over blurred cover art and one centred pill dock.
 
 Colour never changes between shells. Each shell takes the Graphite (dark) or Cloud (light) preset plus the user's accent, and each re-declares only its own layout tokens: shell gap, surface radius, control radius, page padding, display size and weight, label variant, row height, cover size, radius and shadow, and motion duration and easing. Type and cover art lead. Colour is rare and means something: the accent marks Hi-Res and active state, and the warning hue marks files and outputs that are not there.
 
@@ -205,7 +209,7 @@ File truth is the thing every shell shows. Format, bit depth and sample rate, an
 - Manrope Variable for all prose. The system monospace is used only for measurements.
 - Three distinct topologies driven by a single set of per-layout custom properties on `html[data-layout]`.
 - Density spans three steps: 52px rows (Gallery), 44px (Ambient), 30px (Console).
-- Motion character differs by layout: an ease-out glide at 320ms, a linear snap at 100ms, a spring at 460ms. All of it collapses to 0ms under reduced motion.
+- Motion character differs by layout: an ease-out glide at 320ms, a linear snap at 100ms, a long ease-out at 460ms. All of it collapses to 0ms under reduced motion.
 
 ## Colors
 
@@ -214,6 +218,7 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 ### Primary
 - **User Accent** (default Violet, dark `accent` / light `accent-light`): the only decorative hue. It marks Hi-Res measurements (`.hires` text in `accent-text`), the active nav item's icon, the active rail item, progress and volume fill, focus rings, selection and caret, the bit-perfect state in the signal path, and the solid empty-state call to action. The user can switch the set to Violet, Blue, Cyan, Emerald, Amber or Rose. Each set ships a darker light-theme variant for contrast, and `accent-text` is the legible text form on each preset.
 - **Accent fill** (`--color-accent-fill`, `--color-accent-fill-hover`, `--color-on-accent`): any surface that carries text on the accent uses these, never raw `--color-accent`. They are declared per accent × theme in `_themes.scss` so the pair always reaches 4.5:1. Dark-text presets lighten on hover and white-text presets darken, and `:active` reuses the hover fill. `scripts/check-accent-contrast.mjs` reads the tokens from `_themes.scss` and fails below 4.5:1.
+- **Accent text** (`--text-accent`, from `--color-text-accent`): the only token for accent-coloured text (Hi-Res formats, links, active labels) on every theme × accent. Raw `--accent-primary` is for fills, rings and borders, never for text.
 
 ### Neutral
 - **Graphite** (dark preset): canvas, navigation, surface, hover, active and elevated steps rise by small value increments, with white hairline borders at 7% and 12%. The text steps are primary, secondary and muted.
@@ -221,8 +226,9 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 - **Navigation tone** (`*-navigation`) is the room colour. Gallery paints the whole window in it so the inset sheet reads as a page laid on a desk. Console uses it for the tree, title bar, inspector and strip.
 
 ### Status
-- **Missing Amber** (`status-warning`): reserved for file and output truth. It colours the Missing tree entry and its tick, the Missing state cell in tables, a disconnected output in the signal path, and output or playback notices. It is never decoration.
-- **Error Red** (`status-error`): failures such as scan errors and runtime errors.
+- **Missing Amber** (`status-warning`): reserved for file and output truth. It colours the Missing tree entry and its tick, the Missing state cell in tables, Unavailable badges (Songs, detail tables, Up next), a disconnected output in the signal path, and output or playback notices. It is never decoration. Text in this hue uses `--status-warning-text` (amber on Graphite, `#92400e` on Cloud). Under the Amber accent the warning shifts to orange (`#f97316` / `#c2410c`) so absence and accent never share a hue; the contrast script checks the ΔE (CIE76 ≥ 20) between them.
+- **Error Red** (`status-error`): failures such as scan errors and runtime errors. Destructive buttons fill with `--status-error-fill` (`#dc2626`) and darken to `--status-error-fill-hover` (`#b91c1c`) with `--color-on-error` text; both states are in the contrast script's danger table.
+- **Scrims** (`--scrim-soft` .35, `--scrim-strong` .68, `--scrim-heavy` .75): the only black overlays allowed over artwork and dialogs.
 - **Status tints** are derived, not literal: `color-mix(in srgb, var(--status-*) N%, transparent)` for banner and badge backgrounds and borders. No `rgba()` status literals in components.
 
 ### Named Rules
@@ -230,7 +236,7 @@ The palette is cool graphite or cloud paper, with exactly one user-chosen hue on
 
 **The Absence Rule.** Amber means a file or output is not there. If nothing is missing or disconnected, no amber appears on screen.
 
-**The Ink Play Rule.** The play/pause control is solid ink on surface (`text` on `surface`), not accent, so it reads with every accent set.
+**The Ink Play Rule.** The play/pause control is solid ink: `--text-primary` fill with a `--text-inverse` icon, never accent and never glow, so it reads with every accent set and on glass. This holds for the player, the Home hero and Now Playing.
 
 ## Typography
 
@@ -267,7 +273,7 @@ All three shells share one Angular shell and one content container. `.main-conte
 | Row height | 52px | 30px | 44px |
 | Cover min / gap / radius | 196 / clamp(20, 2.4cqi, 36) / 12 | 136 / 14 / 2 | 172 / 22 / 16 |
 | Control radius | full | 3px | full |
-| Motion | 320ms cubic-bezier(0.16, 1, 0.3, 1) | 100ms linear | 460ms cubic-bezier(0.34, 1.28, 0.64, 1) |
+| Motion | 320ms cubic-bezier(0.16, 1, 0.3, 1) | 100ms linear | 460ms cubic-bezier(0.16, 1, 0.3, 1) |
 
 Spacing follows a 4px scale (4 to 40). The title bar is a drag region, with every interactive cluster marked as no-drag. Windows controls stay native-styled in every layout.
 
@@ -317,10 +323,20 @@ Radius belongs to the layout, not the component. Gallery uses soft sheets (r20) 
 - **Focus:** accent border plus a 3px accent-muted ring (16% accent ring in Ambient). The global focus-visible style is a 2px accent outline with 2px offset.
 
 ### Album Card
-A chrome-free tile: the cover is the object and the text sits beneath it. Title, artist and a mono format line follow the cover, with the format line in accent only for Hi-Res. "Mixed · up to FLAC 24/88.2" marks mixed-codec albums. Hover scales the cover 1.03, and quick play and queue buttons rise from the cover's bottom-right corner on hover or focus.
+A chrome-free tile: the cover is the object and the text sits beneath it. Title, artist and a mono format line follow the cover, with the format line in accent only for Hi-Res. "Mixed · up to FLAC 24/88.2" marks mixed-codec albums. Hover scales the cover 1.03, and quick play and queue buttons rise from the cover's bottom-right corner on hover or focus. Playlists reuse the card: `imageUrls` takes the first four distinct track artworks (`selectPlaylistArtwork`, `shared/utils/list-media.ts`) and shows a 2×2 mosaic for four, the first image for one to three, and the placeholder for none. Extra actions (edit, delete) project into `[card-actions]` on the count row, never below the card.
+
+### Home
+Gallery and Ambient share one listening-first Home; Console keeps its table Home.
+- **Hero:** the current track, or else the most recent play, with ink Play, Shuffle library and links to the album and Now Playing.
+- **Library quality:** Lossless / Hi-Res / Lossy counts (plus Missing only when non-zero) link to Songs pre-filtered by `quality` / `availability`; the caption states the Hi-Res rule.
+- **Recently played:** from `RecentPlaysService` (`core/layout`), stored as `lutsra.recentPlays` = `[{ trackId, playedAt }]`, newest first, at most 20, recorded when `player.currentTrack` changes.
+- Then Recently modified albums and Playlists.
+
+### Up Next (Gallery rail)
+Between the signal path and the timeline, the rail lists up to three upcoming queue entries (`nextQueueEntries`) as real buttons that jump to that entry, with "Open queue" in the header. A ResizeObserver renders only rows that fit fully, and the block is hidden below 1101 × 701 or in the slim rail. Unavailable entries dim like Songs rows and swap the format for an Unavailable badge. "Queue ends after this track" replaces an empty list.
 
 ### Signal Path (signature)
-A mono line reading `source → path`, for example `FLAC 24/96 → bit-perfect` or `M4A 256k → shared mixer`. The source is set in the text colour (accent if Hi-Res). The path is accent when bit-perfect, amber when the output is disconnected, and secondary otherwise. It states only what the engine reports. It appears in the Console strip, the Gallery rail and the Ambient dock.
+A mono line reading `source → path`, for example `FLAC 24/96 → bit-perfect` or `M4A 256k → shared mixer`. The source is set in the text colour (accent if Hi-Res). The path is accent when bit-perfect, amber when the output is disconnected, and secondary otherwise. It states only what the engine reports. It appears in the Console strip, the Gallery rail and the Ambient dock. Its tooltip names the device and explains the current state in one sentence; Settings › Audio output explains the engines and the Windows shared mixer in place.
 
 ### Console Table and Inspector
 30px rows separated by subtle hairlines, with small-caps headers. Hover uses surface-hover, and the playing row uses surface-active. Missing rows go muted, with the state cell in amber. The inspector opens with the file-truth block (18px mono format plus the on-disk state) before the tag sections.
@@ -334,7 +350,7 @@ Every track list (Songs, album, artist and playlist detail, Console Home, queue)
 - **Playlist Move buttons** use `aria-disabled` at the ends so focus survives a reorder.
 
 ### Media Heroes
-Text set on artwork (the Folders hero) stays white over a dark scrim in both themes, and its fallback gradient ends in `color-mix(in srgb, var(--accent-primary) 18%, black)`. This is the one place a literal white text colour is allowed.
+Text set on artwork (the Folders hero) stays white over a `--scrim-*` overlay in both themes, and its fallback gradient ends in `color-mix(in srgb, var(--accent-primary) 18%, black)`. This is the one place a literal white text colour is allowed.
 
 ### Copy
 Interface copy is sentence case. Each concept has a single name throughout: **track** for an item ("Songs" names the page only), **library folder**, **Rescan library**, **output device**, **Native Shared** / **Chromium Shared**. Toggles show On/Off and keep a constant accessible name with `aria-pressed`. Errors name what failed and the next step. The product name is shown as **Lutstra**; storage keys stay `lutsra.*`.
@@ -355,10 +371,9 @@ Interface copy is sentence case. Each concept has a single name throughout: **tr
 - **Don't** reskin one topology three times. A layout earns its id by moving navigation, content and the player.
 - **Don't** hard-code hues or gradients for placeholders or heroes. They must follow the preset and accent.
 
-## Known Gaps (critique 2026-10-05, 26/40)
-These shipped surfaces do not yet meet this document:
-- **Absence colour.** Missing amber reaches only 1.8–2.0:1 on light surfaces, and Unavailable badges in Songs and detail tables use Error Red. The Amber accent preset collides with the warning hue.
-- **Now Playing.** The play button is accent-filled with a glow (Ink Play Rule), and the spectrum outranks the Source file section.
-- **Motion.** `--motion-ease` overshoots (`cubic-bezier(0.34, 1.28, 0.64, 1)`), although motion should ease out.
-- **Quality navigation** exists only in Console. Gallery and Ambient Home are the same page.
-- **Type and contrast floor.** Light muted text sits at 4.45:1. The Songs search placeholder uses the browser default (3.6:1). `.filter-count` is 11px.
+## Known Gaps (updated 2026-10-06)
+The gaps recorded by the 2026-10-05 critique (absence colour, Now Playing play control, motion overshoot, quality navigation outside Console, light contrast floor) are fixed. These shipped surfaces still do not meet this document:
+- **Measure size.** The signal path is set at 0.75rem (12px), below the 13px floor; it should use `--font-size-xs`.
+- **Sentence case.** Home's "Recently Modified" heading and the "Shuffle Library" button are title case.
+
+Deliberately deferred (outside the UI layer): the legacy `liquidGlassAccentColor` setting in IPC and the database, and remembering the playback position within a track.
