@@ -29,6 +29,10 @@ export class QueueActionsService implements OnDestroy {
     return result;
   }
 
+  notify(message: string): void {
+    this.show(message);
+  }
+
   clear(): void {
     if (this.dismissTimer) clearTimeout(this.dismissTimer);
     this.dismissTimer = null;

@@ -122,15 +122,22 @@
         <section class="section-songs">
           <h2 class="section-title">Songs ({{ artistTracks().length }})</h2>
           <div class="tracks-card">
-            <table class="tracks-table" role="grid" aria-label="Artist songs" [attr.aria-rowcount]="artistTracks().length + 1" aria-multiselectable="false">
-              <thead>
-                <tr>
+            <table class="tracks-table" role="grid" aria-label="Artist songs" [attr.aria-rowcount]="artistTracks().length + 1" aria-multiselectable="true">
+              <thead class="selection-header">
+                <tr [attr.inert]="selectedRows().ids.size > 1 ? '' : null">
                   <th class="col-num">#</th>
                   <th class="col-title">Title</th>
                   <th class="col-album">Album</th>
                   <th class="col-duration">Time</th>
                   <th class="col-actions"><span class="sr-only">Actions</span></th>
                 </tr>
+              @if (selectedRows().ids.size > 1) {
+                <tr class="selection-overlay-row" role="presentation">
+                  <th class="selection-overlay-cell" role="presentation" [attr.colspan]="5">
+                    <app-track-selection-bar [tracks]="selectedTracks()" (clear)="collapseSelection()" />
+                  </th>
+                </tr>
+              }
               </thead>
               <tbody #rowsContainer (keydown)="onRowsKeyDown($event)">
                 @for (track of artistTracks(); track track.id; let i = $index) {
@@ -139,10 +146,11 @@
                     [class.playing]="player.currentTrack()?.id === track.id"
                     [class.unavailable]="!track.isAvailable"
                     (dblclick)="onPlayTrack(track, i)"
-                    (click)="onActivateTrack(track, true)"
+                    (mousedown)="onRowMouseDown($event)"
+                    (click)="onRowClick(track, $event)"
                     (focusin)="onActivateTrack(track)"
                     [attr.aria-rowindex]="i + 2"
-                    [attr.aria-selected]="activeId() === track.id"
+                    [attr.aria-selected]="selectedRows().ids.has(track.id)"
                     [attr.data-track-id]="track.id"
                     [attr.tabindex]="activeId() === track.id ? 0 : -1">
                     <td class="col-num">

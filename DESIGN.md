@@ -346,6 +346,8 @@ Every track list (Songs, album, artist and playlist detail, Console Home, queue)
 - **Roving tabindex:** exactly one row (or the title button on Console Home) is in the tab order. Row actions are tabbable only on the active row.
 - **Keys:** ↑/↓/Home/End/PageUp/PageDown move through `nextRowIndex` (`shared/utils/row-navigation.ts`) and clamp at both ends. Enter runs the row's primary action. Space is left to global play/pause.
 - **Selection follows focus** on track tables, so the Console inspector tracks the active row. Home and queue do not change selection.
+- **Multi-select** (Songs, album, artist and playlist detail; `aria-multiselectable="true"`): Ctrl+click toggles a row, Shift+click and Shift+arrow keys select a range from the anchor, Ctrl+arrow keys move focus without changing the selection, Ctrl+Space toggles the focused row, Ctrl+A selects every visible row, and Esc collapses to the focused row. At least one row is always selected. Selection logic lives in `shared/utils/row-selection.ts`; playlist rows select by entry id.
+- **Selection bar:** with two or more rows selected, `app-track-selection-bar` covers the sticky column header (the header row goes `inert`, rows do not move) and offers Play next, Add to queue, Add to playlist and Clear. Unavailable tracks are skipped and the toast counts them.
 - **Focus ring:** `2px solid var(--border-focus)` with `-2px` offset. Rows carry `scroll-margin-top` so floating headers never cover the focused row.
 - **Playlist Move buttons** use `aria-disabled` at the ends so focus survives a reorder.
 

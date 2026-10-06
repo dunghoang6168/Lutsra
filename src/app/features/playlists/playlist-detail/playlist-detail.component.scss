@@ -4,7 +4,6 @@
   --track-action-size: 28px;
 }
 
-
     .playlist-detail-page {
       padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
@@ -401,3 +400,27 @@
   .title-cell { min-width: 0; gap: var(--space-1); flex-wrap: wrap; }
   .track-title { flex: 1; }
 }
+
+// Selection actions share the rendered header's box, leaving row positions unchanged.
+.selection-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-elevated);
+}
+.selection-header .selection-overlay-row {
+  position: absolute; inset: 0; display: block; height: 100%; z-index: 1;
+}
+.selection-header .selection-overlay-cell {
+  display: block; height: 100%; padding: 0; border: 0; font-variant-caps: normal; letter-spacing: normal;
+}
+.selection-header app-track-selection-bar {
+  position: absolute; inset: 0; z-index: 1; height: 100%;
+}
+.entry-row[aria-selected="true"] { background: var(--bg-surface-active); }
+
+.table-card { overflow: visible; }
+
+.entry-row[aria-selected="true"] .col-num,
+.entry-row[aria-selected="true"] .col-duration,
+.entry-row[aria-selected="true"] .spec-detail:not(.hires) { color: var(--text-secondary); }
