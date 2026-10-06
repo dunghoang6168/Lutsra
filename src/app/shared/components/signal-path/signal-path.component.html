@@ -1,0 +1,9 @@
+@if (source(); as source) {
+      <span class="signal-path" [attr.data-state]="state()" [title]="description()">
+        <span class="source" [class.hires]="source.hires">{{ source.label }}</span>
+        @if (pathLabel(); as label) {
+          <span class="arrow" aria-hidden="true">→</span>
+          <span class="path">{{ label }}</span>
+        }
+      </span>
+    }

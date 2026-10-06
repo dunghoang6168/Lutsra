@@ -295,7 +295,7 @@
             <div class="pref-row">
               <div class="pref-label">
                 <span class="pref-title">Playback engine</span>
-                <span class="pref-desc">Native Shared decodes in Lutstra and reports the exact mix format; Chromium Shared uses the built-in browser audio. Use Native Shared unless it has problems on your system. Switching pauses playback.</span>
+                <span class="pref-desc">Native Shared decodes in Lutstra and supports Shared or Exclusive output; Chromium Shared uses the built-in browser audio. Use Native Shared unless it has problems on your system. Switching pauses playback.</span>
               </div>
               <div class="pref-control output-device-control">
                 <app-searchable-filter-select label="Playback engine" [options]="audioEngineOptions" [allLabel]="null"
@@ -312,6 +312,38 @@
                   [value]="player.preferredAudioOutputId()" (valueChange)="onAudioOutputChange($event)" />
               </div>
             </div>
+            <div class="pref-row">
+              <div class="pref-label">
+                <span class="pref-title" id="output-mode-label">Output mode</span>
+                <span class="pref-desc" id="output-mode-help">Exclusive gives Lutstra sole use of the device. Other apps cannot play through it; the sample rate follows the track.</span>
+                @if (player.exclusiveModeDisabledReason(); as reason) { <span class="pref-desc" id="output-mode-disabled">{{ reason }}</span> }
+              </div>
+              <div class="pref-control output-mode-controls" role="group" aria-labelledby="output-mode-label" aria-describedby="output-mode-help"
+                [attr.aria-busy]="changingOutputMode()">
+                @for (mode of outputModes; track mode.value) {
+                  <button type="button" class="btn-toggle" [class.active]="player.outputMode() === mode.value"
+                    [attr.aria-pressed]="player.outputMode() === mode.value"
+                    [disabled]="!!player.exclusiveModeDisabledReason() || changingOutputMode()"
+                    [attr.aria-describedby]="player.exclusiveModeDisabledReason() ? 'output-mode-disabled' : 'output-mode-help'"
+                    (click)="onOutputModeChange(mode.value)">{{ mode.label }}</button>
+                }
+              </div>
+            </div>
+            @if (player.outputMode() === 'exclusive-dsp') {
+              <details class="exclusive-advanced">
+                <summary>Advanced output settings</summary>
+                <div class="pref-row">
+                  <div class="pref-label"><label class="pref-title" for="exclusive-buffer">Exclusive buffer</label><span class="pref-desc">Increase the buffer if playback breaks up. The default is 20 ms.</span></div>
+                  <div class="pref-control">
+                    <select id="exclusive-buffer" class="audio-buffer-select" [ngModel]="player.exclusiveBufferMs()"
+                      [disabled]="!!player.exclusiveModeDisabledReason() || changingOutputMode()"
+                      (ngModelChange)="onOutputModeChange('exclusive-dsp', $event)">
+                      @for (buffer of exclusiveBuffers; track buffer) { <option [ngValue]="buffer">{{ buffer }} ms</option> }
+                    </select>
+                  </div>
+                </div>
+              </details>
+            }
             <div class="pref-row">
               <div class="pref-label">
                 <span class="pref-title">Fall back to Windows default</span>
@@ -333,19 +365,24 @@
               <div><span>Playing on</span><strong>{{ path.activeDeviceId === 'system-default' ? 'System Default' : (path.activeDeviceId ? path.deviceName : 'None') }}</strong></div>
               <div><span>Engine</span><strong>{{ path.backend === 'native-shared' ? 'Native Shared' : 'Chromium Shared' }}</strong></div>
               <div><span>Audio host</span><strong>{{ path.backend === 'native-shared' ? audioHostLabel(path.hostState) : 'Not used' }}</strong></div>
+              <div><span>Mode</span><strong>{{ path.mode === 'exclusive-dsp' ? 'WASAPI Exclusive' : 'Shared' }}</strong></div>
               <div><span>Connection</span><strong>{{ path.isConnected ? 'Connected' : 'Disconnected' }}</strong></div>
-              <div><span>Source file</span><strong>@if (path.sourceFormat) { {{ path.sourceFormat.sampleRate || 'Unknown' }} Hz / {{ path.sourceFormat.bitDepth || 'Unknown' }}-bit / {{ path.sourceFormat.channels || 'Unknown' }} ch } @else { No track loaded }</strong></div>
-              <div><span>{{ path.backend === 'native-shared' ? 'Engine mix' : 'Output format' }}</span><strong>@if (path.outputFormat) { {{ path.outputFormat.sampleRate || 'Unknown' }} Hz / {{ path.outputFormat.bitDepth || 'Unknown' }}-bit{{ path.outputSampleType === 'float' ? ' float' : '' }} / {{ path.outputFormat.channels || 'Unknown' }} ch } @else { Shown with Native Shared only }</strong></div>
-              @if (path.deviceFormat) {
-                <div><span>Device format</span><strong>{{ path.deviceFormat.sampleRate || 'Unknown' }} Hz / {{ path.deviceFormat.bitDepth || 'Unknown' }}-bit / {{ path.deviceFormat.channels || 'Unknown' }} ch</strong></div>
+              <div><span>Source file</span><strong class="audio-measure">@if (path.sourceFormat) { {{ formatAudioFormat(path.sourceFormat) }} } @else { No track loaded }</strong></div>
+              <div><span>{{ path.mode === 'exclusive-dsp' || path.backend === 'chromium' ? 'Output format' : 'Engine mix' }}</span><strong class="audio-measure">@if (path.outputFormat) { {{ formatAudioFormat(path.outputFormat, path.outputSampleType) }} } @else { Shown with Native Shared only }</strong></div>
+              @if (path.mode !== 'exclusive-dsp' && path.deviceFormat) {
+                <div><span>Device format</span><strong class="audio-measure">{{ formatAudioFormat(path.deviceFormat) }}</strong></div>
               }
               <div><span>Processing</span><strong>{{ path.processingReasons.join(', ') || 'Windows shared mixer' }}</strong></div>
               <div><span>Conversion</span><strong>{{ path.resamplingActive ? 'Resampling' : 'No resampling' }} / {{ path.channelConversionActive ? 'Channel conversion' : 'No channel conversion' }}</strong></div>
             </div>
+            @if (path.mode === 'exclusive-dsp') {
+              <p class="audio-path-note">Lutstra has sole use of this output device and bypasses the Windows shared mixer. The sample rate follows the track when the device supports it. Software volume and crossfade remain available.</p>
+            } @else {
             <p class="audio-path-note">Both engines play through the Windows shared mixer. Windows mixes every app's sound at the device format, so a file at a different sample rate is resampled before it reaches your device.</p>
+            }
           }
           @if (player.playbackNotice()) {
-            <p class="audio-output-notice" role="status">{{ player.playbackNotice() }}</p>
+            <p class="audio-output-notice" [class.disconnected]="player.audioPathStatus()?.isConnected === false" role="status">{{ player.playbackNotice() }}</p>
           }
         </section>
 

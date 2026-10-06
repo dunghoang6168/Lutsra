@@ -1,3 +1,4 @@
+import { validOutputMode, validExclusiveBufferMs } from './ipc-validation.js';
 import { isAccentColor, isAudioVisualizationMode, isLayoutMode, isSongColumn, isSongColumnOrder, isThemePreset } from '../../src/app/core/models/index.js';
 
 export function validSettings(value: unknown): Record<string, unknown> {
@@ -14,7 +15,8 @@ export function validSettings(value: unknown): Record<string, unknown> {
   if ('preferredAudioOutputName' in input) { if (typeof input['preferredAudioOutputName'] !== 'string' || input['preferredAudioOutputName'].length > 256) throw new Error('Invalid audio output name'); result['preferredAudioOutputName'] = input['preferredAudioOutputName']; }
   if ('preferredNativeAudioOutputId' in input) { if (typeof input['preferredNativeAudioOutputId'] !== 'string' || input['preferredNativeAudioOutputId'].length < 1 || input['preferredNativeAudioOutputId'].length > 512) throw new Error('Invalid native audio output ID'); result['preferredNativeAudioOutputId'] = input['preferredNativeAudioOutputId']; }
   if ('preferredNativeAudioOutputName' in input) { if (typeof input['preferredNativeAudioOutputName'] !== 'string' || input['preferredNativeAudioOutputName'].length > 256) throw new Error('Invalid native audio output name'); result['preferredNativeAudioOutputName'] = input['preferredNativeAudioOutputName']; }
-  if ('outputMode' in input) { if (input['outputMode'] !== 'shared') throw new Error('Invalid audio output mode'); result['outputMode'] = 'shared'; }
+  if ('outputMode' in input) result['outputMode'] = validOutputMode(input['outputMode']);
+  if ('exclusiveBufferMs' in input) result['exclusiveBufferMs'] = validExclusiveBufferMs(input['exclusiveBufferMs']);
   if ('audioOutputFallbackEnabled' in input) { if (typeof input['audioOutputFallbackEnabled'] !== 'boolean') throw new Error('Invalid audio fallback setting'); result['audioOutputFallbackEnabled'] = input['audioOutputFallbackEnabled']; }
   if ('themePreset' in input) { if (!isThemePreset(input['themePreset'])) throw new Error('Invalid theme preset'); result['themePreset'] = input['themePreset']; }
   if ('accentColor' in input) { if (!isAccentColor(input['accentColor'])) throw new Error('Invalid accent color'); result['accentColor'] = input['accentColor']; }

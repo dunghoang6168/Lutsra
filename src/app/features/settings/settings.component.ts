@@ -1,3 +1,5 @@
+import type { AudioFormat } from '../../core/models';
+import { formatKhz } from '../home/library-quality';
 import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -51,6 +53,19 @@ export interface ThemePresetOption {
 })
 export class SettingsComponent implements OnInit {
   readonly audioHostLabel = audioHostLabel;
+  readonly outputModes = [{ value: 'shared', label: 'Shared' }, { value: 'exclusive-dsp', label: 'Exclusive' }] as const;
+  readonly exclusiveBuffers = [10, 20, 40, 80] as const;
+  readonly changingOutputMode = signal(false);
+
+  formatAudioFormat(format: AudioFormat, sampleType?: string): string {
+    return `${format.bitDepth || 'Unknown'}/${format.sampleRate ? formatKhz(format.sampleRate) : 'Unknown'} kHz${sampleType ? ' ' + sampleType : ''} / ${format.channels || 'Unknown'} ch`;
+  }
+  async onOutputModeChange(mode: 'shared' | 'exclusive-dsp', bufferMs = this.player.exclusiveBufferMs()): Promise<void> {
+    if (this.changingOutputMode()) return;
+    this.changingOutputMode.set(true);
+    try { await this.player.setAudioOutputMode(mode, bufferMs); }
+    finally { this.changingOutputMode.set(false); }
+  }
   readonly repeatOptions = [
     { value: 'off', label: 'Off: stop at the end of the queue' },
     { value: 'all', label: 'All: repeat the queue' },

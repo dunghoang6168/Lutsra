@@ -15,7 +15,7 @@ export interface PlaybackEngine {
   listOutputDevices(): Promise<AudioOutputDevice[]>;
   selectOutputDevice(deviceId: string): Promise<void>;
   setOutputFallbackEnabled(enabled: boolean): void;
-  setOutputMode(mode: OutputMode): Promise<void>;
+  setOutputMode(mode: OutputMode, bufferMs?: number): Promise<void>;
   getAudioPathStatus(): Promise<AudioPathStatus>;
   subscribeDeviceChanges(listener: () => void): () => void;
   getBackend(): AudioEngineBackend;

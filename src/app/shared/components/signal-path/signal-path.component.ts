@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { PlayerService } from '../../../core/player/player.service';
 import { formatKhz, formatTrackFormat } from '../../../features/home/library-quality';
 
-type PathState = 'bit-perfect' | 'converted' | 'shared' | 'disconnected';
+type PathState = 'bit-perfect' | 'converted' | 'exclusive' | 'shared' | 'disconnected';
 
 const STATE_HELP: Record<PathState, string> = {
   'bit-perfect': 'Bit-perfect: samples reach the device unchanged.',
+  exclusive: 'Exclusive DSP: Lutstra has sole use of the output device; software volume and crossfade remain available.',
   converted: 'Converted: the sample rate or channel layout is changed before output.',
   shared: 'Shared mixer: Windows mixes all app sound at the device format.',
   disconnected: 'The output device is disconnected.',
@@ -16,39 +17,8 @@ const STATE_HELP: Record<PathState, string> = {
   selector: 'app-signal-path',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @if (source(); as source) {
-      <span class="signal-path" [attr.data-state]="state()" [title]="description()">
-        <span class="source" [class.hires]="source.hires">{{ source.label }}</span>
-        @if (pathLabel(); as label) {
-          <span class="arrow" aria-hidden="true">→</span>
-          <span class="path">{{ label }}</span>
-        }
-      </span>
-    }
-  `,
-  styles: `
-    :host { display: block; min-width: 0; }
-    .signal-path {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 6px;
-      max-width: 100%;
-      overflow: hidden;
-      color: var(--text-secondary);
-      font-family: var(--font-family-mono);
-      font-size: var(--font-size-xs);
-      font-variant-numeric: tabular-nums;
-      line-height: 1.3;
-      white-space: nowrap;
-    }
-    .source { color: var(--text-primary); }
-    .source.hires { color: var(--text-accent); }
-    .arrow { color: var(--text-muted); }
-    .path { overflow: hidden; text-overflow: ellipsis; }
-    [data-state='bit-perfect'] .path { color: var(--text-accent); }
-    [data-state='disconnected'] .path { color: var(--status-warning-text); }
-  `,
+  templateUrl: './signal-path.component.html',
+  styleUrl: './signal-path.component.scss',
 })
 export class SignalPathComponent {
   private readonly player = inject(PlayerService);
@@ -64,7 +34,7 @@ export class SignalPathComponent {
     if (path.mode === 'exclusive-bitperfect' && path.bitPerfectEligible && !path.resamplingActive && !path.channelConversionActive) {
       return 'bit-perfect';
     }
-    return path.resamplingActive || path.channelConversionActive ? 'converted' : 'shared';
+    return path.resamplingActive || path.channelConversionActive ? 'converted' : path.mode === 'exclusive-dsp' ? 'exclusive' : 'shared';
   });
 
   readonly pathLabel = computed(() => {
@@ -74,6 +44,7 @@ export class SignalPathComponent {
     switch (this.state()) {
       case 'disconnected': return 'output disconnected';
       case 'bit-perfect': return 'bit-perfect';
+      case 'exclusive': return rate ? `exclusive ${formatKhz(rate)} kHz` : 'exclusive';
       case 'converted':
         if (path.resamplingActive && rate) return `resampled ${formatKhz(rate)} kHz`;
         return 'channel conversion';

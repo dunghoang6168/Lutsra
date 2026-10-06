@@ -9,7 +9,7 @@ import { ArtistMetadataService } from '../services/artist-metadata.service.js';
 import { LyricsService } from '../services/lyrics.service.js';
 import { AudioHostService } from '../services/audio-host.service.js';
 import { validSettings } from './settings-validation.js';
-import { validArtistSourceUrl, validDirectoryPath, validId, validIdArray, validMusicBrainzId, validName, validTitleBarAppearance, validWikipediaOverride } from './ipc-validation.js';
+import { validOutputMode, validExclusiveBufferMs, validArtistSourceUrl, validDirectoryPath, validId, validIdArray, validMusicBrainzId, validName, validTitleBarAppearance, validWikipediaOverride } from './ipc-validation.js';
 import { updateWindowSnapBounds } from '../window-snap.js';
 
 export function registerIpc(database: DatabaseService, scanner: ScannerService, trackDetails: TrackDetailsService, artistMetadata: ArtistMetadataService, lyrics: LyricsService, audioHost: AudioHostService, getWindow: () => BrowserWindow | null, development: boolean, setNativeMediaKeysActive: (enabled: boolean) => void): void {
@@ -28,6 +28,7 @@ export function registerIpc(database: DatabaseService, scanner: ScannerService, 
   handle('audio-host:transition', (_event, seconds) => audioHost.transition(validFiniteNumber(seconds, 0, 12)), development);
   handle('audio-host:list-devices', () => audioHost.listDevices(), development);
   handle('audio-host:select-device', (_event, deviceId) => audioHost.selectDevice(validAudioDeviceId(deviceId)), development);
+  handle('audio-host:set-output-mode', (_event, mode, bufferMs) => audioHost.setOutputMode(validOutputMode(mode), validExclusiveBufferMs(bufferMs)), development);
   handle('audio-host:set-fallback', (_event, enabled) => audioHost.setFallbackEnabled(validBoolean(enabled)), development);
   handle('audio-host:get-path-status', () => audioHost.getPathStatus(), development);
   handle('audio-host:set-spectrum', (_event, enabled) => audioHost.setSpectrumEnabled(validBoolean(enabled)), development);

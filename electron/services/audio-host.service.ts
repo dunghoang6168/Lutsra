@@ -31,7 +31,10 @@ export class AudioHostService {
   private nonce = '';
   private currentTrackId: string | null = null;
   private currentPosition = 0;
+  private currentDuration = 0;
   private selectedDeviceId = 'system-default';
+  private outputMode: 'shared' | 'exclusive-dsp' = 'shared';
+  private exclusiveBufferMs = 20;
   private volume = 0.8;
   private muted = false;
   private fallbackEnabled = false;
@@ -84,6 +87,11 @@ export class AudioHostService {
   transition(crossfadeSeconds: number): Promise<boolean> { return this.request('transition', { crossfadeSeconds }).then(Boolean); }
   listDevices(): Promise<AudioOutputDevice[]> { return this.request('list-devices') as Promise<AudioOutputDevice[]>; }
   async selectDevice(deviceId: string): Promise<void> { await this.requestVoid('select-device', { deviceId }); this.selectedDeviceId = deviceId; }
+  async setOutputMode(mode: 'shared' | 'exclusive-dsp', bufferMs: number): Promise<void> {
+    await this.requestVoid('set-output-mode', { mode, bufferMs });
+    this.outputMode = mode;
+    this.exclusiveBufferMs = bufferMs;
+  }
   setFallbackEnabled(enabled: boolean): Promise<void> { this.fallbackEnabled = enabled; return this.requestVoid('set-fallback', { enabled }); }
   getPathStatus(): Promise<AudioPathStatus> { return this.request('get-path-status') as Promise<AudioPathStatus>; }
   setSpectrumEnabled(enabled: boolean): Promise<void> { return this.requestVoid('set-spectrum', { enabled }); }
@@ -175,6 +183,8 @@ export class AudioHostService {
         if (event['kind'] === 'time' && event['value'] && typeof event['value'] === 'object') {
           const position = Number((event['value'] as JsonObject)['currentTime']);
           if (Number.isFinite(position)) this.currentPosition = position;
+          const duration = Number((event['value'] as JsonObject)['duration']);
+          if (Number.isFinite(duration)) this.currentDuration = duration;
         } else if (event['kind'] === 'state' && event['value'] && typeof event['value'] === 'object') {
           const value = event['value'] as JsonObject;
           const trackId = typeof value['trackId'] === 'string' ? value['trackId'] : '';
@@ -237,7 +247,16 @@ export class AudioHostService {
       this.setState('recovering');
       const restart = this.start();
       this.startup = restart.finally(() => { this.startup = null; });
-      try { await this.startup; await this.rehydratePausedSession(); } catch { this.setState('failed'); }
+      try { await this.startup; await this.rehydratePausedSession(); }
+      catch (error) {
+        const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+        if (this.state === 'ready' && code.startsWith('OUTPUT_')) {
+          // A live host rejected Exclusive; this is an output failure, not a
+          // crashed backend. Keep Native paused and expose the real error.
+          this.broadcast('audio-host:event', { kind: 'state', value: { state: 'paused', trackId: this.currentTrackId,
+            error: { code, message: 'The selected output could not be restored.', trackId: this.currentTrackId } } });
+        } else this.setState('failed');
+      }
     } else this.setState('failed');
     this.handlingExit = false;
   }
@@ -278,16 +297,27 @@ export class AudioHostService {
   }
 
   private async rehydratePausedSession(): Promise<void> {
-    await this.requestVoid('set-fallback', { enabled: this.fallbackEnabled });
-    await this.requestVoid('select-device', { deviceId: this.selectedDeviceId });
-    await this.requestVoid('set-volume', { volume: this.volume });
-    await this.requestVoid('set-mute', { isMuted: this.muted });
-    if (this.currentTrackId) {
-      const position = this.currentPosition;
-      await this.loadTrack(this.currentTrackId);
-      await this.requestVoid('seek', { positionSeconds: position });
-      this.currentPosition = position;
-      await this.requestVoid('pause');
+    const position = this.currentPosition;
+    const duration = this.currentDuration;
+    try {
+      await this.requestVoid('set-fallback', { enabled: this.fallbackEnabled });
+      await this.requestVoid('set-output-mode', { mode: this.outputMode, bufferMs: this.exclusiveBufferMs });
+      await this.requestVoid('select-device', { deviceId: this.selectedDeviceId });
+      await this.requestVoid('set-volume', { volume: this.volume });
+      await this.requestVoid('set-mute', { isMuted: this.muted });
+      if (this.currentTrackId) {
+        await this.loadTrack(this.currentTrackId);
+        await this.requestVoid('seek', { positionSeconds: position });
+        await this.requestVoid('pause');
+      }
+    } finally {
+      if (this.currentTrackId) {
+        this.currentPosition = position;
+        this.currentDuration = duration;
+        // Seek travels through the render mailbox. Pause may arrive before its
+        // acknowledgement; preserve the snapshot even when Exclusive rejects recovery.
+        this.broadcast('audio-host:event', { kind: 'time', value: { currentTime: position, duration } });
+      }
     }
   }
 }

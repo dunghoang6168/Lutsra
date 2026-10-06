@@ -36,6 +36,7 @@ export interface DesktopApi {
     transition(crossfadeSeconds: number): Promise<boolean>;
     listDevices(): Promise<AudioOutputDevice[]>;
     selectDevice(deviceId: string): Promise<void>;
+    setOutputMode(mode: 'shared' | 'exclusive-dsp', bufferMs: number): Promise<void>;
     setFallbackEnabled(enabled: boolean): Promise<void>;
     getPathStatus(): Promise<AudioPathStatus>;
     setSpectrumEnabled(enabled: boolean): Promise<void>;

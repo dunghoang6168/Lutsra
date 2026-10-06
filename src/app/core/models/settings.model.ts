@@ -85,7 +85,8 @@ export interface Settings {
   crossfadeSeconds: number;
   preferredAudioOutputId: string;
   preferredAudioOutputName: string;
-  outputMode: 'shared';
+  outputMode: 'shared' | 'exclusive-dsp';
+  exclusiveBufferMs: number;
   audioOutputFallbackEnabled: boolean;
   audioEngineBackend: 'chromium' | 'native-shared';
   preferredNativeAudioOutputId: string;

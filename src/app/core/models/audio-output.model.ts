@@ -43,4 +43,8 @@ export interface AudioPathStatus {
   channelConversionActive: boolean;
   bitPerfectEligible: boolean;
   processingReasons: string[];
+  /** Actual endpoint period after driver alignment, in milliseconds. */
+  bufferMs?: number;
+  /** Bounded stop-fade waits that expired without a render acknowledgement. */
+  stopFadeTimeouts?: number;
 }

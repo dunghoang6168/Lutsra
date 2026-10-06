@@ -51,7 +51,7 @@ export class SwitchingPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
   listOutputDevices(): Promise<AudioOutputDevice[]> { return this.active.listOutputDevices(); }
   selectOutputDevice(deviceId: string): Promise<void> { return this.active.selectOutputDevice(deviceId); }
   setOutputFallbackEnabled(enabled: boolean): void { this.fallbackEnabled = enabled; this.active.setOutputFallbackEnabled(enabled); }
-  setOutputMode(mode: OutputMode): Promise<void> { return this.active.setOutputMode(mode); }
+  setOutputMode(mode: OutputMode, bufferMs = 20): Promise<void> { return this.active.setOutputMode(mode, bufferMs); }
   getAudioPathStatus(): Promise<AudioPathStatus> { return this.active.getAudioPathStatus(); }
   subscribeDeviceChanges(listener: () => void): () => void {
     const removeChromium = this.chromium.subscribeDeviceChanges(() => { if (this.backend === 'chromium') listener(); });

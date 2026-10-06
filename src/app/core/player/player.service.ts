@@ -22,7 +22,7 @@ function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackErr
   const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
   const codes: PlaybackError['code'][] = [
     'FILE_UNAVAILABLE', 'MEDIA_ABORTED', 'MEDIA_NETWORK', 'MEDIA_DECODE', 'MEDIA_UNSUPPORTED', 'MEDIA_UNKNOWN',
-    'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_BUSY', 'OUTPUT_FORMAT_UNSUPPORTED',
+    'OUTPUT_EXCLUSIVE_NOT_ALLOWED', 'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_BUSY', 'OUTPUT_FORMAT_UNSUPPORTED',
     'OUTPUT_DEVICE_PERMISSION_DENIED', 'OUTPUT_DEVICE_UNSUPPORTED', 'OUTPUT_MODE_UNSUPPORTED',
     'AUDIO_HOST_UNAVAILABLE', 'AUDIO_HOST_PROTOCOL_ERROR', 'PLAYBACK_FAILED',
   ];
@@ -36,6 +36,7 @@ function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackErr
     MEDIA_UNSUPPORTED: 'This audio format is not supported by the current engine.',
     OUTPUT_DEVICE_UNAVAILABLE: 'The selected audio output is disconnected.',
     OUTPUT_DEVICE_BUSY: 'The selected audio output is in use. Close the other app and try again.',
+    OUTPUT_EXCLUSIVE_NOT_ALLOWED: 'Windows blocks Exclusive mode for this device. Enable it in Sound settings → Device properties → Advanced.',
     OUTPUT_FORMAT_UNSUPPORTED: 'The selected audio output format is not supported.',
     OUTPUT_DEVICE_PERMISSION_DENIED: 'Chromium denied permission to use this audio output. Restart Lutstra and try again.',
     OUTPUT_DEVICE_UNSUPPORTED: 'This runtime cannot select a specific audio output.',
@@ -92,6 +93,13 @@ export class PlayerService implements OnDestroy {
   private readonly preferredChromiumOutputName = signal<string>('System Default');
   private readonly preferredNativeOutputId = signal<string>(SYSTEM_DEFAULT_OUTPUT_ID);
   private readonly preferredNativeOutputName = signal<string>('System Default');
+  readonly outputMode = signal<'shared' | 'exclusive-dsp'>('shared');
+  readonly exclusiveBufferMs = signal(20);
+  readonly exclusiveModeDisabledReason = computed(() => {
+    if (this.audioEngineBackend() !== 'native-shared') return 'Exclusive requires Native Shared.';
+    const device = this.outputDevices().find(d => d.id === this.preferredAudioOutputId());
+    return device?.supportedModes.includes('exclusive-dsp') ? null : 'The selected device does not report Exclusive support.';
+  });
   readonly audioOutputFallbackEnabled = signal<boolean>(false);
 
   // Original queue before shuffle was toggled on
@@ -228,6 +236,8 @@ export class PlayerService implements OnDestroy {
         }
         if (typeof settings.crossfadeEnabled === 'boolean') this.setCrossfadeEnabled(settings.crossfadeEnabled);
         if (Number.isInteger(settings.crossfadeSeconds)) this.setCrossfadeSeconds(settings.crossfadeSeconds);
+        this.outputMode.set(settings.outputMode === 'exclusive-dsp' ? 'exclusive-dsp' : 'shared');
+        this.exclusiveBufferMs.set([10,20,40,80].includes(settings.exclusiveBufferMs) ? settings.exclusiveBufferMs : 20);
         this.audioOutputFallbackEnabled.set(settings.audioOutputFallbackEnabled === true);
         this.engine.setOutputFallbackEnabled(settings.audioOutputFallbackEnabled === true);
         this.preferredChromiumOutputId.set(settings.preferredAudioOutputId || SYSTEM_DEFAULT_OUTPUT_ID);
@@ -240,6 +250,7 @@ export class PlayerService implements OnDestroy {
           this.playbackNotice.set('Native Audio Host is unavailable. Chromium Shared remains active.');
         }
         this.audioEngineBackend.set(this.engine.getBackend());
+        await this.restoreOutputMode();
         await this.syncNativeMediaKeys();
         if (this.audioEngineBackend() === 'native-shared') await this.migrateNativeDeviceByUniqueName();
         this.syncPreferredOutputSignals();
@@ -284,6 +295,7 @@ export class PlayerService implements OnDestroy {
           this.refreshPreparedCandidate();
         }
 
+        if (evt.state === 'playing' || evt.state === 'paused') void this.refreshAudioOutputState().catch(() => undefined);
         if (evt.state === 'ended') {
           this.handleTrackEnded();
         }
@@ -310,6 +322,11 @@ export class PlayerService implements OnDestroy {
       this.engine.volumeChange$.subscribe((evt) => {
         this.volume.set(evt.volume);
         this.isMuted.set(evt.isMuted);
+        if (this.audioEngineBackend() === 'native-shared') {
+          void this.engine.getAudioPathStatus().then(status => {
+            if (this.audioEngineBackend() === 'native-shared') this.audioPathStatus.set(status);
+          }).catch(() => undefined);
+        }
       })
     );
   }
@@ -555,16 +572,41 @@ export class PlayerService implements OnDestroy {
       if (this.audioEngineBackend() === 'native-shared') {
         this.preferredNativeOutputId.set(this.preferredAudioOutputId());
         this.preferredNativeOutputName.set(this.preferredAudioOutputName());
-        await this.persistSettings({ preferredNativeAudioOutputId: this.preferredAudioOutputId(), preferredNativeAudioOutputName: this.preferredAudioOutputName(), outputMode: 'shared' });
+        await this.persistSettings({ preferredNativeAudioOutputId: this.preferredAudioOutputId(), preferredNativeAudioOutputName: this.preferredAudioOutputName() });
       } else {
         this.preferredChromiumOutputId.set(this.preferredAudioOutputId());
         this.preferredChromiumOutputName.set(this.preferredAudioOutputName());
-        await this.persistSettings({ preferredAudioOutputId: this.preferredAudioOutputId(), preferredAudioOutputName: this.preferredAudioOutputName(), outputMode: 'shared' });
+        await this.persistSettings({ preferredAudioOutputId: this.preferredAudioOutputId(), preferredAudioOutputName: this.preferredAudioOutputName() });
       }
     } catch (error) {
       if (this.audioEngineBackend() !== 'native-shared') {
         try { await this.engine.selectOutputDevice(previousId); } catch { /* Keep playback paused if the previous output also disappeared. */ }
       }
+      this.playbackNotice.set(normalizePlaybackFailure(error).message);
+    }
+    await this.refreshAudioOutputState();
+  }
+
+  private async restoreOutputMode(): Promise<void> {
+    if (this.audioEngineBackend() === 'native-shared')
+      await this.engine.setOutputMode(this.outputMode(), this.exclusiveBufferMs());
+    else if (this.outputMode() === 'exclusive-dsp')
+      this.playbackNotice.set('Exclusive requires Native Audio Host. Chromium Shared is active; your Exclusive preference is saved.');
+  }
+
+  async setAudioOutputMode(mode: 'shared' | 'exclusive-dsp', bufferMs = this.exclusiveBufferMs()): Promise<void> {
+    if (this.exclusiveModeDisabledReason() || ![10,20,40,80].includes(bufferMs)) return;
+    this.clearPreparedCandidate();
+    try {
+      await this.engine.setOutputMode(mode, bufferMs);
+      this.outputMode.set(mode);
+      this.exclusiveBufferMs.set(bufferMs);
+      await this.persistSettings({ outputMode: mode, exclusiveBufferMs: bufferMs });
+      this.playbackNotice.set(null);
+      this.refreshPreparedCandidate();
+    } catch (error) {
+      this.playRequested.set(false);
+      this.playbackState.set('paused');
       this.playbackNotice.set(normalizePlaybackFailure(error).message);
     }
     await this.refreshAudioOutputState();
@@ -585,6 +627,7 @@ export class PlayerService implements OnDestroy {
     try {
       await this.engine.setBackend(backend);
       this.audioEngineBackend.set(backend);
+      await this.restoreOutputMode();
       await this.syncNativeMediaKeys();
       if (backend === 'native-shared') await this.migrateNativeDeviceByUniqueName();
       this.syncPreferredOutputSignals();
@@ -596,15 +639,19 @@ export class PlayerService implements OnDestroy {
         this.playbackState.set('paused');
       }
       if (persist) await this.persistSettings({ audioEngineBackend: backend });
-      this.playbackNotice.set(backend === 'native-shared' ? 'Native Shared is active. Playback remains paused.' : 'Chromium Shared is active. Playback remains paused.');
+      this.playbackNotice.set(backend === 'native-shared' ? 'Native Audio Host is active. Playback remains paused.' : this.outputMode() === 'exclusive-dsp' ? 'Exclusive requires Native Audio Host. Chromium Shared is active; your Exclusive preference is saved.' : 'Chromium Shared is active. Playback remains paused.');
     } catch (error) {
-      if (backend === 'native-shared') {
+      const failure = normalizePlaybackFailure(error);
+      if (backend === 'native-shared' && (failure.code === 'AUDIO_HOST_UNAVAILABLE' || failure.code === 'AUDIO_HOST_PROTOCOL_ERROR')) {
         await this.engine.setBackend('chromium');
         this.audioEngineBackend.set('chromium');
         await this.syncNativeMediaKeys();
         this.syncPreferredOutputSignals();
       }
-      this.playbackNotice.set(normalizePlaybackFailure(error).message);
+      this.playRequested.set(false);
+      this.playbackState.set('paused');
+      this.playbackNotice.set(this.audioEngineBackend() === 'chromium' && this.outputMode() === 'exclusive-dsp'
+        ? 'Exclusive requires Native Audio Host. Chromium Shared is active; your Exclusive preference is saved.' : failure.message);
     }
     await this.refreshAudioOutputState();
   }
@@ -641,7 +688,7 @@ export class PlayerService implements OnDestroy {
       if (track) { await this.engine.load(track); this.engine.seek(position); this.engine.pause(); }
       await this.persistSettings({ audioEngineBackend: 'chromium' });
     } catch { /* Stay paused and require an explicit output selection. */ }
-    this.playbackNotice.set(normalizePlaybackFailure(error).message);
+    this.playbackNotice.set(this.outputMode() === 'exclusive-dsp' ? 'Exclusive requires Native Audio Host. Chromium Shared is active; your Exclusive preference is saved.' : normalizePlaybackFailure(error).message);
     await this.refreshAudioOutputState();
   }
 
@@ -1104,8 +1151,9 @@ export class PlayerService implements OnDestroy {
   }
 
   private async handlePlaybackFailure(failure: PlaybackError): Promise<void> {
-    if (failure.code === 'OUTPUT_DEVICE_UNAVAILABLE' || failure.code === 'OUTPUT_DEVICE_BUSY' || failure.code === 'OUTPUT_FORMAT_UNSUPPORTED' || failure.code === 'OUTPUT_DEVICE_PERMISSION_DENIED' || failure.code === 'OUTPUT_DEVICE_UNSUPPORTED' || failure.code === 'OUTPUT_MODE_UNSUPPORTED') {
+    if (failure.code === 'OUTPUT_EXCLUSIVE_NOT_ALLOWED' || failure.code === 'OUTPUT_DEVICE_UNAVAILABLE' || failure.code === 'OUTPUT_DEVICE_BUSY' || failure.code === 'OUTPUT_FORMAT_UNSUPPORTED' || failure.code === 'OUTPUT_DEVICE_PERMISSION_DENIED' || failure.code === 'OUTPUT_DEVICE_UNSUPPORTED' || failure.code === 'OUTPUT_MODE_UNSUPPORTED') {
       this.playRequested.set(false);
+      this.playbackState.set('paused');
       this.playbackNotice.set(failure.message);
       return;
     }
@@ -1141,6 +1189,12 @@ export class PlayerService implements OnDestroy {
         } catch (err) {
           if (sequence !== this.loadSequence) return;
           currentFailure = normalizePlaybackFailure(err, nextEntry.track.id);
+          if (currentFailure.code.startsWith('OUTPUT_')) {
+            this.playRequested.set(false);
+            this.playbackState.set('paused');
+            this.playbackNotice.set(currentFailure.message);
+            return;
+          }
         }
       }
     } finally {
@@ -1200,7 +1254,7 @@ export class PlayerService implements OnDestroy {
       if (sequence !== this.loadSequence) return;
       this.currentTrack.set(track);
       this.engine.seek(snapshot.position);
-      if (snapshot.shouldResume && this.audioPathStatus()?.activeDeviceId) {
+      if (this.audioEngineBackend() === 'chromium' && snapshot.shouldResume && this.audioPathStatus()?.activeDeviceId) {
         this.playRequested.set(true);
         await this.engine.play();
       } else {

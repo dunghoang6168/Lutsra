@@ -47,3 +47,13 @@ export function validArtistSourceUrl(value: unknown): string {
   if (url.protocol !== 'https:' || !allowed) throw new Error('Untrusted source URL');
   return url.toString();
 }
+
+export function validOutputMode(value: unknown): 'shared' | 'exclusive-dsp' {
+  if (value !== 'shared' && value !== 'exclusive-dsp') throw new Error('Invalid audio output mode');
+  return value;
+}
+
+export function validExclusiveBufferMs(value: unknown): number {
+  if (typeof value !== 'number' || ![10,20,40,80].includes(value)) throw new Error('Invalid Exclusive buffer');
+  return value;
+}

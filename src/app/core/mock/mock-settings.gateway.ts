@@ -18,6 +18,7 @@ export class MockSettingsGateway implements SettingsGateway {
     preferredNativeAudioOutputId: 'system-default',
     preferredNativeAudioOutputName: 'System Default',
     outputMode: 'shared',
+    exclusiveBufferMs: 20,
     audioOutputFallbackEnabled: false,
     themePreset: 'dark',
     accentColor: 'violet',

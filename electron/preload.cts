@@ -39,6 +39,7 @@ const api: DesktopApi = {
     transition: (crossfadeSeconds) => ipcRenderer.invoke('audio-host:transition', crossfadeSeconds),
     listDevices: () => ipcRenderer.invoke('audio-host:list-devices'),
     selectDevice: (deviceId) => ipcRenderer.invoke('audio-host:select-device', deviceId),
+    setOutputMode: (mode, bufferMs) => ipcRenderer.invoke('audio-host:set-output-mode', mode, bufferMs),
     setFallbackEnabled: (enabled) => ipcRenderer.invoke('audio-host:set-fallback', enabled),
     getPathStatus: () => ipcRenderer.invoke('audio-host:get-path-status'),
     setSpectrumEnabled: (enabled) => ipcRenderer.invoke('audio-host:set-spectrum', enabled),
