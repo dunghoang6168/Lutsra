@@ -197,7 +197,7 @@
                 </span>
                 <span class="spec-item">
                   <span class="spec-name">Sample rate</span>
-                  <span class="spec-value">{{ track.sampleRate ? (track.sampleRate | number) + ' Hz (' + (track.sampleRate / 1000) + ' kHz)' : 'N/A' }}</span>
+                  <span class="spec-value">{{ track.sampleRate ? (track.sampleRate | number) + ' Hz' : 'N/A' }}</span>
                 </span>
                 <span class="spec-item">
                   <span class="spec-name">Bitrate</span>
@@ -205,7 +205,7 @@
                 </span>
                 <span class="spec-item">
                   <span class="spec-name">Channels</span>
-                  <span class="spec-value">{{ track.channels === 2 ? 'Stereo (2 Ch)' : track.channels === 1 ? 'Mono' : track.channels ? track.channels + ' Ch' : 'N/A' }}</span>
+                  <span class="spec-value">{{ track.channels === 2 ? 'Stereo (2 ch)' : track.channels === 1 ? 'Mono' : track.channels ? track.channels + ' ch' : 'N/A' }}</span>
                 </span>
                 <span class="spec-item">
                   <span class="spec-name">File size</span>

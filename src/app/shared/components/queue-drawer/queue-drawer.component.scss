@@ -317,7 +317,7 @@
     .bar {
       width: 2.5px;
       background: var(--accent-primary);
-      border-radius: 1px;
+      border-radius: var(--radius-full);
       animation: equalize 1s infinite alternate ease-in-out;
     }
 

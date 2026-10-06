@@ -84,7 +84,7 @@
 
 /* A 2px measurement tick, not a badge: Hi-Res carries the accent, the rest stay neutral. */
 .quality-mark { width: 16px; height: 10px; flex-shrink: 0; display: grid; place-items: center; }
-.quality-mark::before { content: ''; width: 2px; height: 10px; border-radius: 1px; background: var(--text-muted); }
+.quality-mark::before { content: ''; width: 2px; height: 10px; border-radius: var(--radius-full); background: var(--text-muted); }
 .quality-mark[data-kind='hires']::before { background: var(--accent-primary); }
 .quality-mark[data-kind='missing']::before { background: var(--status-warning); }
 

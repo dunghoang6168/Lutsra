@@ -287,7 +287,7 @@ function row(name: string, value: string | null, path = false): PropertyRow | nu
 }
 function join(values: string[]): string | null { return values.length ? values.join(', ') : null; }
 function formatNumber(value: number | null): string | null { return value === null ? null : String(value); }
-function formatInteger(value: number): string { return Math.round(value).toLocaleString('en-US').replaceAll(',', ' '); }
+function formatInteger(value: number): string { return Math.round(value).toLocaleString('en-US'); }
 function formatDuration(duration: number | null, samples: number | null): string | null {
   if (duration === null) return null;
   const totalMilliseconds = Math.max(0, Math.round(duration * 1000));

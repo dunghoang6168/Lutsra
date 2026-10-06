@@ -38,7 +38,7 @@
               <div class="browse-filter-field">
                 <span class="field-label">Year</span>
                 <app-searchable-filter-select label="Year" [options]="yearOptions()" [value]="yearFilter()"
-                  allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown Year"
+                  allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown year"
                   (valueChange)="yearFilter.set($event)" />
               </div>
               @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
@@ -78,7 +78,7 @@
               [item]="album"
               [title]="album.title"
               [subtitle]="album.artist || 'Unknown Artist'"
-              [subtext]="(album.year || 'Unknown Year') + ' • ' + album.trackIds.length + ' tracks'"
+              [subtext]="(album.year || 'Unknown year') + ' • ' + album.trackIds.length + ' tracks'"
               [imageUrl]="album.artwork || null"
               [link]="['/albums', album.id]"
               [showDetails]="true"
