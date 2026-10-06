@@ -185,6 +185,9 @@ private:
   int stopFadeFramesRemaining_{}, stopFadeFramesTotal_{};
   UINT32 stopFadeSilentFrames_{};
   std::atomic<bool> currentExhausted_{false};
-  std::array<std::atomic<unsigned char>, 128> spectrum_{};
+  // Pre-gain mono history for the spectrum: render writes, telemetry reads.
+  std::array<std::atomic<float>, 8192> spectrumRing_{};
+  std::atomic<size_t> spectrumWrite_{0};
+  std::atomic<int> spectrumRate_{0};
   std::mutex controlMutex_;
 };

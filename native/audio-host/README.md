@@ -21,7 +21,9 @@ render discards old ring data and acknowledges the new epoch, including while pa
 The playback position counts samples actually consumed. WASAPI's endpoint mix format
 is authoritative; changing it reopens both decoders at their current positions.
 Shared Mode is always reported as processed and never as bit-perfect. Spectrum
-telemetry contains 128 post-mixer time-domain peak bins and is capped near 30 FPS.
+telemetry is an FFT of the pre-volume mono mix (Blackman window, ~43 ms at any rate,
+0.78 smoothing, -90..-10 dB like the Chromium analyser), sent as 1024 bytes on a fixed
+0..24 kHz axis while playing and capped near 30 FPS.
 
 A prepared track is spliced gaplessly: when the active decoder has drained, render
 fills the rest of the same WASAPI buffer from the prepared decoder and promotes it

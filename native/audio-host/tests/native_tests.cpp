@@ -1,6 +1,7 @@
 #include <initguid.h>
 #include "../spsc_ring_buffer.h"
 #include "../sample_writer.h"
+#include "../spectrum_analyzer.h"
 #include <atomic>
 #ifdef NDEBUG
 #undef NDEBUG
@@ -202,6 +203,32 @@ static void gainRampTest() {
   }
 }
 
+// A 1 kHz tone lands on the same output bin whatever the device rate, and
+// silence stays at the floor.
+static void spectrumAnalyzerTest() {
+  for (const int rate : {44100, 48000, 96000, 192000}) {
+    const size_t size = SpectrumAnalyzer::fftSizeFor(rate);
+    std::vector<float> tone(size), silence(size);
+    for (size_t i = 0; i < size; ++i)
+      tone[i] = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 1000.0 * i / rate));
+    SpectrumAnalyzer analyzer, quiet;
+    unsigned char bins[SpectrumAnalyzer::kBins]{};
+    for (int frame = 0; frame < 40; ++frame)
+      assert(analyzer.analyze(tone.data(), size, rate, bins));
+    size_t loudest = 0;
+    for (size_t k = 1; k < SpectrumAnalyzer::kBins; ++k)
+      if (bins[k] > bins[loudest])
+        loudest = k;
+    const size_t expected = static_cast<size_t>(1000.0 / (SpectrumAnalyzer::kAxisHz / SpectrumAnalyzer::kBins));
+    assert(loudest + 1 >= expected && loudest <= expected + 1);
+    assert(bins[loudest] > 180);
+    assert(bins[SpectrumAnalyzer::kBins / 2] < bins[loudest] / 4);
+    assert(quiet.analyze(silence.data(), size, rate, bins));
+    for (const unsigned char bin : bins)
+      assert(bin == 0);
+  }
+}
+
 int main() {
   integerRoundTripTest();
   sampleWriterBoundsTest();
@@ -210,5 +237,6 @@ int main() {
   boundedFrameTest();
   constantSumCrossfadeTest();
   gainRampTest();
+  spectrumAnalyzerTest();
   return 0;
 }

@@ -4,11 +4,14 @@ import type { AudioAnalysisEngine, PlaybackEngine } from '../contracts';
 import type { AudioHostState, AudioOutputDevice, AudioPathStatus, OutputMode, PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent, Track } from '../models';
 import { getDesktopApi, type NativeAudioHostEvent } from './desktop-api';
 
+// Matches the host: 1024 bins on a fixed 0..24 kHz axis, like the Chromium analyser.
+const SPECTRUM_BINS = 1024;
+
 export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
   private readonly api = getDesktopApi()?.audioHost;
   private currentTrack: Track | null = null;
   private preparedTrack: Track | null = null;
-  private spectrum = new Uint8Array(128);
+  private spectrum = new Uint8Array(SPECTRUM_BINS);
   private hostState: AudioHostState = 'stopped';
   private operationSequence = 0;
   private pendingTransition: {
@@ -115,10 +118,10 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
     if (backend !== 'native-shared') throw new Error('Backend switching is owned by the playback facade.');
     await this.api!.start();
   }
-  async prepareFrequencyAnalysis(): Promise<number> { await this.api!.setSpectrumEnabled(true); return 128; }
+  async prepareFrequencyAnalysis(): Promise<number> { await this.api!.setSpectrumEnabled(true); return SPECTRUM_BINS; }
   readFrequencyData(target: Uint8Array<ArrayBuffer>): boolean {
     if (target.length === 0 || this.spectrum.length === 0) return false;
-    for (let index = 0; index < target.length; index++) target[index] = this.spectrum[Math.min(127, Math.floor(index * 128 / target.length))];
+    for (let index = 0; index < target.length; index++) target[index] = this.spectrum[Math.min(SPECTRUM_BINS - 1, Math.floor(index * SPECTRUM_BINS / target.length))];
     return true;
   }
   dispose(): void {
@@ -134,7 +137,7 @@ export class NativeAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisE
 
   private handleEvent(event: NativeAudioHostEvent): void {
     if (event.kind === 'spectrum') {
-      this.spectrum = Uint8Array.from(event.bins.slice(0, 128).map((value) => Math.max(0, Math.min(255, value))));
+      this.spectrum = Uint8Array.from(event.bins.slice(0, SPECTRUM_BINS).map((value) => Math.max(0, Math.min(255, value))));
       return;
     }
     this.zone.run(() => {
