@@ -1,3 +1,9 @@
+:host {
+  // Preserve the existing control sizes independently of compact spacing tokens.
+  --hero-action-height: 40px;
+  --track-action-size: 28px;
+}
+
 
     .artist-detail-page {
       padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
@@ -68,7 +74,7 @@
     }
 
     .btn-play {
-      height: 40px;
+      height: var(--hero-action-height);
       padding: 0 var(--space-6);
       border-radius: var(--radius-md);
       background: var(--color-accent-fill);
@@ -291,7 +297,7 @@
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
     .col-actions { width: 44px; text-align: right; }
     .queue-row-btn {
-      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      width: var(--track-action-size); height: var(--track-action-size); display: inline-flex; align-items: center; justify-content: center;
       border-radius: var(--radius-sm); color: var(--text-muted); opacity: 0;
       transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
     }
@@ -343,4 +349,63 @@
 .queue-row-btn:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: -2px;
+}
+
+.hero-actions button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@container main-content (max-width: 600px) {
+  .hero-info {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .hero-actions button {
+    height: var(--hero-action-height);
+    min-height: var(--hero-action-height);
+  }
+
+  .hero-actions .action-compact {
+    width: var(--hero-action-height);
+    min-width: var(--hero-action-height);
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .action-compact .action-label { display: none; }
+
+  .artist-name { overflow-wrap: anywhere; }
+
+  .col-album { display: none; }
+
+  .tracks-table { table-layout: fixed; }
+
+  .tracks-table th,
+  .tracks-table td { padding-inline: var(--space-1); }
+
+  .col-num { width: var(--space-8); }
+  .col-title { min-width: 0; width: auto; }
+  .col-duration { width: calc(5ch + var(--space-2) * 2); white-space: nowrap; }
+  .col-actions { width: calc(var(--track-action-size) + var(--space-1) * 2); }
+
+  .track-title {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge-unavailable {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-left: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

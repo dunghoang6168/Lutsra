@@ -55,21 +55,21 @@
 
               <button
                 type="button"
-                class="btn-shuffle"
+                class="btn-shuffle action-compact"
                 (click)="onShufflePlay()"
                 [disabled]="albumTracks().length === 0"
-                aria-label="Shuffle album">
+                aria-label="Shuffle album" title="Shuffle album">
                 <app-icon name="shuffle" [size]="16" />
-                Shuffle
+                <span class="action-label">Shuffle</span>
               </button>
               <button
                 type="button"
-                class="btn-shuffle"
+                class="btn-shuffle action-compact"
                 (click)="onAddAllToQueue()"
                 [disabled]="albumTracks().length === 0"
-                aria-label="Add album to queue">
+                aria-label="Add album to queue" title="Add album to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to queue
+                <span class="action-label">Add to queue</span>
               </button>
             </div>
           </div>

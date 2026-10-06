@@ -56,18 +56,18 @@
 
               <button
                 type="button"
-                class="btn-action"
+                class="btn-action action-compact"
                 (click)="onShufflePlay()"
                 [disabled]="trackRows().length === 0"
-                aria-label="Shuffle playlist">
+                aria-label="Shuffle playlist" title="Shuffle playlist">
                 <app-icon name="shuffle" [size]="16" />
-                Shuffle
+                <span class="action-label">Shuffle</span>
               </button>
 
-              <button type="button" class="btn-action" (click)="onAddAllToQueue()"
-                [disabled]="trackRows().length === 0" aria-label="Add playlist to queue">
+              <button type="button" class="btn-action action-compact" (click)="onAddAllToQueue()"
+                [disabled]="trackRows().length === 0" aria-label="Add playlist to queue" title="Add playlist to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to queue
+                <span class="action-label">Add to queue</span>
               </button>
 
               <button

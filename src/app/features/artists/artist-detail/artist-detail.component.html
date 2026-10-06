@@ -52,10 +52,10 @@
                   <button type="button" class="btn btn-secondary" (click)="retryMetadata()">Retry info</button>
                 }
               }
-              <button type="button" class="btn btn-secondary" (click)="onAddAllToQueue()"
-                [disabled]="artistTracks().length === 0" aria-label="Add artist tracks to queue">
+              <button type="button" class="btn btn-secondary action-compact" (click)="onAddAllToQueue()"
+                [disabled]="artistTracks().length === 0" aria-label="Add artist tracks to queue" title="Add artist tracks to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to queue
+                <span class="action-label">Add to queue</span>
               </button>
             </div>
             @if (metadataNotice(); as notice) { <p class="metadata-notice" role="status">{{ notice }}</p> }
