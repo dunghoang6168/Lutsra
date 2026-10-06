@@ -96,8 +96,10 @@ static std::wstring friendlyName(IMMDevice *device) {
   return name;
 }
 static AudioFormatInfo formatInfo(const WAVEFORMATEX *format) {
-  return {(int)format->nSamplesPerSec, (int)format->wBitsPerSample,
-          (int)format->nChannels};
+  int bits = format->wBitsPerSample;
+  if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE && format->cbSize >= 22)
+    bits = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(format)->Samples.wValidBitsPerSample;
+  return {(int)format->nSamplesPerSec, bits, (int)format->nChannels};
 }
 // The format Windows sends to the hardware, as set in Sound settings. In
 // Shared Mode this differs from the float32 engine mix format.
@@ -298,7 +300,7 @@ WasapiHost::EndpointBundle::~EndpointBundle() {
 }
 
 std::unique_ptr<WasapiHost::EndpointBundle>
-WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
+WasapiHost::createEndpoint(const std::wstring &id, std::string &error, bool exclusive, AudioFormatInfo source) {
   error.clear();
   if (!enumerator_) {
     error = "OUTPUT_DEVICE_UNAVAILABLE";
@@ -318,26 +320,67 @@ WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
     bundle->endpointId = endpointId;
     CoTaskMemFree(endpointId);
   }
-  HRESULT hr = bundle->device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL,
-                                         nullptr, &bundle->client);
-  if (SUCCEEDED(hr))
-    hr = bundle->client->GetMixFormat(&bundle->mixFormat);
-  if (FAILED(hr)) {
-    error = hr == AUDCLNT_E_DEVICE_IN_USE ? "OUTPUT_DEVICE_BUSY"
-                                          : "OUTPUT_DEVICE_UNAVAILABLE";
-    return nullptr;
-  }
+  bundle->exclusive = exclusive;
   bundle->event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-  if (!bundle->event) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return nullptr;
+  if (!bundle->event) { error = "OUTPUT_DEVICE_UNAVAILABLE"; return nullptr; }
+  HRESULT hr = E_FAIL;
+  const auto activate = [&] {
+    bundle->client.Reset();
+    return bundle->device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, &bundle->client);
+  };
+  if (!exclusive) {
+    hr = activate();
+    if (SUCCEEDED(hr)) hr = bundle->client->GetMixFormat(&bundle->mixFormat);
+    if (SUCCEEDED(hr)) hr = bundle->client->Initialize(AUDCLNT_SHAREMODE_SHARED,
+        AUDCLNT_STREAMFLAGS_EVENTCALLBACK, 100 * 10'000, 0, bundle->mixFormat, nullptr);
+  } else {
+    if (!source.sampleRate) source = {48000, 24, 2}; // No track loaded yet.
+    const auto choice = chooseExclusiveFormat(source, probeFormatsLocked(bundle->endpointId));
+    if (choice.candidates.empty()) { error = "OUTPUT_FORMAT_UNSUPPORTED"; return nullptr; }
+    for (const auto& candidate : choice.candidates) {
+      WAVEFORMATEXTENSIBLE format{};
+      format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+      format.Format.nSamplesPerSec = candidate.sampleRate;
+      format.Format.nChannels = static_cast<WORD>(candidate.channels);
+      format.Format.wBitsPerSample = static_cast<WORD>(candidate.containerBits);
+      format.Format.nBlockAlign = format.Format.nChannels * format.Format.wBitsPerSample / 8;
+      format.Format.nAvgBytesPerSec = format.Format.nSamplesPerSec * format.Format.nBlockAlign;
+      format.Format.cbSize = sizeof(format) - sizeof(WAVEFORMATEX);
+      format.Samples.wValidBitsPerSample = static_cast<WORD>(candidate.bitDepth);
+      format.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+      format.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+      hr = activate();
+      if (FAILED(hr)) break;
+      REFERENCE_TIME defaultPeriod = 0, minimumPeriod = 0;
+      bundle->client->GetDevicePeriod(&defaultPeriod, &minimumPeriod);
+      for (const auto period : {static_cast<REFERENCE_TIME>(exclusiveBufferMs_) * 10'000, defaultPeriod}) {
+        if (!period) continue;
+        hr = bundle->client->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
+            AUDCLNT_STREAMFLAGS_EVENTCALLBACK, period, period, &format.Format, nullptr);
+        if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
+          UINT32 alignedFrames = 0;
+          const HRESULT sizeResult = bundle->client->GetBufferSize(&alignedFrames);
+          if (FAILED(sizeResult)) { hr = sizeResult; break; }
+          const REFERENCE_TIME aligned = static_cast<REFERENCE_TIME>(
+              std::llround(10'000'000.0 * alignedFrames / candidate.sampleRate));
+          hr = activate();
+          if (SUCCEEDED(hr)) hr = bundle->client->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
+              AUDCLNT_STREAMFLAGS_EVENTCALLBACK, aligned, aligned, &format.Format, nullptr);
+        }
+        if (SUCCEEDED(hr) || hr == AUDCLNT_E_DEVICE_IN_USE ||
+            hr == AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED) break;
+        const HRESULT activation = activate();
+        if (FAILED(activation)) { hr = activation; break; }
+      }
+      if (SUCCEEDED(hr)) {
+        bundle->mixFormat = static_cast<WAVEFORMATEX*>(CoTaskMemAlloc(sizeof(format)));
+        if (!bundle->mixFormat) { hr = E_OUTOFMEMORY; break; }
+        memcpy(bundle->mixFormat, &format, sizeof(format));
+        break;
+      }
+      if (hr == AUDCLNT_E_DEVICE_IN_USE || hr == AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED) break;
+    }
   }
-  // Music playback favors glitch resistance over minimum output latency.
-  constexpr REFERENCE_TIME kSharedBufferHns = 100 * 10'000; // 100 ms
-  hr = bundle->client->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                                  kSharedBufferHns, 0, bundle->mixFormat,
-                                  nullptr);
   if (SUCCEEDED(hr))
     hr = bundle->client->SetEventHandle(bundle->event);
   if (SUCCEEDED(hr))
@@ -346,6 +389,7 @@ WasapiHost::createEndpoint(const std::wstring &id, std::string &error) {
     hr = bundle->client->GetService(IID_PPV_ARGS(&bundle->renderClient));
   if (FAILED(hr)) {
     error = hr == AUDCLNT_E_DEVICE_IN_USE ? "OUTPUT_DEVICE_BUSY" :
+            hr == AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED ? "OUTPUT_EXCLUSIVE_NOT_ALLOWED" :
             hr == AUDCLNT_E_UNSUPPORTED_FORMAT ? "OUTPUT_FORMAT_UNSUPPORTED" :
             "OUTPUT_DEVICE_UNAVAILABLE";
     return nullptr;
@@ -369,6 +413,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   mixFormat_ = std::exchange(bundle->mixFormat, nullptr);
   audioEvent_ = std::exchange(bundle->event, nullptr);
   bufferFrames_ = bundle->bufferFrames;
+  exclusive_ = bundle->exclusive;
   activeEndpointId_ = std::move(bundle->endpointId);
   deviceName_ = std::move(bundle->name);
   activeId_ = id;
@@ -417,20 +462,75 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   return error.empty();
 }
 
+AudioFormatInfo WasapiHost::currentSource() const {
+  return {sourceRate_.load(), sourceBits_.load(), sourceChannels_.load()};
+}
+
+bool WasapiHost::switchEndpoint(const std::wstring& id, bool exclusive,
+                                AudioFormatInfo source, std::string& error) {
+  const std::wstring resolved = id == L"system-default" ? defaultEndpointId() : id;
+  const bool same = !resolved.empty() && resolved == activeEndpointId_;
+  const bool previousExclusive = exclusive_;
+  const std::wstring previousId = activeId_;
+  const auto previousSource = currentSource();
+  if (same) {
+    stopPlaybackWithFade();
+    shutdownAudio();
+    drainMailboxWhileStopped();
+  }
+  auto bundle = createEndpoint(id, error, exclusive, source);
+  if (!bundle) {
+    if (same) {
+      const std::string failure = error;
+      // Shared -> Exclusive has an explicit paused rollback. The opposite
+      // failure must return once, without an automatic reopen/retry loop.
+      if (!previousExclusive && exclusive) {
+        std::string restoreError;
+        auto restore = createEndpoint(previousId, restoreError, false, previousSource);
+        if (restore) swapEndpoint(std::move(restore), previousId, restoreError);
+      }
+      deviceInvalidated_ = !client_;
+      sendTime(false);
+      sendState("paused");
+      error = failure;
+    }
+    return false; // Different endpoint: old resources and playback are untouched.
+  }
+  return swapEndpoint(std::move(bundle), id, error);
+}
+
+bool WasapiHost::setOutputMode(const std::string& mode, int bufferMs, std::string& error) {
+  if ((mode != "shared" && mode != "exclusive-dsp") ||
+      (bufferMs != 10 && bufferMs != 20 && bufferMs != 40 && bufferMs != 80)) {
+    error = "AUDIO_HOST_PROTOCOL_ERROR"; return false;
+  }
+  std::unique_lock lock(controlMutex_);
+  const bool target = mode == "exclusive-dsp";
+  const bool wasPlaying = playing_.load();
+  const int oldBuffer = exclusiveBufferMs_;
+  if (target == exclusive_ && bufferMs == oldBuffer && client_) {
+    preferredExclusive_ = target; return true;
+  }
+  exclusiveBufferMs_ = bufferMs;
+  if (!switchEndpoint(preferredId_, target, currentSource(), error)) {
+    exclusiveBufferMs_ = oldBuffer; return false;
+  }
+  preferredExclusive_ = target;
+  if (wasPlaying && !startPlayback(lock, error)) { sendState("paused"); return false; }
+  return true;
+}
+
 bool WasapiHost::initializeEndpoint(const std::wstring &id,
                                     std::string &error) {
-  auto bundle = createEndpoint(id, error);
-  return bundle && swapEndpoint(std::move(bundle), id, error);
+  return switchEndpoint(id, preferredExclusive_, currentSource(), error);
 }
 
 bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
   std::unique_lock lock(controlMutex_);
   const bool wasPlaying = playing_.load();
   const std::string trackId = trackIdFor(desiredActiveToken_);
-  auto bundle = createEndpoint(id, error);
-  if (!bundle)
-    return false; // The previous endpoint is untouched and keeps playing.
-  const bool reopened = swapEndpoint(std::move(bundle), id, error);
+  if (!switchEndpoint(id, preferredExclusive_, currentSource(), error)) return false;
+  const bool reopened = error.empty();
   preferredId_ = id;
   if (!reopened) {
     // The endpoint switched, but the track could not be reopened for its mix format.
@@ -464,7 +564,9 @@ bool WasapiHost::enqueue(RenderCommand command, bool waitForSpace) {
     return false;
   mailbox_[(mailboxHead_ + mailboxCount_) % mailbox_.size()] = command;
   ++mailboxCount_;
-  if (audioEvent_)
+  // Playing Exclusive must wake only on hardware events: a synthetic wake
+  // would falsely advance the two-buffer drain counter. Paused still drains mailbox.
+  if (audioEvent_ && (!exclusive_ || !playing_))
     SetEvent(audioEvent_);
   return true;
 }
@@ -477,8 +579,10 @@ void WasapiHost::stopPlaybackWithFade() {
     const int frames = std::max(1, static_cast<int>(mixFormat_->nSamplesPerSec / 100));
     const RenderCommand command{CommandKind::FadeOutThenSignal, nullptr,
                                 playbackGeneration_.load(), frames};
+    // Exclusive alternates two buffers: event one starts the submitted fade,
+    // event two drains it. Budget both periods, including 80 ms buffers.
     const auto waitBudget = std::chrono::ceil<std::chrono::milliseconds>(
-        std::chrono::duration<double>((static_cast<double>(bufferFrames_) + frames) /
+        std::chrono::duration<double>((static_cast<double>(bufferFrames_) * (exclusive_ ? 2 : 1) + frames) /
                                       mixFormat_->nSamplesPerSec)) +
         std::chrono::milliseconds(20);
     const auto deadline = std::chrono::steady_clock::now() +
@@ -509,6 +613,7 @@ void WasapiHost::resetPlaybackGain() noexcept {
   stopFadeStartGain_ = 0;
   stopFadeFramesRemaining_ = stopFadeFramesTotal_ = 0;
   stopFadeSilentFrames_ = 0;
+  exclusiveFadeDrain_ = {};
   fadeOutComplete_.store(false, std::memory_order_release);
 }
 
@@ -852,17 +957,15 @@ void WasapiHost::recoverInvalidated() {
     if (superseded())
       return;
     std::string error;
-    auto bundle = createEndpoint(selectedId, error);
+    shutdownAudio();
+    drainMailboxWhileStopped();
+    auto bundle = createEndpoint(selectedId, error, preferredExclusive_, currentSource());
     if (bundle) {
       const bool sameEndpoint = bundle->endpointId == endpointId;
       if (swapEndpoint(std::move(bundle), selectedId, error)) {
         deviceInvalidated_ = false;
         connected_ = selectedId == preferredId_;
-        if (sameEndpoint && resume && desiredActiveToken_ && client_ &&
-            startClientWithSilence()) {
-          playing_ = true;
-          sendState("playing");
-        }
+        sendState("paused");
         sendEvent("{\"kind\":\"devices-changed\"}");
         if (!sameEndpoint)
           sendError(trackIdFor(desiredActiveToken_), "OUTPUT_DEVICE_UNAVAILABLE",
@@ -909,7 +1012,7 @@ std::wstring WasapiHost::defaultEndpointId() {
 bool WasapiHost::enterFallback() {
   // The preferred endpoint stays preferred; connected_ reports it as missing.
   std::string error;
-  const bool ok = initializeEndpoint(L"system-default", error);
+  const bool ok = switchEndpoint(L"system-default", false, currentSource(), error);
   if (!ok)
     activeId_.clear();
   connected_ = false;
@@ -926,7 +1029,7 @@ void WasapiHost::onDevicesChanged() {
     sendState("paused");
   };
   const auto reinitIfFormatChanged = [&] {
-    if (!mixFormat_ || activeEndpointId_.empty())
+    if (exclusive_ || !mixFormat_ || activeEndpointId_.empty())
       return;
     ComPtr<IMMDevice> activeDevice;
     ComPtr<IAudioClient> probe;
@@ -1304,7 +1407,7 @@ void WasapiHost::renderLoopSafe() {
     if (fadeOutComplete_.load(std::memory_order_acquire))
       continue; // Freeze consumption until control calls Stop.
     UINT32 padding = 0;
-    const HRESULT paddingResult = client_->GetCurrentPadding(&padding);
+    const HRESULT paddingResult = exclusive_ ? S_OK : client_->GetCurrentPadding(&padding);
     if (FAILED(paddingResult)) {
       signalRenderFailure(paddingResult);
       continue;
@@ -1312,12 +1415,12 @@ void WasapiHost::renderLoopSafe() {
     if (stopFadeFramesTotal_ > 0 && stopFadeFramesRemaining_ == 0) {
       // ReleaseBuffer submits PCM; it does not mean the DAC has heard it yet.
       // Wait until only the zero-gain tail remains before acknowledging Stop.
-      if (padding <= stopFadeSilentFrames_) {
+      if (exclusive_ ? exclusiveFadeDrain_.nextEvent() : padding <= stopFadeSilentFrames_) {
         fadeOutComplete_.store(true, std::memory_order_release);
         continue;
       }
     }
-    const UINT32 frames = bufferFrames_ - padding;
+    const UINT32 frames = exclusive_ ? bufferFrames_ : bufferFrames_ - padding;
     if (!frames)
       continue;
     BYTE *bytes = nullptr;
@@ -1411,6 +1514,8 @@ void WasapiHost::renderLoopSafe() {
     }
     if (stoppingPlayback)
       stopFadeSilentFrames_ += frames - pcmFrames;
+    if (exclusive_ && stoppingPlayback && pcmFrames > 0 && stopFadeFramesRemaining_ == 0)
+      exclusiveFadeDrain_.submittedFinalFade();
     if (!promoted && active_ && !active_->seekPending())
       position_ = active_->position();
     if (outgoingEnded && !promoted && !stoppingPlayback) {

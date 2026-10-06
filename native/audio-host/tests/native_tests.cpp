@@ -1,3 +1,4 @@
+#include "../exclusive_format.h"
 #include <initguid.h>
 #include "../spsc_ring_buffer.h"
 #include "../sample_writer.h"
@@ -202,7 +203,44 @@ static void gainRampTest() {
   }
 }
 
+static void exclusiveFormatTest() {
+  std::vector<SupportedFormatInfo> tec, realtek;
+  for (const int rate : {44100, 48000, 88200, 96000, 176400, 192000}) {
+    for (const auto f : {SupportedFormatInfo{rate,24,2,24}, {rate,32,2,32}, {rate,16,2,16}}) tec.push_back(f);
+    for (const auto f : {SupportedFormatInfo{rate,24,2,32}, {rate,24,2,24}, {rate,16,2,16}}) realtek.push_back(f);
+  }
+  assert((chooseExclusiveFormat({96000,24,2}, tec).format == SupportedFormatInfo{96000,24,2,24}));
+  assert((chooseExclusiveFormat({96000,24,2}, realtek).format == SupportedFormatInfo{96000,24,2,32}));
+  for (const auto* formats : {&tec, &realtek})
+    assert((chooseExclusiveFormat({44100,16,2}, *formats).format == SupportedFormatInfo{44100,16,2,16}));
+  assert(!canPrepareExclusive({44100,24,2}, tec, {44100,16,2,16}));
+  assert(canPrepareExclusive({44100,24,2}, tec, {44100,24,2,24}));
+  assert(canPrepareExclusive({48000,24,1}, tec, {48000,24,2,24}));
+  assert(!canPrepareExclusive({48000,24,2}, tec, {44100,24,2,24}));
+  const auto conversion = chooseExclusiveFormat({44100,24,2}, {{88200,24,2,24}, {48000,24,2,24}});
+  assert(conversion.format->sampleRate == 88200);
+  assert(conversion.reasons == std::vector<std::string>{"Sample-rate conversion"});
+  assert(!chooseExclusiveFormat({192000,24,2}, {{96000,24,2,24}}).format);
+  assert(!chooseExclusiveFormat({44100,24,2}, {}).format);
+  const auto reduction = chooseExclusiveFormat({44100,24,2}, {{44100,16,2,16}});
+  assert(reduction.reasons == std::vector<std::string>{"Bit-depth reduction"});
+}
+
+static void exclusiveFadeTest() {
+  for (const int period : {10,20,40,80}) {
+    ExclusiveFadeDrain drain;
+    assert(!drain.nextEvent());
+    drain.submittedFinalFade();
+    assert(!drain.nextEvent());
+    assert(drain.nextEvent());
+    assert(!drain.nextEvent());
+    assert(2 * period + 10 + 20 > 2 * period);
+  }
+}
+
 int main() {
+  exclusiveFormatTest();
+  exclusiveFadeTest();
   integerRoundTripTest();
   sampleWriterBoundsTest();
   ringBufferTest();

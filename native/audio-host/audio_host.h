@@ -15,9 +15,7 @@
 #include <vector>
 #include "spsc_ring_buffer.h"
 
-struct AudioFormatInfo { int sampleRate{}; int bitDepth{}; int channels{}; };
-// bitDepth is the valid PCM precision; containerBits distinguishes 32/24 from packed 24.
-struct SupportedFormatInfo { int sampleRate{}; int bitDepth{}; int channels{}; int containerBits{}; };
+#include "exclusive_format.h"
 struct DeviceInfo { std::wstring id; std::wstring name; bool isDefault{}; AudioFormatInfo mix; std::vector<SupportedFormatInfo> supportedFormats; };
 
 class DecoderPipeline {
@@ -44,6 +42,8 @@ public:
   }
   size_t bufferedSamples() const noexcept { return ring_.availableSamples(); }
   AudioFormatInfo sourceFormat() const noexcept { return source_; }
+  int outputRate() const noexcept { return outputRate_; }
+  int outputChannels() const noexcept { return outputChannels_; }
   double duration() const noexcept { return duration_; }
   const std::wstring& path() const noexcept { return path_; }
   bool ended() const noexcept { return ended_.load(); }
@@ -71,6 +71,7 @@ public:
   explicit WasapiHost(EventSink sink); ~WasapiHost();
   std::vector<DeviceInfo> listDevices();
   std::vector<SupportedFormatInfo> probeFormats(const std::wstring& endpointId);
+  bool setOutputMode(const std::string& mode, int bufferMs, std::string& error);
   bool selectDevice(const std::wstring& id, std::string& error);
   bool load(const std::string& trackId, const std::wstring& path, std::string& error);
   bool prepare(const std::string& trackId, const std::wstring& path, std::string& error);
@@ -90,11 +91,14 @@ private:
     WAVEFORMATEX* mixFormat{};
     HANDLE event{};
     UINT32 bufferFrames{};
+    bool exclusive{};
     std::wstring endpointId, name;
     ~EndpointBundle();
   };
-  std::unique_ptr<EndpointBundle> createEndpoint(const std::wstring& id, std::string& error);
+  std::unique_ptr<EndpointBundle> createEndpoint(const std::wstring& id, std::string& error, bool exclusive, AudioFormatInfo source);
   bool swapEndpoint(std::unique_ptr<EndpointBundle> bundle, const std::wstring& id, std::string& error);
+  AudioFormatInfo currentSource() const;
+  bool switchEndpoint(const std::wstring& id, bool exclusive, AudioFormatInfo source, std::string& error);
   bool initializeEndpoint(const std::wstring& id, std::string& error);
   enum class CommandKind { SetActive, SetIncoming, ClearIncoming, BeginFade, Promote, SeekActive, FadeOutThenSignal };
   struct RenderCommand {
@@ -184,6 +188,9 @@ private:
   float smoothedGain_{}, stopFadeStartGain_{};
   int stopFadeFramesRemaining_{}, stopFadeFramesTotal_{};
   UINT32 stopFadeSilentFrames_{};
+  ExclusiveFadeDrain exclusiveFadeDrain_{};
+  bool exclusive_{}, preferredExclusive_{};
+  int exclusiveBufferMs_{20};
   std::atomic<bool> currentExhausted_{false};
   std::array<std::atomic<unsigned char>, 128> spectrum_{};
   std::mutex controlMutex_;

@@ -60,7 +60,7 @@ Mỗi mốc là một commit (hoặc một nhóm commit nhỏ) có thể build �
 
 ### M0 — Dò format DAC (0,5 ngày) — làm trước tiên
 
-**Trạng thái (04/10/2026):** Đã triển khai ma trận dò, cache theo endpoint và xuất capability qua IPC/smoke. Chưa chạy kiểm thử hay dò thiết bị; chủ dự án sẽ điền mục 8 trước khi xác nhận M2.
+**Trạng thái (04/10/2026):** Đã triển khai ma trận dò, cache theo endpoint và xuất capability qua IPC/smoke. Đã dò 06/10/2026 bằng `test:audio-host:smoke`; kết quả ở mục 8.
 
 Build Electron → Audio Host và Angular thành công. `supportedFormats.bitDepth` là số bit hợp lệ; trường bổ sung `containerBits` phân biệt 32/24 với 24 packed. System Default lấy capability của endpoint mặc định hiện tại.
 
@@ -71,7 +71,7 @@ Build Electron → Audio Host và Angular thành công. `supportedFormats.bitDep
 
 ### M1 — Bộ ghi mẫu integer chính xác (0,5 ngày)
 
-**Trạng thái (04/10/2026):** Đã tách `writeSamples`, hỗ trợ float32/int16/int24 packed/int32 (valid 24 hoặc 32). Đã viết test round-trip `swr` với biên, ±1 LSB và 4096 mẫu có seed cố định, cùng test clamp/padding/float copy. Chưa chạy test.
+**Trạng thái (04/10/2026):** Đã tách `writeSamples`, hỗ trợ float32/int16/int24 packed/int32 (valid 24 hoặc 32). Đã viết test round-trip `swr` với biên, ±1 LSB và 4096 mẫu có seed cố định, cùng test clamp/padding/float copy. `test:audio-host` đạt (06/10/2026).
 
 Build Audio Host và biên dịch/link executable unit test thành công; không chạy executable. Script unit test chuẩn bị DLL FFmpeg khi chủ dự án tự chạy.
 
@@ -204,6 +204,6 @@ Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện 
 
 | Thiết bị | Rate Exclusive hỗ trợ | Container | Ghi chú |
 |---|---|---|---|
-| TE-C | | | |
-| Realtek | | | |
-| HM-805 | | | |
+| TE-C | 44.1, 48, 88.2, 96, 176.4, 192 kHz | 24 packed, 32/32, 16/16 — **không có 32/24** | Đủ mọi rate trong thư viện → không cần resample. Nguồn 24-bit dùng 24 packed (D6). |
+| Realtek | 44.1–192 kHz (đủ 6 rate) | 32/24, 24 packed, 16/16 | Không có 32/32. |
+| HM-805 | — | — | Không kết nối lúc dò (06/10/2026); dò lại khi cắm. |
