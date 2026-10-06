@@ -110,3 +110,27 @@ Logs, fixtures và screenshots giữ ở worktree; không commit profile/cache/m
 | Đóng/mở app nhớ mode/buffer | DB normalization/persistence unit đạt; chưa vòng đời desktop thực tế |
 
 Sleep/resume vật lý và lỗi Exclusive → Shared với driver thực cũng chưa được gây ra. HM-805 chưa kết nối, không xác nhận support. `bitPerfectEligible` luôn false; `kFormatSwitchPrerollMs = 0`, chỉ đổi sau bằng chứng nghe. Chưa có bug ngoài phạm vi mới được xác nhận; compiler warnings đã lưu trong log. Sai lệch so với bản kế hoạch đầu: tách hạn submit/drain theo chấp thuận bổ sung của chủ dự án, thêm EOF drain để không cắt đuôi khi renderer load rate kế, và screenshot dùng status fixtures. Không coi các phần nghiệm thu thủ công chưa thực hiện là đạt.
+
+## Sửa sau review Đợt 2 (06/10/2026)
+
+Hai lỗi sửa trên cùng branch, mỗi lỗi một commit; không merge/push:
+
+1. `dd78e3d fix(audio): keep exclusive buffers silent after playback ends`: khi render nhận event và `playing_ == false`, Exclusive lấy đủ `bufferFrames_` rồi ReleaseBuffer với `AUDCLNT_BUFFERFLAGS_SILENT`. Cả lỗi GetBuffer/ReleaseBuffer đi qua `signalRenderFailure`. Nhánh idle không đọc decoder, không tăng bộ đếm fade drain; fade drain chỉ chạy khi `playing_ == true`, có comment giải thích hai nhánh loại trừ nhau. Thêm atomic diagnostic `exclusiveIdleSilentBuffers` vào statusJson. File đổi: `native/audio-host/audio_host.cpp`, `native/audio-host/audio_host.h`, `scripts/integration-audio-host-codecs.mjs`.
+2. Commit `fix(player): allow shared output when exclusive is unavailable` chứa cập nhật báo cáo này: `PlayerService.setAudioOutputMode` chỉ dùng `exclusiveModeDisabledReason` khi yêu cầu `exclusive-dsp`. Shared vẫn được chuyển/persist khi DAC đã biến mất; validation buffer giữ nguyên. Test loại DAC khỏi `outputDevices`, xác nhận Exclusive vẫn bị chặn nhưng Shared gọi engine đúng một lần và lưu mode/buffer. File đổi: `src/app/core/player/player.service.ts`, `tests/exclusive-output.spec.mts`, báo cáo này.
+
+Kiểm chứng sau ended trên TE-C Exclusive period 20 ms: giữ client chạy thêm 300 ms, diagnostic tăng **15 buffer silent**. Status không tăng underruns, host ready; telemetry không có lỗi/underrun trong khoảng đó. Đây là kiểm tra buffer/status muted, không phải đo âm thanh analog. Trích các trường output thật của codecs:
+
+```json
+{"exclusiveEofDrain":true,"exclusiveEofSilentBuffers":15,"exclusiveEofIdleNoErrors":true,"muted":true}
+```
+
+| Kiểm tra yêu cầu sau review | Kết quả | Raw log |
+|---|---|---|
+| Audio Host build | Đạt, 10 warning/0 error (alignment/FFmpeg hiện có) | [review-audio-host-build.log](../artifacts/phase5/review-audio-host-build.log) |
+| Native unit | Exit 0, incremental 0 warning/0 error | [review-native-unit.log](../artifacts/phase5/review-native-unit.log) |
+| Codecs muted | Sáu codecs đạt, 15 idle silent buffers, không underrun/lỗi mới sau ended; bốn period và tám pha Pause 80 ms không timeout | [review-codecs.log](../artifacts/phase5/review-codecs.log) |
+| Stress muted | 605 request/605 response, 10 endpoint + 10 mode switch | [review-stress.log](../artifacts/phase5/review-stress.log) |
+| Vitest | 10 file, **144/144** test đạt | [review-vitest.log](../artifacts/phase5/review-vitest.log) |
+| Angular build | Đạt; warning CommonJS `@eshaz/web-worker` hiện có | [review-angular-build.log](../artifacts/phase5/review-angular-build.log) |
+
+Vitest có warning SQLite experimental từ Node, không phải test thất bại. Các lượt codecs/stress vẫn muted và chiếm TE-C thực tế. Không khởi động UI server trong lượt review; screenshots/UI sweep trước đó không được chạy lại vì không đổi UI. Checklist nghiệm thu thủ công ở trên giữ nguyên; không phát hiện thêm bug ngoài phạm vi review.

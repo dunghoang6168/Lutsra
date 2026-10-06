@@ -595,7 +595,7 @@ export class PlayerService implements OnDestroy {
   }
 
   async setAudioOutputMode(mode: 'shared' | 'exclusive-dsp', bufferMs = this.exclusiveBufferMs()): Promise<void> {
-    if (this.exclusiveModeDisabledReason() || ![10,20,40,80].includes(bufferMs)) return;
+    if ((mode === 'exclusive-dsp' && this.exclusiveModeDisabledReason()) || ![10,20,40,80].includes(bufferMs)) return;
     this.clearPreparedCandidate();
     try {
       await this.engine.setOutputMode(mode, bufferMs);

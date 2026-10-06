@@ -81,6 +81,21 @@ function playerHarness(saved: Record<string, unknown> = {}) {
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('Exclusive player settings', () => {
+  it('allows Shared after the selected DAC disappears while still guarding Exclusive', async () => {
+    const { player, engine, gateway } = playerHarness({ audioEngineBackend: 'native-shared', preferredNativeAudioOutputId: 'tec', outputMode: 'exclusive-dsp', exclusiveBufferMs: 40 });
+    await flush();
+    player.outputDevices.set([]);
+    expect(player.exclusiveModeDisabledReason()).toBeTruthy();
+    engine.setOutputMode.mockClear();
+    await player.setAudioOutputMode('exclusive-dsp');
+    expect(engine.setOutputMode).not.toHaveBeenCalled();
+    await player.setAudioOutputMode('shared');
+    expect(engine.setOutputMode).toHaveBeenCalledExactlyOnceWith('shared', 40);
+    expect(player.outputMode()).toBe('shared');
+    expect(gateway.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ outputMode: 'shared', exclusiveBufferMs: 40 }));
+    player.ngOnDestroy();
+  });
+
   it('restores mode and buffer before selecting the native device', async () => {
     const { player, engine } = playerHarness({ audioEngineBackend: 'native-shared', preferredNativeAudioOutputId: 'tec', outputMode: 'exclusive-dsp', exclusiveBufferMs: 40 });
     await flush();
