@@ -288,7 +288,8 @@
 
     .overview-hero {
       min-height: 160px;
-      background: var(--bg-elevated);
+      /* Dark base under the artwork so white text holds while images load, in both themes. */
+      background: var(--scrim-heavy);
 
       &.no-artwork {
         background: var(--bg-elevated);

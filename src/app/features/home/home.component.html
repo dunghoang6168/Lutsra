@@ -52,7 +52,7 @@
     <!-- Console: the landing view is a table of what changed on disk. -->
     <header class="console-home-header">
       <h1>Recently modified</h1>
-      <span class="console-home-count">{{ recentTracks().length }} of {{ tracksCount() | number }} files</span>
+      <span class="console-home-count">{{ recentTracks().length }} of {{ tracksCount() | number }} tracks</span>
       <button type="button" class="btn btn-secondary btn-sm" (click)="shuffleAll()">
         <app-icon name="shuffle" [size]="15" /> Shuffle library
       </button>
