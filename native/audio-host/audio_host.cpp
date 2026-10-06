@@ -522,7 +522,7 @@ bool WasapiHost::setOutputMode(const std::string& mode, int bufferMs, std::strin
 
 bool WasapiHost::initializeEndpoint(const std::wstring &id,
                                     std::string &error) {
-  return switchEndpoint(id, preferredExclusive_, currentSource(), error);
+  return switchEndpoint(id, id == preferredId_ && preferredExclusive_, currentSource(), error);
 }
 
 bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
@@ -598,6 +598,7 @@ void WasapiHost::stopPlaybackWithFade() {
         break;
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    if (!deviceInvalidated_ && !fadeOutComplete_.load(std::memory_order_acquire)) ++stopFadeTimeouts_;
   }
   playing_ = false;
   if (client_)
@@ -614,6 +615,7 @@ void WasapiHost::resetPlaybackGain() noexcept {
   stopFadeFramesRemaining_ = stopFadeFramesTotal_ = 0;
   stopFadeSilentFrames_ = 0;
   exclusiveFadeDrain_ = {};
+  exclusiveEndDrain_ = {};
   fadeOutComplete_.store(false, std::memory_order_release);
 }
 
@@ -621,18 +623,18 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
                       std::string &error) {
   std::lock_guard lock(controlMutex_);
   stopPlaybackWithFade();
-  if (!mixFormat_ && !initializeEndpoint(preferredId_, error)) return false;
+  if (!mixFormat_ && !preferredExclusive_ && !initializeEndpoint(preferredId_, error)) return false;
   auto decoder = std::make_unique<DecoderPipeline>();
-  const bool useExclusive = preferredExclusive_ && activeId_ == preferredId_;
+  const bool useExclusive = preferredExclusive_ && (activeId_ == preferredId_ || !mixFormat_);
   if (!decoder->open(path, useExclusive ? 0 : mixFormat_->nSamplesPerSec,
                      useExclusive ? 0 : mixFormat_->nChannels, error))
     return false;
   if (useExclusive) {
     const auto choice = chooseExclusiveFormat(decoder->sourceFormat(), probeFormatsLocked(preferredId_));
     if (!choice.format) { error = "OUTPUT_FORMAT_UNSUPPORTED"; sendState("paused"); return false; }
-    const auto output = formatInfo(mixFormat_);
-    const SupportedFormatInfo current{output.sampleRate, output.bitDepth, output.channels, mixFormat_->wBitsPerSample};
-    if (!exclusive_ || *choice.format != current) {
+    const auto output = mixFormat_ ? formatInfo(mixFormat_) : AudioFormatInfo{};
+    const SupportedFormatInfo current{output.sampleRate, output.bitDepth, output.channels, mixFormat_ ? mixFormat_->wBitsPerSample : 0};
+    if (!mixFormat_ || !exclusive_ || *choice.format != current) {
       if (!switchEndpoint(preferredId_, true, decoder->sourceFormat(), error)) { sendState("paused"); return false; }
     }
     if (decoder->outputRate() != static_cast<int>(mixFormat_->nSamplesPerSec) ||
@@ -882,7 +884,8 @@ std::string WasapiHost::statusJson() {
   if (resample) reasons += "\",\"Sample-rate conversion";
   if (channels) reasons += "\",\"Channel conversion";
   if (exclusive_ && source.bitDepth > output.bitDepth) reasons += "\",\"Bit-depth reduction";
-  if (exclusive_ && !muted_ && volume_.load() < 1) reasons += "\",\"Software volume";
+  if (exclusive_ && volume_.load() < 1) reasons += "\",\"Software volume";
+  if (muted_) reasons += "\",\"Muted";
   if (!connected_) reasons += "\",\"Selected output disconnected; fallback uses WASAPI Shared";
   return "{\"preferredDeviceId\":\"" + jsonEscape(narrow(preferredId_)) +
          "\",\"activeDeviceId\":" + active + ",\"deviceName\":\"" +
@@ -905,7 +908,9 @@ std::string WasapiHost::statusJson() {
          (resample ? "true" : "false") +
          ",\"channelConversionActive\":" + (channels ? "true" : "false") +
          ",\"bitPerfectEligible\":false,\"processingReasons\":[\"" + reasons +
-         "\"],\"underruns\":" + std::to_string(underruns_.load()) + "}";
+         "\"],\"bufferMs\":" + std::to_string(mixFormat_ ? 1000.0 * bufferFrames_ / mixFormat_->nSamplesPerSec : 0) +
+         ",\"stopFadeTimeouts\":" + std::to_string(stopFadeTimeouts_.load()) +
+         ",\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
 void WasapiHost::signalRenderFailure(HRESULT result) noexcept {
   if (result != AUDCLNT_E_DEVICE_INVALIDATED &&
@@ -981,7 +986,7 @@ void WasapiHost::recoverInvalidated() {
     std::string error;
     shutdownAudio();
     drainMailboxWhileStopped();
-    auto bundle = createEndpoint(selectedId, error, preferredExclusive_, currentSource());
+    auto bundle = createEndpoint(selectedId, error, selectedId == preferredId_ && preferredExclusive_, currentSource());
     if (bundle) {
       const bool sameEndpoint = bundle->endpointId == endpointId;
       if (swapEndpoint(std::move(bundle), selectedId, error)) {
@@ -995,7 +1000,7 @@ void WasapiHost::recoverInvalidated() {
         return;
       }
     }
-    failure = error == "OUTPUT_DEVICE_BUSY" ? error : "OUTPUT_DEVICE_UNAVAILABLE";
+    failure = error.empty() ? "OUTPUT_DEVICE_UNAVAILABLE" : error;
     if (failure == "OUTPUT_DEVICE_BUSY")
       sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-busy\"}}");
   }
@@ -1384,6 +1389,7 @@ void WasapiHost::processMailbox() noexcept {
       stopFadeFramesRemaining_ = stopFadeFramesTotal_ = command.frames;
       stopFadeStartGain_ = smoothedGain_;
       stopFadeSilentFrames_ = 0;
+      exclusiveEndDrain_ = {};
     }
     break;
   }
@@ -1428,6 +1434,15 @@ void WasapiHost::renderLoopSafe() {
     resetPlaybackGain();
     if (fadeOutComplete_.load(std::memory_order_acquire))
       continue; // Freeze consumption until control calls Stop.
+    if (exclusive_ && exclusiveEndDrain_.nextEvent()) {
+      // The final PCM buffer (with its EOF fade) has now drained. Reporting
+      // ended earlier lets the renderer load a new rate and truncate its tail.
+      currentExhausted_ = true;
+      playing_ = false;
+      pushRenderEvent({active_->failed() ? RenderEventKind::DecodeFailed : RenderEventKind::Ended,
+                       activeToken_, 0});
+      continue;
+    }
     UINT32 padding = 0;
     const HRESULT paddingResult = exclusive_ ? S_OK : client_->GetCurrentPadding(&padding);
     if (FAILED(paddingResult)) {
@@ -1520,6 +1535,17 @@ void WasapiHost::renderLoopSafe() {
       for (UINT32 channel = 0; channel < channels; ++channel)
         outgoing[static_cast<size_t>(frame) * channels + channel] *= smoothedGain_;
     }
+    const bool exclusiveFinalPcm = exclusive_ && !stoppingPlayback && !promoted && !incoming_ &&
+        activeDrained && read > 0 && active_->bufferedSamples() == 0;
+    if (exclusiveFinalPcm) {
+      const UINT32 musicFrames = static_cast<UINT32>(read / channels);
+      const UINT32 fadeFrames = std::min<UINT32>(musicFrames, mixFormat_->nSamplesPerSec / 100);
+      for (UINT32 frame = 0; frame < fadeFrames; ++frame) {
+        const float gain = static_cast<float>(fadeFrames - frame - 1) / fadeFrames;
+        for (UINT32 channel = 0; channel < channels; ++channel)
+          outgoing[static_cast<size_t>(musicFrames - fadeFrames + frame) * channels + channel] *= gain;
+      }
+    }
     writeSamples(outgoing.data(), samples, mixFormat_, bytes);
     if (spectrumEnabled_) {
       for (size_t bin = 0; bin < 128; ++bin) {
@@ -1538,9 +1564,12 @@ void WasapiHost::renderLoopSafe() {
       stopFadeSilentFrames_ += frames - pcmFrames;
     if (exclusive_ && stoppingPlayback && pcmFrames > 0 && stopFadeFramesRemaining_ == 0)
       exclusiveFadeDrain_.submittedFinalFade();
+    if (exclusiveFinalPcm || (exclusive_ && outgoingEnded && !promoted && !stoppingPlayback &&
+                             exclusiveEndDrain_.eventsRemaining == 0))
+      exclusiveEndDrain_.submittedFinalFade();
     if (!promoted && active_ && !active_->seekPending())
       position_ = active_->position();
-    if (outgoingEnded && !promoted && !stoppingPlayback) {
+    if (!exclusive_ && outgoingEnded && !promoted && !stoppingPlayback) {
       currentExhausted_ = true;
       playing_ = false;
       pushRenderEvent({active_->failed() ? RenderEventKind::DecodeFailed

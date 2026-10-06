@@ -19,7 +19,7 @@ struct ExclusiveFormatChoice {
 inline ExclusiveFormatChoice chooseExclusiveFormat(
     AudioFormatInfo source, const std::vector<SupportedFormatInfo>& supported) {
   ExclusiveFormatChoice result;
-  const auto family = [](int rate) { return rate % 44100 == 0 ? 44100 : 48000; };
+  const auto family = [](int rate) { return rate % 11025 == 0 ? 44100 : 48000; };
   for (const auto& f : supported) {
     if (f.sampleRate == source.sampleRate ||
         (f.sampleRate > source.sampleRate && family(f.sampleRate) == family(source.sampleRate)))

@@ -178,6 +178,7 @@ private:
   std::atomic<uint64_t> activeTokenSnapshot_{0}, underruns_{0};
   std::atomic<size_t> activeBufferedSamples_{0};
   std::atomic<bool> activeDecodeFinished_{false};
+  std::atomic<uint64_t> stopFadeTimeouts_{0};
   std::atomic<uint64_t> endpointGeneration_{0};
   std::atomic<double> preparedPosition_{0};
   std::atomic<int> fadeFramesRemaining_{0}, fadeFramesTotal_{0};
@@ -189,6 +190,7 @@ private:
   int stopFadeFramesRemaining_{}, stopFadeFramesTotal_{};
   UINT32 stopFadeSilentFrames_{};
   ExclusiveFadeDrain exclusiveFadeDrain_{};
+  ExclusiveFadeDrain exclusiveEndDrain_{};
   bool exclusive_{}, preferredExclusive_{};
   int exclusiveBufferMs_{20};
   std::atomic<bool> currentExhausted_{false};
