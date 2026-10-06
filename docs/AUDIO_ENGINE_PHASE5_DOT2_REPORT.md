@@ -13,7 +13,9 @@ Branch `feat/phase5-exclusive-dot2`, worktree `.worktrees/phase5-exclusive-dot2`
 | Sửa native | `8455605` | EOF Exclusive drain trước ended; fallback recovery Shared |
 | M5 | `3569737` | Validation, persistence, rehydrate paused, IPC/engine/PlayerService, Settings/signal path, unit tests |
 | Sửa fade đã duyệt | `93531e0` | Tách hạn submit/drain; timestamp atomic sau ReleaseBuffer, không thêm lock/allocation/string vào render |
-| M6 | Commit bàn giao chứa báo cáo này | Scripts kiểm tra, README, trạng thái mốc, raw evidence và checklist |
+| M6 | `63f15ad` | Scripts kiểm tra, README, trạng thái mốc, raw evidence và checklist |
+
+Commit dọn line ending sau M6 chỉ chuẩn hóa `audio-output.model.ts` về LF và cập nhật tham chiếu commit trong báo cáo; không đổi hành vi.
 
 Các file native: `audio_host.cpp`, `audio_host.h`, `decoder.cpp`, `exclusive_format.h`, `main.cpp`, `tests/native_tests.cpp`, `README.md` trong `native/audio-host/`.
 
