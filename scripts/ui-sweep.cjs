@@ -10,6 +10,8 @@ const BASE = process.env.SWEEP_URL || 'http://localhost:4200';
 const OUT = process.env.SWEEP_OUT || path.join(require('os').tmpdir(), 'lutstra-ui-sweep');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
+// Keep concurrent probes and the user's Electron session out of this profile.
+app.setPath('userData', path.join(OUT, 'profile'));
 const nav = (u) => `ng.getComponent(document.querySelector('app-root')).router.navigateByUrl('${u}')`;
 const NOTRANS = `if (!document.getElementById('nt')) document.head.insertAdjacentHTML('beforeend','<style id="nt">*,*::before,*::after{transition:none!important;animation:none!important}</style>')`;
 
@@ -43,7 +45,7 @@ const AUDIT = `(() => {
 })()`;
 
 app.whenReady().then(async () => {
-  const win = new BrowserWindow({ width: 1440, height: 900, show: false, useContentSize: true });
+  const win = new BrowserWindow({ width: 1440, height: 900, show: false, useContentSize: true, webPreferences: { backgroundThrottling: false } });
   const js = (c) => win.webContents.executeJavaScript(c);
   const errors = [];
   win.webContents.on('console-message', (e) => { const m = e.message || ''; if ((e.level === 'error' || e.level === 3) && !m.includes('frame-ancestors')) errors.push(m.slice(0, 160)); });

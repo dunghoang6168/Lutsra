@@ -129,6 +129,23 @@ try {
     }
   }
 
+  // Own TE-C only for this explicitly muted Exclusive stress pass.
+  await request('pause');
+  await request('set-mute', { isMuted: true });
+  const exclusiveDevice = devices.find(d => d.id !== 'system-default' && /TE-C/i.test(d.name) && d.supportedModes.includes('exclusive-dsp'));
+  if (!exclusiveDevice) throw new Error('TE-C is required for Exclusive stress.');
+  await request('select-device', { deviceId: exclusiveDevice.id });
+  for (let i = 0; i < 10; i++) {
+    await request('load', track(i));
+    await request('play');
+    await request('set-output-mode', { mode: 'exclusive-dsp', bufferMs: 20 });
+    await request('load', track(i + 1));
+    await request('play');
+    await sleep(randomDelay());
+    if ((await request('get-path-status')).mode !== 'exclusive-dsp') throw new Error('Exclusive stress mode was not applied.');
+    await request('set-output-mode', { mode: 'shared', bufferMs: 20 });
+  }
+  await request('pause');
   const finalTrack = track(53);
   await request('load', finalTrack);
   await request('play');
@@ -139,7 +156,7 @@ try {
   if (pending.size || responses !== nextId) throw new Error('Some requests did not receive responses.');
   if (child.exitCode !== null) throw new Error('Host exited during stress run.');
   await request('shutdown');
-  console.log(JSON.stringify({ requests: nextId, responses, endpointSwitches: physical.length >= 2 ? 10 : 0 }));
+  console.log(JSON.stringify({ requests: nextId, responses, endpointSwitches: physical.length >= 2 ? 10 : 0, exclusiveModeSwitches: 10, muted: true }));
 } finally {
   socket?.destroy();
   server.close();

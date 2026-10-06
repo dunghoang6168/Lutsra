@@ -84,6 +84,8 @@ Build Audio Host và biên dịch/link executable unit test thành công; không
 
 ### M2 — Mở endpoint ở Exclusive (2–3 ngày)
 
+**Trạng thái (06/10/2026):** Đã triển khai endpoint Exclusive, chọn format thuần theo bảng mục 8, retry alignment/device period và lỗi Exclusive riêng. Fade chờ event thứ hai sau buffer cuối. Sau lỗi timeout 80 ms phụ thuộc pha, chủ dự án đã duyệt tách hạn chờ submit tối đa một period + 20 ms và drain tối đa 2 × period thực tế + fade + 20 ms từ timestamp submit. Kiểm tra muted đạt bốn period, gồm tám pha Pause ở 80 ms với 0 timeout. Khác endpoint tạo thất bại vẫn giữ phiên cũ phát tiếp; cùng endpoint giải phóng trước khi mở mode mới.
+
 - `EndpointBundle` lưu thêm `mode` và stream format. Ở Exclusive, format được cấp phát bằng `CoTaskMemAlloc` để dùng chung đường giải phóng với `mixFormat`.
 - `createEndpoint(id, mode, desiredSource, error)` làm như sau:
   - Ở Exclusive: duyệt danh sách ứng viên theo D5/D6 và gọi `Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, period, period, &wfx)`.
@@ -100,6 +102,8 @@ Build Audio Host và biên dịch/link executable unit test thành công; không
 
 ### M3 — Format theo từng bài (2 ngày)
 
+**Trạng thái (06/10/2026):** Đã triển khai decoder giữ format nguồn, load theo format thương lượng, prepare so với stream thực tế (gồm valid/container bits), set-output-mode và kFormatSwitchPrerollMs = 0. Native recovery luôn paused; chỉ fallback System Default dùng Shared. EOF Exclusive fade và drain đủ hai event trước ended. Test TE-C 16-bit → 24-bit cùng rate trả false; gapless/crossfade cùng format và khác-rate load đạt trong lượt muted.
+
 - `DecoderPipeline::open` nhận `outputRate = 0` / `outputChannels = 0` với nghĩa "giữ nguyên rate và số kênh của nguồn". Thêm hàm truy cập `outputRate()`.
 - `load` ở Exclusive:
   1. Mở decoder theo format gốc.
@@ -115,6 +119,8 @@ Build Audio Host và biên dịch/link executable unit test thành công; không
 
 ### M4 — Dừng không click (1–2 ngày)
 
+**Bổ sung đợt 2 (06/10/2026):** Exclusive dùng hai buffer luân phiên; event đầu sau submit chỉ báo buffer bắt đầu phát, event thứ hai mới xác nhận drain. Theo chấp thuận bổ sung, chờ submit tối đa period + 20 ms, rồi drain tối đa 2 × period + fade + 20 ms từ submit; Shared không đổi. Kiểm tra muted bốn period và tám pha 80 ms đạt; click/vị trí resume bằng tai còn cần chủ dự án xác nhận.
+
 **Trạng thái (04/10/2026):** Đã triển khai `FadeOutThenSignal` tuyến tính 10 ms theo stream rate, chờ tối đa thời lượng buffer endpoint + fade + 20 ms (kể cả mailbox đầy), áp dụng pause/load/đổi endpoint. Mỗi `Start()` reset gain để fade-in; splice không reset. Lệnh fade quá hạn không tác động tới lần Start sau. Chưa chạy kiểm thử/nghe xác nhận click hay vị trí resume.
 
 **Cách dừng sau hiệu chỉnh:** Shared giữ nguyên buffer/prime 100 ms; phát bình thường ghi `bufferFrames_ - padding` frame như Giai đoạn 3. Khi nhận lệnh dừng, đoạn fade 10 ms nối ngay sau PCM đã xếp, có thể trải qua nhiều lần ghi nếu chỗ trống nhỏ hơn đoạn fade. Chỉ đọc decoder đủ số frame còn lại của fade; phần còn lại của buffer và các lần ghi sau chỉ là silence, không đọc thêm active/incoming. Sau `ReleaseBuffer` thành công, cộng số frame silence đã ghi sau fade. Render chỉ báo hoàn tất khi `GetCurrentPadding <= số frame silence đã ghi`, tức toàn bộ nhạc đã xếp và đoạn fade đã tiêu thụ. Control chờ tối đa buffer + fade + 20 ms (Shared ≈ 130 ms; endpoint Exclusive 20 ms ≈ 50 ms), rồi vẫn `Stop()` khi quá hạn/invalidation.
@@ -129,6 +135,8 @@ Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện 
 - Áp dụng cho cả Shared. Mục này xóa TODO còn lại từ Giai đoạn 3.
 
 ### M5 — Electron, renderer và UI (2 ngày)
+
+**Trạng thái (06/10/2026):** Đã nối IPC/preload/engine, validation mode/buffer, persistence settings và khôi phục mode trước select-device. Lỗi output khi recovery không tự rơi về Chromium; snapshot vị trí được giữ và gửi lại cho renderer. Settings và signal path phản ánh Shared/Exclusive, integer output, processingReasons và trạng thái disabled. Angular/Electron build đạt, Vitest 143/143. UI sweep xác nhận 0 trang bị flag; 12 screenshot Settings dùng native-status fixtures (không phát audio).
 
 - **[main.cpp](../native/audio-host/main.cpp):** thêm lệnh `set-output-mode`. `deviceJson` lấy dữ liệu từ M0. `statusJson` trả:
   - `mode`
@@ -158,6 +166,8 @@ Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện 
   - `OUTPUT_DEVICE_BUSY` ở Exclusive: "Một ứng dụng khác đang dùng TE-C ở chế độ Exclusive."
 
 ### M6 — Script kiểm thử (1–2 ngày, viết sẵn, chạy khi được phép)
+
+**Trạng thái (06/10/2026):** Đã bổ sung codecs Exclusive, precision boundary, gapless/crossfade, EOF drain, fade 10/20/40/80 ms và lỗi chọn endpoint khác; stress đổi mode 10 lượt. Native unit/smoke/codecs/stress đạt; lỗi fade 80 ms lượt đầu đã sửa theo chấp thuận bổ sung và xác nhận tám pha Pause. Các lượt đã chạy với sự cho phép của chủ dự án, toàn bộ audio muted. Stress: 605 request/605 response. Raw logs và screenshot ở artifacts/phase5 trong worktree; báo cáo ở docs/AUDIO_ENGINE_PHASE5_DOT2_REPORT.md. Nghiệm thu nghe/đèn DAC/rút-cắm/foobar/quyền Windows còn dành cho chủ dự án.
 
 - [smoke-audio-host.mjs](../scripts/smoke-audio-host.mjs): in `supportedFormats` của từng endpoint.
 - [integration-audio-host-codecs.mjs](../scripts/integration-audio-host-codecs.mjs): thêm một lượt Exclusive (muted), phát lần lượt file 44.1/48/96 kHz. Với mỗi file, kiểm tra `outputFormat.sampleRate` bằng rate nguồn và `resamplingActive=false`.
