@@ -539,8 +539,9 @@
       background: transparent;
     }
     .layout-liquid-glass .track-title {
-      font-size: clamp(30px, 3.3vw, 48px);
-      letter-spacing: -0.035em;
+      font-size: var(--type-display);
+      font-weight: var(--type-display-weight, 600);
+      letter-spacing: var(--type-display-tracking, -0.02em);
       line-height: 1.05;
     }
     .layout-liquid-glass .artist-album-row { font-size: 15px; }
@@ -652,7 +653,7 @@
         column-gap: 24px;
         row-gap: 18px;
       }
-      .layout-liquid-glass .track-title { font-size: clamp(28px, 4vw, 38px); }
+      .layout-liquid-glass .track-title { font-size: var(--type-display); }
     }
 
     @container main-content (max-width: 760px) {

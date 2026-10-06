@@ -18,7 +18,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) private readonly canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private readonly analysis = inject(AUDIO_ANALYSIS_ENGINE);
-  private readonly player = inject(PlayerService);
+  readonly player = inject(PlayerService);
   private readonly theme = inject(ThemeService);
   private readonly zone = inject(NgZone);
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -35,6 +35,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   private destroyed = false;
   private accentColor = '#8b5cf6';
   private accentMuted = 'rgba(139, 92, 246, 0.15)';
+  private baselineColor = 'rgba(255, 255, 255, 0.12)';
 
   private readonly playbackEffect = effect(() => {
     this.player.currentTrack();
@@ -79,7 +80,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   }
 
   private syncPlaybackState(): void {
-    if (!this.player.currentTrack()) {
+    if (!this.player.currentTrack() || !this.player.isPlaying()) {
       this.levels.fill(0);
       this.stopLoop();
       this.draw();
@@ -194,6 +195,13 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     const bottomPadding = 10;
     const availableWidth = Math.max(1, width - horizontalPadding * 2);
     const availableHeight = Math.max(1, height - topPadding - bottomPadding);
+
+    if (!this.player.isPlaying()) {
+      context.fillStyle = this.baselineColor;
+      context.fillRect(horizontalPadding, height - bottomPadding - 1, availableWidth, 1);
+      return;
+    }
+
     const gap = Math.max(2, Math.min(4, availableWidth / 180));
     const barWidth = Math.max(1, (availableWidth - gap * (BAR_COUNT - 1)) / BAR_COUNT);
     const gradient = context.createLinearGradient(0, topPadding, 0, height - bottomPadding);
@@ -213,6 +221,9 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     const styles = getComputedStyle(this.host.nativeElement);
     this.accentColor = styles.getPropertyValue('--accent-primary').trim() || '#8b5cf6';
     this.accentMuted = styles.getPropertyValue('--accent-muted').trim() || 'rgba(139, 92, 246, 0.15)';
+    this.baselineColor = styles.getPropertyValue('--border-default').trim()
+      || styles.getPropertyValue('--border-subtle').trim()
+      || 'rgba(255, 255, 255, 0.12)';
   }
 
   private readonly onVisibilityChange = (): void => {

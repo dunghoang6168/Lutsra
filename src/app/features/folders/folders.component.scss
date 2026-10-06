@@ -226,8 +226,9 @@
       position: absolute;
       inset: 0;
       z-index: 1;
-      background: linear-gradient(90deg, rgba(9, 13, 20, 0.15), rgba(9, 13, 20, 0.15)),
-        linear-gradient(0deg, rgba(9, 13, 20, 0.6), transparent 70%);
+      background: linear-gradient(90deg, var(--scrim-soft), var(--scrim-soft)),
+        linear-gradient(0deg, var(--scrim-strong) 0%, var(--scrim-strong) 35%, transparent 75%);
+      pointer-events: none;
     }
 
     .folder-hero-artwork {
@@ -240,6 +241,29 @@
       z-index: 0;
     }
 
+    .cover-mosaic {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      z-index: 0;
+    }
+
+    .cover-cell {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .cover-cell .cover-img,
+    .cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
     .folder-hero-content {
       position: relative;
       z-index: 2;
@@ -249,7 +273,10 @@
 
     .folder-hero h2 {
       margin: 0 0 var(--space-2);
-      font-size: clamp(24px, 4vw, 38px);
+      /* Below the page title: never larger than the 3xl step. */
+      font-size: min(var(--type-display), var(--font-size-3xl));
+      font-weight: var(--type-display-weight, 700);
+      letter-spacing: var(--type-display-tracking, normal);
       line-height: 1.12;
       overflow-wrap: anywhere;
     }
@@ -261,6 +288,24 @@
 
     .overview-hero {
       min-height: 160px;
+      background: var(--bg-elevated);
+
+      &.no-artwork {
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+
+        &::after {
+          display: none;
+        }
+
+        .folder-hero-content {
+          text-shadow: none;
+        }
+
+        p {
+          color: var(--text-muted);
+        }
+      }
     }
 
     /* Content view */

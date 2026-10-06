@@ -116,6 +116,18 @@ export class FoldersComponent implements OnInit, OnDestroy {
   onArtworkError(artwork: string): void {
     this.failedArtworks.update((failed) => new Set([...failed, artwork]));
   }
+
+  readonly overviewArtworks = computed(() => {
+    const artworks = new Set<string>();
+    const trees = this.folderTrees();
+    for (const root of this.roots()) {
+      const tree = trees.get(root.id);
+      const artwork = this.artworkFor(tree);
+      if (artwork) artworks.add(artwork);
+      if (artworks.size === 4) break;
+    }
+    return [...artworks];
+  });
   readonly filesInCurrentFolder = computed(() => {
     const curr = this.currentNode();
     return (curr?.children?.filter((child) => !child.isFolder) ?? [])

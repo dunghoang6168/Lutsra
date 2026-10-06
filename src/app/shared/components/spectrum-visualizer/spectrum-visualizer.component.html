@@ -1,5 +1,8 @@
 
     <div class="spectrum-panel" aria-hidden="true">
-      <span class="spectrum-label">REAL-TIME SPECTRUM</span>
+      <span class="spectrum-label">Spectrum</span>
+      @if (!player.isPlaying()) {
+        <span class="spectrum-status">Paused</span>
+      }
       <canvas #canvas></canvas>
     </div>

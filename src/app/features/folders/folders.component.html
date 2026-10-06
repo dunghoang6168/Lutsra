@@ -109,7 +109,17 @@
               title="Remove folder from library">Remove root</button>
           </section>
         } @else {
-          <section class="folder-hero overview-hero">
+          @let artworks = overviewArtworks();
+          <section class="folder-hero overview-hero" [class.no-artwork]="artworks.length === 0">
+            @if (artworks.length === 4) {
+              <div class="cover-mosaic" aria-hidden="true">
+                @for (url of artworks; track url) {
+                  <span class="cover-cell"><img [src]="url" alt="" class="cover-img" (error)="onArtworkError(url)" /></span>
+                }
+              </div>
+            } @else if (artworks.length > 0) {
+              <img class="folder-hero-artwork" [src]="artworks[0]" alt="" (error)="onArtworkError(artworks[0])" />
+            }
             <div class="folder-hero-content">
               <h2>Music roots</h2>
               <p>{{ roots().length }} folders</p>

@@ -32,19 +32,35 @@
       left: var(--space-3);
       z-index: 1;
       color: var(--text-muted);
-      font-family: var(--font-family-mono);
+      font-family: var(--font-family-base);
       font-size: var(--font-size-xs);
       font-weight: 600;
-      letter-spacing: 0;
+      font-variant-caps: var(--type-label-variant, normal);
+      letter-spacing: var(--type-label-tracking, normal);
       pointer-events: none;
     }
 
-    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .spectrum-label {
+    :host-context(html[data-runtime='desktop'][data-layout='liquid-glass']) .spectrum-label,
+    :host-context(.layout-liquid-glass) .spectrum-label {
       padding: 2px 5px;
       border-radius: var(--radius-sm);
       color: var(--text-secondary);
       background: var(--glass-readable-surface);
       font-size: var(--font-size-xs);
+    }
+
+    .spectrum-status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      color: var(--text-muted);
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-sm);
+      font-weight: 500;
+      pointer-events: none;
+      user-select: none;
     }
 
     canvas {
