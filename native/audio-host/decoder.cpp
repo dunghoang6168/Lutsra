@@ -70,6 +70,8 @@ bool DecoderPipeline::open(const std::wstring &path, int outputRate,
              params->bits_per_raw_sample ? params->bits_per_raw_sample
                                          : params->bits_per_coded_sample,
              params->ch_layout.nb_channels};
+  if (!outputRate_) outputRate_ = source_.sampleRate;
+  if (!outputChannels_) outputChannels_ = source_.channels;
   duration_ = format->duration > 0
                   ? static_cast<double>(format->duration) / AV_TIME_BASE
                   : 0;

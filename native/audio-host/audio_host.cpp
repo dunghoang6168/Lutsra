@@ -12,6 +12,7 @@
 #include <utility>
 
 using Microsoft::WRL::ComPtr;
+constexpr int kFormatSwitchPrerollMs = 0;
 class DeviceNotificationClient final : public IMMNotificationClient {
 public:
   explicit DeviceNotificationClient(std::function<void()> changed)
@@ -401,8 +402,6 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
                               const std::wstring &id, std::string &error) {
   if (!bundle)
     return false;
-  const int previousRate = mixFormat_ ? mixFormat_->nSamplesPerSec : 0;
-  const int previousChannels = mixFormat_ ? mixFormat_->nChannels : 0;
   stopPlaybackWithFade();
   shutdownAudio();
   // No render thread runs now. Apply queued ownership transfers before reopening.
@@ -419,8 +418,7 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   activeId_ = id;
   connected_ = true;
   endpointGeneration_.fetch_add(1, std::memory_order_release);
-  if (previousRate && (previousRate != mixFormat_->nSamplesPerSec ||
-                       previousChannels != mixFormat_->nChannels)) {
+  if (active_ || incoming_) {
     if (fadeFramesRemaining_ > 0) {
       desiredIncomingToken_ = incomingToken_;
       expectedPromotionToken_ = 0;
@@ -429,13 +427,14 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
     fadeFramesTotal_ = 0;
     const auto reopen = [&](DecoderPipeline *&slot, AudioFormatInfo &source,
                             double &duration, double seconds) {
-      if (!slot)
+      if (!slot || (slot->outputRate() == static_cast<int>(mixFormat_->nSamplesPerSec) &&
+                    slot->outputChannels() == mixFormat_->nChannels))
         return true;
       auto replacement = std::make_unique<DecoderPipeline>();
       if (!replacement->open(slot->path(), mixFormat_->nSamplesPerSec,
                              mixFormat_->nChannels, seconds, error))
         return false;
-      delete slot;
+      retire(slot);
       slot = replacement.release();
       source = slot->sourceFormat();
       duration = slot->duration();
@@ -444,8 +443,8 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
     if (!reopen(active_, activeSource_, activeDuration_, position_.load()) ||
         !reopen(incoming_, incomingSource_, incomingDuration_,
                 preparedPosition_.load())) {
-      delete active_;
-      delete incoming_;
+      retire(active_);
+      retire(incoming_);
       active_ = incoming_ = nullptr;
       activeToken_ = incomingToken_ = 0;
       desiredActiveToken_ = desiredIncomingToken_ = expectedPromotionToken_ = 0;
@@ -506,6 +505,7 @@ bool WasapiHost::setOutputMode(const std::string& mode, int bufferMs, std::strin
   }
   std::unique_lock lock(controlMutex_);
   const bool target = mode == "exclusive-dsp";
+  if (!desiredActiveToken_) { preferredExclusive_ = target; exclusiveBufferMs_ = bufferMs; return true; }
   const bool wasPlaying = playing_.load();
   const int oldBuffer = exclusiveBufferMs_;
   if (target == exclusive_ && bufferMs == oldBuffer && client_) {
@@ -529,7 +529,7 @@ bool WasapiHost::selectDevice(const std::wstring &id, std::string &error) {
   std::unique_lock lock(controlMutex_);
   const bool wasPlaying = playing_.load();
   const std::string trackId = trackIdFor(desiredActiveToken_);
-  if (!switchEndpoint(id, preferredExclusive_, currentSource(), error)) return false;
+  if (!switchEndpoint(id, preferredExclusive_ && currentSource().sampleRate > 0, currentSource(), error)) return false;
   const bool reopened = error.empty();
   preferredId_ = id;
   if (!reopened) {
@@ -621,14 +621,25 @@ bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
                       std::string &error) {
   std::lock_guard lock(controlMutex_);
   stopPlaybackWithFade();
-  if (!mixFormat_) {
-    error = "OUTPUT_DEVICE_UNAVAILABLE";
-    return false;
-  }
+  if (!mixFormat_ && !initializeEndpoint(preferredId_, error)) return false;
   auto decoder = std::make_unique<DecoderPipeline>();
-  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
-                     mixFormat_->nChannels, error))
+  const bool useExclusive = preferredExclusive_ && activeId_ == preferredId_;
+  if (!decoder->open(path, useExclusive ? 0 : mixFormat_->nSamplesPerSec,
+                     useExclusive ? 0 : mixFormat_->nChannels, error))
     return false;
+  if (useExclusive) {
+    const auto choice = chooseExclusiveFormat(decoder->sourceFormat(), probeFormatsLocked(preferredId_));
+    if (!choice.format) { error = "OUTPUT_FORMAT_UNSUPPORTED"; sendState("paused"); return false; }
+    const auto output = formatInfo(mixFormat_);
+    const SupportedFormatInfo current{output.sampleRate, output.bitDepth, output.channels, mixFormat_->wBitsPerSample};
+    if (!exclusive_ || *choice.format != current) {
+      if (!switchEndpoint(preferredId_, true, decoder->sourceFormat(), error)) { sendState("paused"); return false; }
+    }
+    if (decoder->outputRate() != static_cast<int>(mixFormat_->nSamplesPerSec) ||
+        decoder->outputChannels() != mixFormat_->nChannels) {
+      if (!decoder->open(path, mixFormat_->nSamplesPerSec, mixFormat_->nChannels, error)) return false;
+    }
+  }
   const uint64_t token = nextToken_++;
   rememberTrack(token, trackId, true);
   // Clear the expected promotion before publishing the new active token;
@@ -658,9 +669,17 @@ bool WasapiHost::prepare(const std::string &trackId, const std::wstring &path,
     return false;
   }
   auto decoder = std::make_unique<DecoderPipeline>();
-  if (!decoder->open(path, mixFormat_->nSamplesPerSec,
-                     mixFormat_->nChannels, error))
-    return false;
+  if (!decoder->open(path, exclusive_ ? 0 : mixFormat_->nSamplesPerSec,
+                     exclusive_ ? 0 : mixFormat_->nChannels, error)) return false;
+  if (exclusive_) {
+    const auto output = formatInfo(mixFormat_);
+    if (!canPrepareExclusive(decoder->sourceFormat(), probeFormatsLocked(activeId_),
+        {output.sampleRate, output.bitDepth, output.channels, mixFormat_->wBitsPerSample})) return false;
+    if (decoder->outputRate() != static_cast<int>(mixFormat_->nSamplesPerSec) ||
+        decoder->outputChannels() != mixFormat_->nChannels) {
+      if (!decoder->open(path, mixFormat_->nSamplesPerSec, mixFormat_->nChannels, error)) return false;
+    }
+  }
   const uint64_t token = nextToken_++;
   if (desiredIncomingToken_)
     forgetTrack(desiredIncomingToken_);
@@ -853,16 +872,22 @@ std::string WasapiHost::statusJson() {
   // Read live: a bit-depth-only change in Sound settings does not reinitialize the client.
   AudioFormatInfo device{};
   const std::string deviceFormat =
-      readDeviceFormat(device_.Get(), device)
+      !exclusive_ && readDeviceFormat(device_.Get(), device)
           ? "{\"sampleRate\":" + std::to_string(device.sampleRate) +
                 ",\"bitDepth\":" + std::to_string(device.bitDepth) +
                 ",\"channels\":" + std::to_string(device.channels) + "}"
           : "null";
   const char *sampleType = mixFormat_ && isFloatMixFormat(mixFormat_) ? "float" : "integer";
+  std::string reasons = exclusive_ ? "Exclusive DSP mode" : "WASAPI Shared engine processing";
+  if (resample) reasons += "\",\"Sample-rate conversion";
+  if (channels) reasons += "\",\"Channel conversion";
+  if (exclusive_ && source.bitDepth > output.bitDepth) reasons += "\",\"Bit-depth reduction";
+  if (exclusive_ && !muted_ && volume_.load() < 1) reasons += "\",\"Software volume";
+  if (!connected_) reasons += "\",\"Selected output disconnected; fallback uses WASAPI Shared";
   return "{\"preferredDeviceId\":\"" + jsonEscape(narrow(preferredId_)) +
          "\",\"activeDeviceId\":" + active + ",\"deviceName\":\"" +
          jsonEscape(narrow(deviceName_)) +
-         "\",\"mode\":\"shared\",\"sourceFormat\":{" +
+         "\",\"mode\":\"" + (exclusive_ ? "exclusive-dsp" : "shared") + "\",\"sourceFormat\":{" +
          "\"sampleRate\":" + std::to_string(source.sampleRate) +
          ",\"bitDepth\":" + std::to_string(source.bitDepth) +
          ",\"channels\":" + std::to_string(source.channels) +
@@ -872,17 +897,15 @@ std::string WasapiHost::statusJson() {
          ",\"channels\":" + std::to_string(output.channels) +
          "},\"outputSampleType\":\"" + sampleType +
          "\",\"deviceFormat\":" + deviceFormat + ",\"isConnected\":" + (connected_ ? "true" : "false") +
-         ",\"capabilitiesAvailable\":true,\"reason\":\"WASAPI Shared engine "
-         "mix "
-         "format\",\"backend\":\"native-shared\",\"hostState\":\"ready\","
+         ",\"capabilitiesAvailable\":true,\"reason\":\"" +
+         (exclusive_ ? "WASAPI Exclusive; sample rate follows the track" :
+          !connected_ ? "Selected output disconnected; fallback uses WASAPI Shared" : "WASAPI Shared engine mix format") +
+         "\",\"backend\":\"native-shared\",\"hostState\":\"ready\"," +
          "\"resamplingActive\":" +
          (resample ? "true" : "false") +
          ",\"channelConversionActive\":" + (channels ? "true" : "false") +
-         ",\"bitPerfectEligible\":false,\"processingReasons\":[\"WASAPI Shared "
-         "engine processing\"" +
-         (resample ? ",\"Sample-rate conversion\"" : "") +
-         (channels ? ",\"Channel conversion\"" : "") +
-         "],\"underruns\":" + std::to_string(underruns_.load()) + "}";
+         ",\"bitPerfectEligible\":false,\"processingReasons\":[\"" + reasons +
+         "\"],\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
 void WasapiHost::signalRenderFailure(HRESULT result) noexcept {
   if (result != AUDCLNT_E_DEVICE_INVALIDATED &&
@@ -923,12 +946,11 @@ void WasapiHost::deviceMonitorLoop() {
 }
 
 void WasapiHost::recoverInvalidated() {
-  bool resume = false;
   std::wstring selectedId, endpointId;
   uint64_t generation = 0;
   {
     std::lock_guard lock(controlMutex_);
-    resume = wasPlayingBeforeInvalidation_.exchange(false);
+    wasPlayingBeforeInvalidation_.exchange(false);
     // The device monitor may already have swapped endpoints (unplug -> fallback)
     // before handling this signal. The failed client is gone, so recovering or
     // resuming now would restart playback on the fallback endpoint.

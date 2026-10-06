@@ -353,6 +353,12 @@ int wmain(int argc, wchar_t **argv) {
         response(id);
       else
         failure(id, error);
+    } else if (type == "set-output-mode") {
+      const double buffer = numberField(j, "bufferMs", 20);
+      if (buffer != 10 && buffer != 20 && buffer != 40 && buffer != 80)
+        failure(id, "AUDIO_HOST_PROTOCOL_ERROR");
+      else if (host.setOutputMode(stringField(j, "mode"), static_cast<int>(buffer), error)) response(id);
+      else failure(id, error);
     } else if (type == "set-fallback") {
       host.setFallback(boolField(j, "enabled"));
       response(id);
