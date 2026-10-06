@@ -76,6 +76,15 @@ await request('load', { trackId: 'exclusive-eof', path: path.join(temporary,'sam
 events.length = 0;
 await request('play');
 await waitForEvent(event => event.kind === 'state' && event.value?.state === 'ended' && event.value?.trackId === 'exclusive-eof');
+const endedStatus = await request('get-path-status');
+const endedEventIndex = events.length;
+await new Promise(resolve => setTimeout(resolve, 300));
+const idleStatus = await request('get-path-status');
+const exclusiveEofSilentBuffers = idleStatus.exclusiveIdleSilentBuffers - endedStatus.exclusiveIdleSilentBuffers;
+if (exclusiveEofSilentBuffers < 2) throw new Error('Exclusive ended did not keep submitting silent buffers.');
+if (idleStatus.underruns !== endedStatus.underruns || idleStatus.hostState !== 'ready' ||
+    events.slice(endedEventIndex).some(event => event.kind === 'error' || event.kind === 'underrun' || event.kind === 'state' && event.value?.state === 'error'))
+  throw new Error('Exclusive idle after ended emitted an underrun/error: ' + JSON.stringify({endedStatus,idleStatus,events:events.slice(endedEventIndex)}));
 await request('pause');
 // Vary the request phase at 80 ms: a fixed delay can accidentally hide the
 // initial wait for a writable buffer before the two-event hardware drain.
@@ -113,7 +122,7 @@ await waitForEvent(event => event.kind === 'time' && event.value?.currentTime > 
 if (events.some(event => event.kind === 'state' && event.value?.state === 'paused')) throw new Error('Failed different endpoint selection paused playback.');
 await request('pause');
 await request('set-output-mode', { mode: 'shared', bufferMs: 20 });
-await request('shutdown');await new Promise((resolve)=>child.once('exit',resolve));console.log(JSON.stringify({exclusiveDevice: exclusiveDevice.name, exclusive: exclusiveResults, fadeResults, differentEndpointFailureKeepsPlaying:true, exclusiveGapless:true, exclusiveCrossfade:true, exclusiveEofDrain:true, preparePrecisionBoundary:true, verified,crossfade:true,gaplessPreparedAdvance:true,earlyEofHandoff:true,rapidSeek:true,pausedSeek:true,eofSeekRecovery:true,muted:true}));
+await request('shutdown');await new Promise((resolve)=>child.once('exit',resolve));console.log(JSON.stringify({exclusiveDevice: exclusiveDevice.name, exclusive: exclusiveResults, fadeResults, differentEndpointFailureKeepsPlaying:true, exclusiveGapless:true, exclusiveCrossfade:true, exclusiveEofDrain:true, exclusiveEofSilentBuffers, exclusiveEofIdleNoErrors:true, preparePrecisionBoundary:true, verified,crossfade:true,gaplessPreparedAdvance:true,earlyEofHandoff:true,rapidSeek:true,pausedSeek:true,eofSeekRecovery:true,muted:true}));
 
 } finally {
   child?.kill(); socket?.destroy(); server.close();

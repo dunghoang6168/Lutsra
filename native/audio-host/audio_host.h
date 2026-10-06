@@ -176,6 +176,7 @@ private:
   std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0}, activeDurationSnapshot_{0};
   std::atomic<int> sourceRate_{0}, sourceBits_{0}, sourceChannels_{0};
   std::atomic<uint64_t> activeTokenSnapshot_{0}, underruns_{0};
+  std::atomic<uint64_t> exclusiveIdleSilentBuffers_{0};
   std::atomic<size_t> activeBufferedSamples_{0};
   std::atomic<bool> activeDecodeFinished_{false};
   std::atomic<uint64_t> stopFadeTimeouts_{0};

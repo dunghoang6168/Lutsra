@@ -928,6 +928,7 @@ std::string WasapiHost::statusJson() {
          ",\"bitPerfectEligible\":false,\"processingReasons\":[\"" + reasons +
          "\"],\"bufferMs\":" + std::to_string(mixFormat_ ? 1000.0 * bufferFrames_ / mixFormat_->nSamplesPerSec : 0) +
          ",\"stopFadeTimeouts\":" + std::to_string(stopFadeTimeouts_.load()) +
+         ",\"exclusiveIdleSilentBuffers\":" + std::to_string(exclusiveIdleSilentBuffers_.load()) +
          ",\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
 void WasapiHost::signalRenderFailure(HRESULT result) noexcept {
@@ -1447,8 +1448,29 @@ void WasapiHost::renderLoopSafe() {
     }
     if (incoming_)
       incoming_->acknowledgeSeek();
-    if (renderStopping_ || wait != WAIT_OBJECT_0 || !playing_ || !renderClient_)
+    if (renderStopping_ || wait != WAIT_OBJECT_0 || !renderClient_)
       continue;
+    if (!playing_) {
+      if (exclusive_) {
+        // Ended leaves the client running. Keep both alternating buffers silent
+        // so the driver cannot replay the last PCM packet while waiting for load.
+        // Fade drain runs only while playing_ is true; this idle path neither
+        // advances its two-event counter nor consumes any decoder samples.
+        BYTE *bytes = nullptr;
+        const HRESULT bufferResult = renderClient_->GetBuffer(bufferFrames_, &bytes);
+        if (FAILED(bufferResult)) {
+          signalRenderFailure(bufferResult);
+          continue;
+        }
+        const HRESULT releaseResult = renderClient_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
+        if (FAILED(releaseResult)) {
+          signalRenderFailure(releaseResult);
+          continue;
+        }
+        ++exclusiveIdleSilentBuffers_;
+      }
+      continue;
+    }
     resetPlaybackGain();
     if (fadeOutComplete_.load(std::memory_order_acquire))
       continue; // Freeze consumption until control calls Stop.
