@@ -576,22 +576,40 @@ void WasapiHost::stopPlaybackWithFade() {
   if (playing_ && client_ && mixFormat_ && renderThread_.joinable() &&
       !renderStopping_ && !deviceInvalidated_) {
     fadeOutComplete_.store(false, std::memory_order_release);
+    stopFadeSubmittedNs_.store(0, std::memory_order_release);
     const int frames = std::max(1, static_cast<int>(mixFormat_->nSamplesPerSec / 100));
     const RenderCommand command{CommandKind::FadeOutThenSignal, nullptr,
                                 playbackGeneration_.load(), frames};
     // Exclusive alternates two buffers: event one starts the submitted fade,
-    // event two drains it. Budget both periods, including 80 ms buffers.
+    // event two drains it. A request between hardware events first waits up to
+    // one period for a writable buffer. Bound submission separately, then budget
+    // both drain periods from the actual final ReleaseBuffer timestamp. A single
+    // two-period budget from the request can truncate fades at 80 ms.
     const auto waitBudget = std::chrono::ceil<std::chrono::milliseconds>(
         std::chrono::duration<double>((static_cast<double>(bufferFrames_) * (exclusive_ ? 2 : 1) + frames) /
                                       mixFormat_->nSamplesPerSec)) +
         std::chrono::milliseconds(20);
-    const auto deadline = std::chrono::steady_clock::now() +
-                          waitBudget;
+    const auto submissionBudget = std::chrono::ceil<std::chrono::milliseconds>(
+        std::chrono::duration<double>(static_cast<double>(bufferFrames_) /
+                                      mixFormat_->nSamplesPerSec)) + std::chrono::milliseconds(20);
+    auto deadline = std::chrono::steady_clock::now() + (exclusive_ ? submissionBudget : waitBudget);
+    bool submitted = false;
     bool requested = false;
-    while (std::chrono::steady_clock::now() < deadline && playing_ &&
-           !stopping_ && !renderStopping_ && !deviceInvalidated_) {
-      // Include mailbox contention in the buffer + fade + 20 ms budget;
-      // never use the ordinary 2 s enqueue wait when stopping playback.
+    while (playing_ && !stopping_ && !renderStopping_ && !deviceInvalidated_) {
+      if (exclusive_ && !submitted) {
+        const auto stamp = stopFadeSubmittedNs_.load(std::memory_order_acquire);
+        if (stamp) {
+          const auto submitTime = std::chrono::steady_clock::time_point(
+              std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::nanoseconds(stamp)));
+          // Late submissions must not bypass the first bounded wait.
+          if (submitTime > deadline) break;
+          deadline = submitTime + waitBudget;
+          submitted = true;
+        }
+      }
+      if (std::chrono::steady_clock::now() >= deadline) break;
+      // Include mailbox contention in the submission budget; never use the
+      // ordinary 2 s enqueue wait when stopping playback.
       if (!requested)
         requested = enqueue(command, false);
       if (requested && fadeOutComplete_.load(std::memory_order_acquire))
@@ -1562,8 +1580,11 @@ void WasapiHost::renderLoopSafe() {
     }
     if (stoppingPlayback)
       stopFadeSilentFrames_ += frames - pcmFrames;
-    if (exclusive_ && stoppingPlayback && pcmFrames > 0 && stopFadeFramesRemaining_ == 0)
+    if (exclusive_ && stoppingPlayback && pcmFrames > 0 && stopFadeFramesRemaining_ == 0) {
       exclusiveFadeDrain_.submittedFinalFade();
+      stopFadeSubmittedNs_.store(std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now().time_since_epoch()).count(), std::memory_order_release);
+    }
     if (exclusiveFinalPcm || (exclusive_ && outgoingEnded && !promoted && !stoppingPlayback &&
                              exclusiveEndDrain_.eventsRemaining == 0))
       exclusiveEndDrain_.submittedFinalFade();

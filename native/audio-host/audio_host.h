@@ -183,6 +183,7 @@ private:
   std::atomic<double> preparedPosition_{0};
   std::atomic<int> fadeFramesRemaining_{0}, fadeFramesTotal_{0};
   std::atomic<bool> fadeOutComplete_{false};
+  std::atomic<int64_t> stopFadeSubmittedNs_{0};
   std::atomic<uint64_t> playbackGeneration_{0};
   // Render-owned gain state, separate from the prepared-track crossfade.
   uint64_t renderPlaybackGeneration_{};
