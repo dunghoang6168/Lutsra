@@ -14,7 +14,7 @@
         </div>
       } @else if (!album()) {
         <div class="state-empty">
-          <h2>Album Not Found</h2>
+          <h2>Album not found</h2>
           <p>The requested album could not be found in your music library.</p>
           <a routerLink="/albums" class="btn-back">Browse Albums</a>
         </div>
@@ -48,9 +48,9 @@
                 class="btn-play"
                 (click)="onPlayAll()"
                 [disabled]="albumTracks().length === 0"
-                aria-label="Play Album">
+                aria-label="Play album">
                 <app-icon name="play" [size]="18" />
-                Play Album
+                Play album
               </button>
 
               <button
@@ -58,7 +58,7 @@
                 class="btn-shuffle"
                 (click)="onShufflePlay()"
                 [disabled]="albumTracks().length === 0"
-                aria-label="Shuffle Album">
+                aria-label="Shuffle album">
                 <app-icon name="shuffle" [size]="16" />
                 Shuffle
               </button>
@@ -67,9 +67,9 @@
                 class="btn-shuffle"
                 (click)="onAddAllToQueue()"
                 [disabled]="albumTracks().length === 0"
-                aria-label="Add Album to Queue">
+                aria-label="Add album to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to Queue
+                Add to queue
               </button>
             </div>
           </div>
@@ -136,7 +136,7 @@
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
                         <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
-                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue"
+                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to queue"
                           [attr.tabindex]="activeId() === track.id ? 0 : -1">
                           <app-icon name="plus" [size]="14" />
                         </button>

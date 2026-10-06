@@ -18,7 +18,7 @@ export class SongColumnsSettingsComponent implements OnInit {
     album: { label: 'Album', description: 'Album name' },
     duration: { label: 'Time', description: 'Track duration' },
     codec: { label: 'Codec', description: 'Audio format' },
-    sampleRate: { label: 'Sample Rate', description: 'Sample rate and bit depth' },
+    sampleRate: { label: 'Sample rate', description: 'Sample rate and bit depth' },
     lyrics: { label: 'Lyrics', description: 'Matching .lrc file' },
   };
   readonly movableColumns = computed(() => this.preferences.songColumnOrder().map((id) => ({

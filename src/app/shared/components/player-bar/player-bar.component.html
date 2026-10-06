@@ -7,7 +7,7 @@
     </button>
   }
   <button type="button" class="ctrl-btn" (click)="player.previous()" [disabled]="!player.currentTrack()"
-    title="Previous (P)" aria-label="Previous Track" aria-keyshortcuts="P">
+    title="Previous (P)" aria-label="Previous track" aria-keyshortcuts="P">
     <app-icon name="skip-back" [size]="18" />
   </button>
   <button type="button" class="play-pause-btn" (click)="player.togglePlayPause()"
@@ -17,7 +17,7 @@
     <app-icon [name]="player.isPlaybackActive() ? 'pause' : 'play'" [size]="size" />
   </button>
   <button type="button" class="ctrl-btn" (click)="player.next()" [disabled]="!player.currentTrack()"
-    title="Next (N)" aria-label="Next Track" aria-keyshortcuts="N">
+    title="Next (N)" aria-label="Next track" aria-keyshortcuts="N">
     <app-icon name="skip-forward" [size]="18" />
   </button>
   @if (modes) {
@@ -68,7 +68,7 @@
 
 <ng-template #queueButton>
   <button type="button" class="queue-btn" [class.active]="isQueueOpen()" (click)="toggleQueue.emit()"
-    title="Queue (Q)" aria-label="Toggle Playback Queue" [attr.aria-pressed]="isQueueOpen()" aria-keyshortcuts="Q">
+    title="Queue (Q)" aria-label="Toggle playback queue" [attr.aria-pressed]="isQueueOpen()" aria-keyshortcuts="Q">
     <app-icon name="queue" [size]="18" />
     @if (player.queue().length > 0) { <span class="queue-badge">{{ player.queue().length }}</span> }
   </button>

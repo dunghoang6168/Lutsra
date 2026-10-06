@@ -69,7 +69,7 @@
                       </button>
                       @if (result.kind === 'song') {
                         <button type="button" class="result-queue-btn" [disabled]="result.disabled"
-                          (click)="addSongToQueue($event, result)" [attr.aria-label]="'Add ' + result.title + ' to queue'" title="Add to Queue">
+                          (click)="addSongToQueue($event, result)" [attr.aria-label]="'Add ' + result.title + ' to queue'" title="Add to queue">
                           <app-icon name="plus" [size]="15" />
                         </button>
                       }

@@ -46,7 +46,7 @@ export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
   readonly subjectSource = computed(() => this.docked() && this.selection.selected() ? 'Selected track' : 'Now playing');
   readonly subjectFormat = computed(() => { const track = this.subject(); return track ? formatTrackFormat(track) : null; });
   /** Mono is for measurements only; names and tags stay in the text face. */
-  readonly measureRows = new Set(['Duration', 'Sample Rate', 'Bits per Sample', 'Bitrate', 'Audio MD5', 'Full Path', 'File Size', 'Track Number', 'Total Tracks', 'Disc Number', 'Total Discs']);
+  readonly measureRows = new Set(['Duration', 'Sample rate', 'Bits per sample', 'Bitrate', 'Audio MD5', 'Full path', 'File size', 'Track number', 'Total tracks', 'Disc number', 'Total discs']);
   readonly player = inject(PlayerService);
   readonly rightPanels = inject(RightPanelService);
   readonly loading = signal(false);
@@ -78,25 +78,25 @@ export class TrackDetailsPanelComponent implements AfterViewInit, OnDestroy {
     const file = details.file;
     return [
       section('Metadata', [
-        row('Artist Name', join(metadata.artists)), row('Track Title', metadata.title), row('Album Title', metadata.album),
+        row('Artist name', join(metadata.artists)), row('Track title', metadata.title), row('Album title', metadata.album),
         row('Date', metadata.date ?? formatNumber(metadata.year)), row('Composer', join(metadata.composers)),
-        row('Album Artist', join(metadata.albumArtists)), row('Genre', join(metadata.genres)),
-        row('Track Number', formatNumber(metadata.trackNumber)), row('Total Tracks', formatNumber(metadata.totalTracks)),
-        row('Disc Number', formatNumber(metadata.discNumber)), row('Total Discs', formatNumber(metadata.totalDiscs)),
+        row('Album artist', join(metadata.albumArtists)), row('Genre', join(metadata.genres)),
+        row('Track number', formatNumber(metadata.trackNumber)), row('Total tracks', formatNumber(metadata.totalTracks)),
+        row('Disc number', formatNumber(metadata.discNumber)), row('Total discs', formatNumber(metadata.totalDiscs)),
       ]),
       section('General', [
         row('Duration', formatDuration(audio.duration, audio.numberOfSamples)),
-        row('Sample Rate', audio.sampleRate === null ? null : `${formatInteger(audio.sampleRate)} Hz`),
+        row('Sample rate', audio.sampleRate === null ? null : `${formatInteger(audio.sampleRate)} Hz`),
         row('Channels', formatChannels(audio.channels)),
-        row('Bits per Sample', audio.bitsPerSample === null ? null : String(audio.bitsPerSample)),
+        row('Bits per sample', audio.bitsPerSample === null ? null : String(audio.bitsPerSample)),
         row('Bitrate', audio.bitrate === null ? null : `${formatInteger(Math.round(audio.bitrate / 1000))} kbps`),
-        row('Codec', audio.codec), row('Codec Profile', audio.codecProfile), row('Container', audio.container),
+        row('Codec', audio.codec), row('Codec profile', audio.codecProfile), row('Container', audio.container),
         row('Encoding', audio.lossless === null ? null : audio.lossless ? 'Lossless' : 'Lossy'),
-        row('Encoder Tool', audio.encoderTool), row('Tag Types', join(audio.tagTypes)), row('Audio MD5', audio.audioMd5),
+        row('Encoder tool', audio.encoderTool), row('Tag types', join(audio.tagTypes)), row('Audio MD5', audio.audioMd5),
       ]),
       section('File', [
-        row('File Name', file.fileName), row('Full Path', file.path, true),
-        row('File Size', formatFileSize(file.fileSize)), row('Last Modified', formatDate(file.lastModified)),
+        row('File name', file.fileName), row('Full path', file.path, true),
+        row('File size', formatFileSize(file.fileSize)), row('Last modified', formatDate(file.lastModified)),
       ]),
     ].filter((item) => item.rows.length > 0);
   });

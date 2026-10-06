@@ -125,8 +125,8 @@
           <p id="onboardingDescription">Add a music folder to start building your library. You can add more folders later in Settings.</p>
           @if (onboardingError()) { <p class="onboarding-error" role="alert">{{ onboardingError() }}</p> }
           <div class="onboarding-actions">
-            <button type="button" class="onboarding-primary" [disabled]="onboardingBusy()" (click)="onAddMusicFolder()">Add Music Folder</button>
-            <button type="button" [disabled]="onboardingBusy()" (click)="closeOnboarding()">Maybe Later</button>
+            <button type="button" class="onboarding-primary" [disabled]="onboardingBusy()" (click)="onAddMusicFolder()">Add music folder</button>
+            <button type="button" [disabled]="onboardingBusy()" (click)="closeOnboarding()">Maybe later</button>
           </div>
         </section>
       </div>

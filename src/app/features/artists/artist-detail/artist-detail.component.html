@@ -14,7 +14,7 @@
         </div>
       } @else if (!artist()) {
         <div class="state-empty">
-          <h2>Artist Not Found</h2>
+          <h2>Artist not found</h2>
           <p>The requested artist was not found in your library.</p>
           <a routerLink="/artists" class="btn-back">Browse Artists</a>
         </div>
@@ -42,9 +42,9 @@
                 class="btn-play"
                 (click)="onPlayAll()"
                 [disabled]="artistTracks().length === 0"
-                aria-label="Play All Songs">
+                aria-label="Play all songs">
                 <app-icon name="play" [size]="18" />
-                Play All Songs
+                Play all songs
               </button>
               @if (!hasAboutContent()) {
                 <button type="button" class="btn btn-secondary" (click)="openMetadataEditor()">Edit online info</button>
@@ -55,7 +55,7 @@
               <button type="button" class="btn btn-secondary" (click)="onAddAllToQueue()"
                 [disabled]="artistTracks().length === 0" aria-label="Add artist tracks to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to Queue
+                Add to queue
               </button>
             </div>
             @if (metadataNotice(); as notice) { <p class="metadata-notice" role="status">{{ notice }}</p> }
@@ -168,7 +168,7 @@
                     </td>
                     <td class="col-actions" (click)="$event.stopPropagation()">
                       <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
-                        [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to Queue"
+                        [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to queue"
                           [attr.tabindex]="activeId() === track.id ? 0 : -1">
                         <app-icon name="plus" [size]="14" />
                       </button>
@@ -190,7 +190,7 @@
             <button type="button" class="btn-icon" (click)="closeMetadataEditor()" aria-label="Close artist metadata editor"><app-icon name="x" [size]="18" /></button>
           </div>
           <form (ngSubmit)="searchMetadataCandidates()" class="candidate-search">
-            <input type="search" name="candidateQuery" [ngModel]="candidateQuery()" (ngModelChange)="candidateQuery.set($event)" aria-label="Search MusicBrainz artists" />
+            <input type="search" name="candidateQuery" [ngModel]="candidateQuery()" (ngModelChange)="candidateQuery.set($event)" aria-label="Search musicBrainz artists" />
             <button type="submit" class="btn btn-secondary" [disabled]="editorLoading()">Search</button>
           </form>
           <div class="candidate-list" role="radiogroup" aria-label="MusicBrainz matches">
@@ -201,7 +201,7 @@
                 <span class="candidate-meta">{{ candidate.type || 'Artist' }} · {{ candidate.country || 'Unknown country' }} · Match {{ candidate.score }}%</span>
                 @if (candidate.disambiguation) { <span class="candidate-description">{{ candidate.disambiguation }}</span> }
               </button>
-            } @empty { @if (!editorLoading()) { <p class="candidate-message">No MusicBrainz matches found.</p> } }
+            } @empty { @if (!editorLoading()) { <p class="candidate-message">No musicBrainz matches found.</p> } }
           </div>
           <label class="wikipedia-field">Wikipedia URL (English or Vietnamese, optional)
             <input type="url" [ngModel]="wikipediaOverride()" (ngModelChange)="wikipediaOverride.set($event)" name="wikipediaOverride" placeholder="https://vi.wikipedia.org/wiki/..." />

@@ -7,7 +7,7 @@
         </div>
 
         @if (selectedRootId()) {
-          <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
+          <nav class="breadcrumb-trail" aria-label="Folder breadcrumb">
             <button type="button" class="crumb-btn" (click)="onNavigateOverview()">Music roots</button>
             @for (crumb of nodeStack(); track crumb.id; let idx = $index; let last = $last) {
               <span class="crumb-sep" aria-hidden="true">/</span>
@@ -30,7 +30,7 @@
               title="Scan this folder and its subfolders only"
               aria-label="Scan this folder and its subfolders only">
               <app-icon name="refresh-cw" [size]="16" class="scan-icon" [class.spinning]="scanProgress().isScanning" />
-              Scan This Folder
+              Scan this folder
             </button>
           }
           <button
@@ -51,7 +51,7 @@
             title="Add music folder"
             aria-label="Add music folder">
             <app-icon name="plus" [size]="16" />
-            Add Folder
+            Add folder
           </button>
         </div>
       </header>
@@ -106,7 +106,7 @@
             </div>
             <button type="button" class="btn-remove-root" (click)="showRemoveDialog.set(true)"
               [disabled]="removingFolder()"
-              title="Remove folder from library">Remove Root</button>
+              title="Remove folder from library">Remove root</button>
           </section>
         } @else {
           <section class="folder-hero overview-hero">
@@ -123,7 +123,7 @@
         @if (errorMessage()) {
           <div class="state-error" role="alert">
             <app-icon name="alert-triangle" [size]="48" />
-            <p class="error-title">Folder Error</p>
+            <p class="error-title">Folder error</p>
             <p class="error-desc">{{ errorMessage() }}</p>
             <button type="button" class="btn-retry" (click)="loadRoots()">Retry</button>
           </div>
@@ -201,11 +201,11 @@
                   <button type="button" class="btn-queue-folder" (click)="onAddFolderFilesToQueue()"
                     [disabled]="!hasAvailableFolderTracks()" aria-label="Add all files to queue">
                     <app-icon name="plus" [size]="14" />
-                    Add to Queue
+                    Add to queue
                   </button>
-                  <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play All Files">
+                  <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play all files">
                     <app-icon name="play" [size]="14" />
-                    Play All Files
+                    Play all files
                   </button>
                 </div>
               </div>
@@ -249,7 +249,7 @@
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
                         <button type="button" class="queue-row-btn" (click)="onAddFileToQueue(file)"
-                          [disabled]="!track?.isAvailable" [attr.aria-label]="'Add ' + (track?.title || file.name) + ' to queue'" title="Add to Queue">
+                          [disabled]="!track?.isAvailable" [attr.aria-label]="'Add ' + (track?.title || file.name) + ' to queue'" title="Add to queue">
                           <app-icon name="plus" [size]="14" />
                         </button>
                       </td>

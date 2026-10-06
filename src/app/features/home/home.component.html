@@ -44,7 +44,7 @@
     <section class="home-empty-library" aria-labelledby="emptyLibraryTitle">
       <h1 id="emptyLibraryTitle">Add music to your library</h1>
       <p>Choose a folder to find your songs, albums, and artists.</p>
-      <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+      <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add music folder</button>
       @if (errorMessage()) { <p role="alert">{{ errorMessage() }}</p> }
     </section>
   } @else if (layout() === 'classic') {
@@ -102,7 +102,7 @@
               {{ item.playLabel }}
             </button>
             <button type="button" class="btn btn-secondary" (click)="shuffleAll()">
-              <app-icon name="shuffle" [size]="18" /> Shuffle Library
+              <app-icon name="shuffle" [size]="18" /> Shuffle library
             </button>
             @if (item.album; as album) {
               <a [routerLink]="['/albums', album.id]" class="hero-link">View album</a>
@@ -115,7 +115,7 @@
       </section>
     } @else {
       <div><button type="button" class="btn btn-secondary" (click)="shuffleAll()">
-        <app-icon name="shuffle" [size]="18" /> Shuffle Library
+        <app-icon name="shuffle" [size]="18" /> Shuffle library
       </button></div>
     }
 
@@ -151,11 +151,11 @@
       </section>
     }
 
-    <!-- Recently Modified -->
+    <!-- Recently modified -->
     @if (recentlyAddedAlbums().length > 0) {
       <section class="home-section">
         <div class="section-header">
-          <h2>Recently Modified</h2>
+          <h2>Recently modified</h2>
           <a routerLink="/albums" class="see-all-link">See all &rarr;</a>
         </div>
         <div class="albums-grid" #albumGrid>

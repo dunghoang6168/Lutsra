@@ -18,7 +18,7 @@
             title="Play all tracks in current view"
             aria-label="Play all tracks">
             <app-icon name="play" [size]="16" />
-            Play All
+            Play all
           </button>
 
           <button
@@ -40,7 +40,7 @@
             title="Add tracks in the current view to queue"
             aria-label="Add tracks in the current view to queue">
             <app-icon name="plus" [size]="16" />
-            Add to Queue
+            Add to queue
           </button>
 
           <!-- Search Box -->
@@ -142,7 +142,7 @@
             @if (hasFilters()) {
               <button type="button" class="btn btn-secondary" (click)="searchQuery.set(''); clearFilters()">Clear filters</button>
             } @else {
-              <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+              <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add music folder</button>
               @if (addFolderError()) { <p class="error-desc" role="alert">{{ addFolderError() }}</p> }
             }
           </div>
@@ -199,7 +199,7 @@
                     @case ('sampleRate') {
                       <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
                         <button type="button" class="sort-btn" (click)="toggleSort('sampleRate')">
-                          <span>Sample Rate</span>
+                          <span>Sample rate</span>
                           @if (sortColumn() === 'sampleRate') { <span class="sort-indicator"><app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" /></span> }
                         </button>
                       </th>
@@ -319,7 +319,7 @@
                         class="row-action-btn"
                         [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
                         (click)="onPlayNext(track)"
-                        title="Play Next"
+                        title="Play next"
                         [attr.aria-label]="'Play next: ' + track.title">
                         <app-icon name="skip-forward" [size]="14" />
                       </button>
@@ -329,7 +329,7 @@
                         [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
                         (click)="onAddToQueue(track)"
                         [disabled]="!track.isAvailable"
-                        title="Add to Queue"
+                        title="Add to queue"
                         [attr.aria-label]="'Add to queue: ' + track.title">
                         <app-icon name="plus" [size]="14" />
                       </button>

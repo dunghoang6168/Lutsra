@@ -84,7 +84,7 @@ typography:
     fontFeature: "all-small-caps"
   measure:
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-    fontSize: "0.75rem"
+    fontSize: "0.8125rem"
     fontWeight: 400
     lineHeight: 1.3
     letterSpacing: "0.01em"
@@ -308,7 +308,7 @@ Radius belongs to the layout, not the component. Gallery uses soft sheets (r20) 
 
 ### Buttons
 - **Shape:** `--radius-md` (8px; 2px inside Console).
-- **Primary:** accent fill with `--color-on-accent` text, 8px × 16px padding. Used for empty-state commits (Add Music Folder, Rescan). There is no hover glow on primary buttons.
+- **Primary:** accent fill with `--color-on-accent` text, 8px × 16px padding. Used for empty-state commits (Add music folder, Rescan). There is no hover glow on primary buttons.
 - **Secondary:** surface-hover fill, 1px border and text colour. Used for in-page actions such as Shuffle library.
 - **Icon controls:** 32-34px, transparent, `--control-radius`. They fill with secondary text on surface-hover when hovered, and the active state uses `accent-text`.
 - **Play/pause:** a solid ink circle (36px in the strip and pill, 30px in Console, 56px in the Gallery rail). It scales 1.05 on hover and 0.97 on press.
@@ -372,8 +372,6 @@ Interface copy is sentence case. Each concept has a single name throughout: **tr
 - **Don't** hard-code hues or gradients for placeholders or heroes. They must follow the preset and accent.
 
 ## Known Gaps (updated 2026-10-06)
-The gaps recorded by the 2026-10-05 critique (absence colour, Now Playing play control, motion overshoot, quality navigation outside Console, light contrast floor) are fixed. These shipped surfaces still do not meet this document:
-- **Measure size.** The signal path is set at 0.75rem (12px), below the 13px floor; it should use `--font-size-xs`.
-- **Sentence case.** Home's "Recently Modified" heading and the "Shuffle Library" button are title case.
+The gaps recorded by the 2026-10-05 critique (absence colour, Now Playing play control, motion overshoot, quality navigation outside Console, light contrast floor) are fixed. The signal path now uses the 13px floor, and interface copy (buttons, headings, aria-labels, inspector fields) is sentence case. No known gaps remain in the UI layer.
 
 Deliberately deferred (outside the UI layer): the legacy `liquidGlassAccentColor` setting in IPC and the database, and remembering the playback position within a track.

@@ -32,7 +32,7 @@
         <!-- Gallery: section tabs replace the sidebar. -->
         <div class="header-left">
           <ng-container *ngTemplateOutlet="history" />
-          <nav class="gallery-tabs" aria-label="Main Navigation">
+          <nav class="gallery-tabs" aria-label="Main navigation">
             @for (tab of tabs; track tab.path) {
               <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page" class="gallery-tab">{{ tab.label }}</a>
             }
@@ -41,7 +41,7 @@
             <summary class="header-button" aria-label="Sections">
               <app-icon name="menu" [size]="18" />
             </summary>
-            <nav class="tabs-menu-list" aria-label="Main Navigation">
+            <nav class="tabs-menu-list" aria-label="Main navigation">
               @for (tab of tabs; track tab.path) {
                 <a [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="tabsMenu.open = false">{{ tab.label }}</a>
               }

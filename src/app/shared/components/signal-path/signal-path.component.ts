@@ -37,7 +37,7 @@ const STATE_HELP: Record<PathState, string> = {
       overflow: hidden;
       color: var(--text-secondary);
       font-family: var(--font-family-mono);
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       font-variant-numeric: tabular-nums;
       line-height: 1.3;
       white-space: nowrap;

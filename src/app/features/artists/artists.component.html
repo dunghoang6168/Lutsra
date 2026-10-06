@@ -62,7 +62,7 @@
           @if (hasFilters()) {
             <button type="button" class="btn btn-secondary" (click)="searchQuery.set(''); clearFilters()">Clear filters</button>
           } @else if (allTracks().length === 0) {
-            <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add Music Folder</button>
+            <button type="button" class="btn btn-primary" [disabled]="addingFolder()" (click)="onAddFolder()">Add music folder</button>
             @if (addFolderError()) { <p class="error-desc" role="alert">{{ addFolderError() }}</p> }
           }
         </div>

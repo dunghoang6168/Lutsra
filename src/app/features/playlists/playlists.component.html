@@ -7,9 +7,9 @@
           <span class="count-badge">{{ playlists().length }} playlists</span>
         </div>
 
-        <button type="button" class="btn-create" (click)="showCreateModal.set(true)" aria-label="New Playlist">
+        <button type="button" class="btn-create" (click)="showCreateModal.set(true)" aria-label="New playlist">
           <app-icon name="plus" [size]="16" />
-          New Playlist
+          New playlist
         </button>
       </header>
 
@@ -30,7 +30,7 @@
           <app-icon name="list-music" [size]="48" class="empty-icon" />
           <p class="empty-title">No playlists yet</p>
           <p class="empty-desc">Create your first playlist to organize your favorite music.</p>
-          <button type="button" class="btn-create" (click)="showCreateModal.set(true)">Create Playlist</button>
+          <button type="button" class="btn-create" (click)="showCreateModal.set(true)">Create playlist</button>
         </div>
       } @else {
         <div class="playlists-grid">
@@ -51,16 +51,16 @@
                   type="button"
                   class="btn-icon"
                   (click)="onOpenRename($event, playlist)"
-                  title="Rename Playlist"
-                  aria-label="Rename Playlist">
+                  title="Rename playlist"
+                  aria-label="Rename playlist">
                   <app-icon name="edit" [size]="14" />
                 </button>
                 <button
                   type="button"
                   class="btn-icon delete"
                   (click)="onOpenDelete($event, playlist)"
-                  title="Delete Playlist"
-                  aria-label="Delete Playlist">
+                  title="Delete playlist"
+                  aria-label="Delete playlist">
                   <app-icon name="trash" [size]="14" />
                 </button>
               </div>
@@ -69,11 +69,11 @@
         </div>
       }
 
-      <!-- Create Playlist Modal -->
+      <!-- Create playlist Modal -->
       @if (showCreateModal()) {
         <div class="modal-backdrop" (click)="showCreateModal.set(false)">
           <div class="modal-card" (click)="$event.stopPropagation()">
-            <h3>Create Playlist</h3>
+            <h3>Create playlist</h3>
             <p class="modal-desc">Give your new playlist a descriptive name:</p>
             <input
               type="text"
@@ -94,7 +94,7 @@
       @if (playlistToRename()) {
         <div class="modal-backdrop" (click)="playlistToRename.set(null)">
           <div class="modal-card" (click)="$event.stopPropagation()">
-            <h3>Rename Playlist</h3>
+            <h3>Rename playlist</h3>
             <input
               type="text"
               class="modal-input"
@@ -113,7 +113,7 @@
       @if (playlistToDelete()) {
         <div class="modal-backdrop" (click)="playlistToDelete.set(null)">
           <div class="modal-card danger" (click)="$event.stopPropagation()">
-            <h3>Delete Playlist</h3>
+            <h3>Delete playlist</h3>
             <p class="modal-desc">
               Are you sure you want to delete <strong>{{ playlistToDelete()?.name }}</strong>?
             </p>
@@ -123,7 +123,7 @@
             </div>
             <div class="modal-actions">
               <button type="button" class="btn-cancel" (click)="playlistToDelete.set(null)">Cancel</button>
-              <button type="button" class="btn-danger" (click)="onConfirmDelete()">Delete Playlist</button>
+              <button type="button" class="btn-danger" (click)="onConfirmDelete()">Delete playlist</button>
             </div>
           </div>
         </div>

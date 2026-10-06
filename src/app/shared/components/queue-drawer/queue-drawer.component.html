@@ -4,7 +4,7 @@
       class="queue-drawer"
       [class.open]="isOpen()"
       role="dialog"
-      aria-label="Playback Queue"
+      aria-label="Playback queue"
       [attr.aria-hidden]="!isOpen()"
       [attr.inert]="isOpen() ? null : ''">
       <!-- Drawer Header -->
@@ -21,7 +21,7 @@
             (click)="queueActions.clearWithUndo()"
             [disabled]="player.queue().length === 0"
             title="Clear all tracks from queue"
-            aria-label="Clear Queue">
+            aria-label="Clear queue">
             Clear
           </button>
 

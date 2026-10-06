@@ -14,7 +14,7 @@
         </div>
       } @else if (!playlist()) {
         <div class="state-empty">
-          <h2>Playlist Not Found</h2>
+          <h2>Playlist not found</h2>
           <p>This playlist does not exist or has been deleted.</p>
           <a routerLink="/playlists" class="btn-back">Browse Playlists</a>
         </div>
@@ -49,9 +49,9 @@
                 class="btn-play"
                 (click)="onPlayAll()"
                 [disabled]="trackRows().length === 0"
-                aria-label="Play Playlist">
+                aria-label="Play playlist">
                 <app-icon name="play" [size]="18" />
-                Play Playlist
+                Play playlist
               </button>
 
               <button
@@ -59,24 +59,24 @@
                 class="btn-action"
                 (click)="onShufflePlay()"
                 [disabled]="trackRows().length === 0"
-                aria-label="Shuffle Playlist">
+                aria-label="Shuffle playlist">
                 <app-icon name="shuffle" [size]="16" />
                 Shuffle
               </button>
 
               <button type="button" class="btn-action" (click)="onAddAllToQueue()"
-                [disabled]="trackRows().length === 0" aria-label="Add Playlist to Queue">
+                [disabled]="trackRows().length === 0" aria-label="Add playlist to queue">
                 <app-icon name="plus" [size]="16" />
-                Add to Queue
+                Add to queue
               </button>
 
               <button
                 type="button"
                 class="btn-action"
                 (click)="showAddTracksModal.set(true)"
-                aria-label="Add Tracks">
+                aria-label="Add tracks">
                 <app-icon name="plus" [size]="16" />
-                Add Tracks
+                Add tracks
               </button>
             </div>
           </div>
@@ -88,7 +88,7 @@
             <div class="empty-playlist">
               <p>This playlist has no tracks yet.</p>
               <button type="button" class="btn-action primary" (click)="showAddTracksModal.set(true)">
-                Add Songs Now
+                Add tracks
               </button>
             </div>
           } @else {
@@ -136,7 +136,7 @@
                           [attr.aria-disabled]="i === trackRows().length - 1"
                           data-move="down"
                           (click)="onMoveDown(i, $event)"
-                          title="Move Down"
+                          title="Move down"
                           aria-label="Move track down"
                           [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="arrow-down" [size]="12" />
@@ -184,11 +184,11 @@
                       {{ row.track.duration | duration }}
                     </td>
 
-                    <!-- Remove from Playlist Action -->
+                    <!-- Remove from playlist Action -->
                     <td class="col-actions" (click)="$event.stopPropagation()">
                       <div class="entry-actions">
                         <button type="button" class="btn-queue-entry" (click)="onAddTrackToQueue(row.track)"
-                          [disabled]="!row.track.isAvailable" title="Add to Queue"
+                          [disabled]="!row.track.isAvailable" title="Add to queue"
                           [attr.aria-label]="'Add ' + row.track.title + ' to queue'"
                           [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                           <app-icon name="plus" [size]="14" />
@@ -212,11 +212,11 @@
         </div>
       }
 
-      <!-- Add Tracks Modal Dialog -->
+      <!-- Add tracks dialog -->
       @if (showAddTracksModal()) {
         <div class="modal-backdrop" (click)="showAddTracksModal.set(false)">
           <div class="modal-card wide" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="addTracksTitle">
-            <h3 id="addTracksTitle">Add Songs to Playlist</h3>
+            <h3 id="addTracksTitle">Add tracks to playlist</h3>
             <p class="modal-desc">Click any song from your library to add it:</p>
 
             <div class="tracks-picker-list">

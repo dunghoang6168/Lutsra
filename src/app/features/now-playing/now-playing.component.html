@@ -47,8 +47,8 @@
                   (click)="rightPanels.toggleQueue()"
                   [attr.aria-expanded]="rightPanels.isQueueOpen()"
                   aria-controls="queue-drawer"
-                  aria-label="Toggle Playback Queue Drawer"
-                  title="Toggle Queue Drawer">
+                  aria-label="Toggle playback queue drawer"
+                  title="Toggle queue drawer">
                   <app-icon name="queue" [size]="18" />
                   @if (player.queue().length > 0) {
                     <span class="queue-badge">{{ player.queue().length }}</span>
@@ -112,7 +112,7 @@
                     class="btn-icon"
                     [class.active]="player.isShuffle()"
                     (click)="player.toggleShuffle()"
-                    title="Toggle Shuffle"
+                    title="Toggle shuffle"
                     aria-label="Shuffle" [attr.aria-pressed]="player.isShuffle()" aria-keyshortcuts="S">
                     <app-icon name="shuffle" [size]="16" />
                   </button>
@@ -123,8 +123,8 @@
                   type="button"
                   class="btn-icon"
                   (click)="player.previous()"
-                  title="Previous Track"
-                  aria-label="Previous Track" aria-keyshortcuts="P">
+                  title="Previous track"
+                  aria-label="Previous track" aria-keyshortcuts="P">
                   <app-icon name="skip-back" [size]="18" />
                 </button>
 
@@ -145,8 +145,8 @@
                   type="button"
                   class="btn-icon"
                   (click)="player.next()"
-                  title="Next Track"
-                  aria-label="Next Track" aria-keyshortcuts="N">
+                  title="Next track"
+                  aria-label="Next track" aria-keyshortcuts="N">
                   <app-icon name="skip-forward" [size]="18" />
                 </button>
                 </div>
@@ -192,11 +192,11 @@
                   <span class="spec-value">{{ track.codec || 'Unknown' }}</span>
                 </span>
                 <span class="spec-item">
-                  <span class="spec-name">Bit Depth</span>
+                  <span class="spec-name">Bit depth</span>
                   <span class="spec-value">{{ track.bitDepth ? track.bitDepth + '-bit' : 'N/A' }}</span>
                 </span>
                 <span class="spec-item">
-                  <span class="spec-name">Sample Rate</span>
+                  <span class="spec-name">Sample rate</span>
                   <span class="spec-value">{{ track.sampleRate ? (track.sampleRate | number) + ' Hz (' + (track.sampleRate / 1000) + ' kHz)' : 'N/A' }}</span>
                 </span>
                 <span class="spec-item">
@@ -208,7 +208,7 @@
                   <span class="spec-value">{{ track.channels === 2 ? 'Stereo (2 Ch)' : track.channels === 1 ? 'Mono' : track.channels ? track.channels + ' Ch' : 'N/A' }}</span>
                 </span>
                 <span class="spec-item">
-                  <span class="spec-name">File Size</span>
+                  <span class="spec-name">File size</span>
                   <span class="spec-value">{{ formatFileSize(track.fileSize) }}</span>
                 </span>
               </span>
