@@ -92,9 +92,9 @@
               </button>
             </div>
           } @else {
-            <table class="playlist-table" role="grid" aria-label="Playlist songs" [attr.aria-rowcount]="trackRows().length + 1" aria-multiselectable="false">
-              <thead>
-                <tr>
+            <table class="playlist-table" role="grid" aria-label="Playlist songs" [attr.aria-rowcount]="trackRows().length + 1" aria-multiselectable="true">
+              <thead class="selection-header">
+                <tr [attr.inert]="selectedRows().ids.size > 1 ? '' : null">
                   <th class="col-reorder"><span class="sr-only">Order</span></th>
                   <th class="col-num">#</th>
                   <th class="col-title">Title</th>
@@ -102,6 +102,13 @@
                   <th class="col-duration">Time</th>
                   <th class="col-actions"><span class="sr-only">Actions</span></th>
                 </tr>
+              @if (selectedRows().ids.size > 1) {
+                <tr class="selection-overlay-row" role="presentation">
+                  <th class="selection-overlay-cell" role="presentation" [attr.colspan]="6">
+                    <app-track-selection-bar [tracks]="selectedTracks()" [excludePlaylistId]="playlist()!.id" (clear)="collapseSelection()" />
+                  </th>
+                </tr>
+              }
               </thead>
               <tbody #rowsContainer (keydown)="onRowsKeyDown($event)">
                 @for (row of trackRows(); track row.entry.id; let i = $index) {
@@ -110,10 +117,11 @@
                     [class.playing]="player.currentTrack()?.id === row.track.id"
                     [class.unavailable]="!row.track.isAvailable"
                     (dblclick)="onPlayRow(i)"
-                    (click)="onActivateRow(row, true)"
+                    (mousedown)="onRowMouseDown($event)"
+                    (click)="onRowClick(row, $event)"
                     (focusin)="onActivateRow(row)"
                     [attr.aria-rowindex]="i + 2"
-                    [attr.aria-selected]="activeId() === row.entry.id"
+                    [attr.aria-selected]="selectedRows().ids.has(row.entry.id)"
                     [attr.data-entry-id]="row.entry.id"
                     [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
                     <!-- Move Up / Down Buttons -->

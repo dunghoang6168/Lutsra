@@ -11,6 +11,6 @@
     <Link><SubSystem>Windows</SubSystem><EntryPointSymbol>wmainCRTStartup</EntryPointSymbol><AdditionalLibraryDirectories>$(FfmpegRoot)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories><AdditionalDependencies>ole32.lib;uuid.lib;avrt.lib;propsys.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
   <ItemGroup><ClCompile Include="main.cpp" /><ClCompile Include="audio_host.cpp" /><ClCompile Include="decoder.cpp" /><ClCompile Include="sample_writer.cpp" /></ItemGroup>
-  <ItemGroup><ClInclude Include="audio_host.h" /><ClInclude Include="spsc_ring_buffer.h" /><ClInclude Include="sample_writer.h" /></ItemGroup>
+  <ItemGroup><ClInclude Include="audio_host.h" /><ClInclude Include="spsc_ring_buffer.h" /><ClInclude Include="sample_writer.h" /><ClInclude Include="spectrum_analyzer.h" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

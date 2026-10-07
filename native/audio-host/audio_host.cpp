@@ -1,6 +1,7 @@
 #include <initguid.h>
 #include "audio_host.h"
 #include "sample_writer.h"
+#include "spectrum_analyzer.h"
 #include <algorithm>
 #include <avrt.h>
 #include <chrono>
@@ -1561,6 +1562,17 @@ void WasapiHost::renderLoopSafe() {
         }
       }
     }
+    if (spectrumEnabled_) {
+      size_t write = spectrumWrite_.load(std::memory_order_relaxed);
+      for (UINT32 frame = 0; frame < frames; ++frame) {
+        float mono = 0;
+        for (UINT32 channel = 0; channel < channels; ++channel)
+          mono += outgoing[static_cast<size_t>(frame) * channels + channel];
+        spectrumRing_[write++ % spectrumRing_.size()].store(mono / channels, std::memory_order_relaxed);
+      }
+      spectrumWrite_.store(write, std::memory_order_release);
+      spectrumRate_ = static_cast<int>(mixFormat_->nSamplesPerSec);
+    }
     const float target = muted_ ? 0.0f : volume_.load();
     const UINT32 ramp = std::max<UINT32>(1, std::min<UINT32>(frames, mixFormat_->nSamplesPerSec / 200));
     const float step = (target - smoothedGain_) / static_cast<float>(ramp);
@@ -1587,14 +1599,6 @@ void WasapiHost::renderLoopSafe() {
       }
     }
     writeSamples(outgoing.data(), samples, mixFormat_, bytes);
-    if (spectrumEnabled_) {
-      for (size_t bin = 0; bin < 128; ++bin) {
-        float peak = 0;
-        for (size_t i = bin * samples / 128; i < (bin + 1) * samples / 128; ++i)
-          peak = std::max(peak, std::abs(outgoing[i]));
-        spectrum_[bin] = static_cast<unsigned char>(std::min(255.0f, peak * 255.0f));
-      }
-    }
     const HRESULT releaseResult = renderClient_->ReleaseBuffer(frames, 0);
     if (FAILED(releaseResult)) {
       signalRenderFailure(releaseResult);
@@ -1627,6 +1631,9 @@ void WasapiHost::renderLoopSafe() {
 
 void WasapiHost::telemetryLoopSafe() {
   int timeDivider = 0;
+  SpectrumAnalyzer analyzer;
+  std::vector<float> history(SpectrumAnalyzer::kMaxFftSize);
+  std::array<unsigned char, SpectrumAnalyzer::kBins> bins{};
   while (!stopping_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(34));
     // Reap first: freeing graveyard slots must never depend on another lock.
@@ -1636,16 +1643,23 @@ void WasapiHost::telemetryLoopSafe() {
       timeDivider = 0;
       sendTime(true);
     }
-    if (spectrumEnabled_) {
-      std::ostringstream out;
-      out << "{\"kind\":\"spectrum\",\"bins\":[";
-      for (int i = 0; i < 128; ++i) {
-        if (i)
-          out << ',';
-        out << static_cast<int>(spectrum_[i].load());
+    if (spectrumEnabled_ && playing_) {
+      const int rate = spectrumRate_;
+      const size_t size = SpectrumAnalyzer::fftSizeFor(rate);
+      const size_t write = spectrumWrite_.load(std::memory_order_acquire);
+      for (size_t i = 0; i < size; ++i)
+        history[i] = spectrumRing_[(write - size + i) % spectrumRing_.size()].load(std::memory_order_relaxed);
+      if (analyzer.analyze(history.data(), size, rate, bins.data())) {
+        std::ostringstream out;
+        out << "{\"kind\":\"spectrum\",\"bins\":[";
+        for (size_t i = 0; i < bins.size(); ++i) {
+          if (i)
+            out << ',';
+          out << static_cast<int>(bins[i]);
+        }
+        out << "]}";
+        sendEvent(out.str(), true, true);
       }
-      out << "]}";
-      sendEvent(out.str(), true, true);
     }
   }
   drainRenderEvents();

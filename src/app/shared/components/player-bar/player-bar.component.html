@@ -32,17 +32,17 @@
 
 <ng-template #timeline>
   <div class="timeline">
-    <span class="time-label">{{ player.currentTime() | duration }}</span>
+    <span class="time-label">{{ displayTime() | duration }}</span>
     <div class="progress-bar-wrap"
       (pointerdown)="onTimelinePointerDown($event)" (pointermove)="onTimelinePointerMove($event)"
       (pointerup)="onTimelinePointerUp($event)" (pointercancel)="onTimelinePointerCancel($event)"
       (keydown)="onTimelineKeyDown($event)" role="slider"
       [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
       [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
-      [attr.aria-valuenow]="player.currentTime()" [attr.aria-valuemin]="0"
+      [attr.aria-valuenow]="displayTime()" [attr.aria-valuemin]="0"
       [attr.aria-valuemax]="player.duration()" [attr.aria-valuetext]="timelineValueText()"
       aria-label="Timeline scrubber">
-      <div class="progress-bar-track"><div class="progress-bar-fill" [style.width.%]="player.progressPercent()"></div></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" [style.width.%]="displayPercent()"></div></div>
     </div>
     <span class="time-label">{{ player.duration() | duration }}</span>
   </div>

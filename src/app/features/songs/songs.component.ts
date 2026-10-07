@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, OnInit, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { linkedSignal, WritableSignal, Component, DestroyRef, ElementRef, OnInit, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +7,8 @@ import { compareAlbumTracks, SongColumn, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { SongColumnPreferencesService } from '../../core/settings/song-column-preferences.service';
+import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } from '../../shared/utils/row-selection';
+import { TrackSelectionBarComponent } from '../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
@@ -27,7 +29,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 @Component({
   selector: 'app-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent, TrackSelectionBarComponent],
   templateUrl: './songs.component.html',
   styleUrl: './songs.component.scss'
 })
@@ -76,7 +78,7 @@ export class SongsComponent implements OnInit {
   readonly hasUnknownArtist = computed(() => this.artistFilter() === UNKNOWN_ARTIST || this.tracks().some((track) => !track.artist));
   readonly hasUnknownAlbum = computed(() => this.albumFilter() === UNKNOWN_ALBUM || this.tracks().some((track) => !track.album));
   readonly hasUnknownYear = computed(() => this.yearFilter() === UNKNOWN_YEAR || this.tracks().some((track) => track.year === null));
-  
+
   readonly availabilityFilter = signal('');
   readonly qualityFilter = signal('');
   readonly qualityOptions = [
@@ -87,9 +89,42 @@ export class SongsComponent implements OnInit {
   readonly availabilityOptions = [{ value: 'missing', label: 'Missing files' }];
   readonly activeFilterCount = computed(() => Number(Boolean(this.artistFilter())) + Number(Boolean(this.albumFilter())) + Number(Boolean(this.yearFilter())) + Number(Boolean(this.availabilityFilter())) + Number(Boolean(this.qualityFilter())));
   readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.activeFilterCount()));
-  readonly selectedTrackId = signal<string | null>(null);
   readonly activeTrackId = signal<string | null>(null);
   readonly noticeMessage = signal<string | null>(null);
+
+  // Drops ids that leave the view; selectedRows adds the focused-row fallback.
+  // Created on first use because detail-route-reuse tests build the component from its prototype, without field initialisers.
+  private selectionState?: WritableSignal<RowSelection>;
+  private get rowSelection(): WritableSignal<RowSelection> {
+    return this.selectionState ??= linkedSignal<readonly string[], RowSelection>({
+      source: () => this.visibleRowIds?.() ?? [],
+      computation: (ids, previous) => visibleRowSelection(previous?.value ?? { ids: new Set(), anchor: null }, ids, this.activeTrackId()),
+    });
+  }
+  readonly visibleRowIds = computed(() => this.filteredTracks().map((row) => row.id));
+  readonly selectedRows = computed(() => visibleRowSelection(this.rowSelection(), this.visibleRowIds(), this.activeTrackId()));
+  readonly selectedTracks = computed(() => this.filteredTracks().filter((row) => this.selectedRows().ids.has(row.id)).map((row) => row));
+
+  private updateRowSelection(action: RowSelectionAction): void {
+    this.rowSelection.set(selectRows(this.selectedRows(), this.visibleRowIds(), action));
+  }
+
+  onRowMouseDown(event: MouseEvent): void {
+    if (event.shiftKey) event.preventDefault();
+  }
+
+  onRowClick(track: Track, event: MouseEvent): void {
+    this.updateRowSelection({ type: event.shiftKey ? 'range' : event.ctrlKey ? 'toggle' : 'replace', id: track.id });
+    this.onActivateTrack(track, true);
+  }
+
+  collapseSelection(): void {
+    const rows = this.filteredTracks();
+    const active = rows.find((row) => row.id === this.activeTrackId()) ?? rows[0];
+    if (!active) return;
+    this.updateRowSelection({ type: 'collapse', id: active.id });
+    this.onActivateTrack(active, true);
+  }
 
   constructor() {
     effect(() => {
@@ -100,13 +135,13 @@ export class SongsComponent implements OnInit {
           this.rowNavigationInitialized = true;
           const selected = this.selection.selected();
           if (selected && tracks.some((track) => track.id === selected.id)) {
-            this.selectedTrackId.set(selected.id);
             this.activeTrackId.set(selected.id);
             return;
           }
         }
         if (!tracks.some((track) => track.id === this.activeTrackId())) {
           this.activeTrackId.set(tracks[0]?.id ?? null);
+          this.selection.selected.set(tracks[0] ?? null);
         }
       });
     });
@@ -256,6 +291,7 @@ export class SongsComponent implements OnInit {
   }
 
   async loadSongs(): Promise<void> {
+    this.rowSelection.set(selectRows(this.rowSelection(), [], { type: 'reset' }));
     this.isLoading.set(true);
     this.errorMessage.set(null);
     try {
@@ -269,40 +305,57 @@ export class SongsComponent implements OnInit {
   }
 
   onRowsKeyDown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || target.closest(
-      'button, input, textarea, select, a, [contenteditable], [role="button"], [role="textbox"], [role="combobox"]',
-    )) return;
-    const row = target.closest<HTMLTableRowElement>('.song-row[data-track-id]');
-    if (!row || row.parentElement !== this.songsBody()?.nativeElement) return;
 
-    const tracks = this.filteredTracks();
-    const current = tracks.findIndex((track) => track.id === row.dataset['trackId']);
+    if (event.defaultPrevented || event.isComposing || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.closest('input, textarea, select, [contenteditable], [role="textbox"], [role="combobox"]')) return;
+    const row = target.closest<HTMLElement>('.song-row[data-track-id]');
+    if (!row || row.parentElement !== event.currentTarget) return;
+    const rows = this.filteredTracks();
+    const current = rows.findIndex((item) => item.id === row.dataset['trackId']);
     if (current < 0) return;
-    if (event.key === 'Enter') {
+    if (event.ctrlKey && event.key.toLowerCase() === 'a') {
       event.preventDefault();
-      this.onPlayTrack(tracks[current], current);
+      this.updateRowSelection({ type: 'all' });
       return;
     }
-
-    let next = nextRowIndex(event.key, current, tracks.length, 1);
+    if (event.key === 'Escape' && this.selectedRows().ids.size > 1) {
+      event.preventDefault();
+      this.collapseSelection();
+      return;
+    }
+    if (target.closest('button, a, [role="button"]')) return;
+    if (event.ctrlKey && (event.code === 'Space' || event.key === ' ')) {
+      event.preventDefault();
+      this.updateRowSelection({ type: 'toggle', id: rows[current].id });
+      return;
+    }
+    if (event.key === 'Enter' && !event.ctrlKey) {
+      event.preventDefault();
+      this.onPlayTrack(rows[current], current);
+      return;
+    }
+    let next = nextRowIndex(event.key, current, rows.length, 1);
     if (next === null) return;
     event.preventDefault();
     if (event.key === 'PageUp' || event.key === 'PageDown') {
-      const scroller = row.closest<HTMLElement>('.table-scroll-container');
+      const viewport = row.closest<HTMLElement>('.table-scroll-container');
       const rowHeight = row.getBoundingClientRect().height;
-      const pageSize = scroller && rowHeight > 0
-        ? Math.max(1, Math.floor(scroller.clientHeight / rowHeight) - 1)
+      const clearance = row.closest('table')?.tHead?.getBoundingClientRect().height ?? 0;
+      const pageSize = viewport && rowHeight > 0
+        ? Math.max(1, Math.floor((viewport.clientHeight - clearance) / rowHeight))
         : 1;
-      next = nextRowIndex(event.key, current, tracks.length, pageSize)!;
+      next = nextRowIndex(event.key, current, rows.length, pageSize)!;
     }
-    this.onActivateTrack(tracks[next]);
+    if (event.shiftKey) this.updateRowSelection({ type: 'range', id: rows[next].id });
+    else if (!event.ctrlKey) this.updateRowSelection({ type: 'replace', id: rows[next].id });
+    this.onActivateTrack(rows[next], true);
   }
 
-  onActivateTrack(track: Track): void {
+  onActivateTrack(track: Track, moveFocus = true): void {
     this.activeTrackId.set(track.id);
     this.onSelectTrack(track);
+    if (!moveFocus) return;
     // Click and key events refer to already-rendered rows, including tabindex=-1 rows.
     const row = this.songsBody()?.nativeElement.querySelector<HTMLTableRowElement>(
       `[data-track-id="${CSS.escape(track.id)}"]`,
@@ -318,7 +371,6 @@ export class SongsComponent implements OnInit {
   }
 
   onSelectTrack(track: Track): void {
-    this.selectedTrackId.set(track.id);
     this.selection.selected.set(track);
   }
 
@@ -328,7 +380,6 @@ export class SongsComponent implements OnInit {
       return;
     }
     this.noticeMessage.set(null);
-    this.selectedTrackId.set(track.id);
     this.selection.selected.set(track);
     this.player.playCollection(this.filteredTracks(), indexInFiltered);
   }

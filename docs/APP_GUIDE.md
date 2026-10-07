@@ -75,6 +75,7 @@ Responsive tính theo **container** `.main-content` (`@container main-content`, 
   - `nextQueueEntries`: lấy các bài cho Up next.
 - **`player-bar`:** gồm cả ba dạng player. Up next trong rail Gallery chỉ vẽ những dòng vừa khít, và ẩn khi cửa sổ nhỏ hơn 1101×701.
 - **`track-details-panel`:** inspector của Console. Hiển thị khối chất lượng file trước, rồi mới đến tag.
+- **Xóa có hoàn tác:** xóa playlist không còn hộp xác nhận. Playlist ẩn ngay, toast "Deleted … · Undo" hiện 6 giây. Gateway chỉ xóa thật khi hết giờ, khi xóa playlist khác, hoặc khi rời trang. Xóa queue cũng có Undo (`QueueActionsService.clearWithUndo`).
 - **`spectrum-visualizer`:** khi tạm dừng, vẽ đường phẳng kèm chữ "Paused", và giữ nguyên chiều cao khung.
 
 ## 7. Bảng track và bàn phím
@@ -84,6 +85,17 @@ Mọi bảng track (Songs, chi tiết album/artist/playlist, Home của Console,
 - Enter chạy hành động chính của hàng. Space để dành cho play/pause toàn cục.
 - Selection đi theo focus (`aria-selected`).
 - Nút trên hàng chỉ vào thứ tự Tab ở hàng đang active.
+
+**Chọn nhiều** (Songs, chi tiết album/artist/playlist; `aria-multiselectable="true"`). Logic chung nằm ở `shared/utils/row-selection.ts`, là hàm thuần và có test.
+- Ctrl+click hoặc Ctrl+Space: bật/tắt một hàng.
+- Shift+click hoặc Shift+phím mũi tên: chọn dải từ anchor.
+- Ctrl+phím mũi tên: chỉ di chuyển focus, giữ nguyên selection.
+- Ctrl+A: chọn mọi hàng đang hiển thị.
+- Esc hoặc nút Clear: thu selection về hàng đang focus. Luôn có ít nhất một hàng được chọn, nên inspector vẫn khớp.
+- Từ hai hàng trở lên, `app-track-selection-bar` phủ lên header bảng. Header bên dưới bị `inert`, các hàng không bị đẩy xuống.
+  - Thanh có Play next, Add to queue, Add to playlist (popover, có tạo playlist mới) và Clear.
+  - Track unavailable bị bỏ qua, và toast báo rõ số track bị bỏ qua.
+  - Playlist detail chọn theo entry id, nên một track xuất hiện hai lần thì được gửi hai lần.
 
 Trang chi tiết đọc `route.paramMap` để tải lại khi router dùng lại component. Một lượt tải về muộn không được ghi đè trang mới.
 

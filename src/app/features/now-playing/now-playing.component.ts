@@ -14,6 +14,7 @@ import { activeLyricIndex, parseLrc } from './lrc-parser';
 import { InlineVolumeControlComponent } from './inline-volume-control.component';
 import { SignalPathComponent } from '../../shared/components/signal-path/signal-path.component';
 import { WaveformSeekComponent } from './waveform-seek.component';
+import { TimelineScrub, timelineFraction } from '../../shared/utils/timeline-scrub';
 import { AudioVisualizationPreferenceService } from '../../core/layout/audio-visualization-preference.service';
 
 @Component({
@@ -64,7 +65,12 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
       : current === 'repeat-all' ? 'Repeat One' : 'Off';
     return `Playback mode: ${names[current]}. Click for ${next}`;
   });
-  private isTimelineScrubbing = false;
+  private readonly scrub = new TimelineScrub();
+  readonly displayTime = computed(() => this.scrub.time() ?? this.player.currentTime());
+  readonly displayPercent = computed(() => {
+    const duration = this.player.duration();
+    return duration > 0 ? Math.min(100, Math.max(0, this.displayTime() / duration * 100)) : 0;
+  });
   private lyricsRequest = 0;
   private lastTrackKey: string | null = null;
   private destroyed = false;
@@ -199,26 +205,28 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
 
   onTimelinePointerDown(event: PointerEvent): void {
     if (!this.canSeek()) return;
-    this.isTimelineScrubbing = true;
     const target = event.currentTarget as HTMLElement;
     try { target.setPointerCapture(event.pointerId); } catch { /* Synthetic events may not own a pointer. */ }
-    this.seekFromClientX(event.clientX, target);
+    this.previewFromClientX(event.clientX, target);
     event.preventDefault();
   }
 
   onTimelinePointerMove(event: PointerEvent): void {
-    if (!this.isTimelineScrubbing) return;
-    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    if (!this.scrub.active) return;
+    this.previewFromClientX(event.clientX, event.currentTarget as HTMLElement);
   }
 
   onTimelinePointerUp(event: PointerEvent): void {
-    if (!this.isTimelineScrubbing) return;
-    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
-    this.finishTimelineScrub(event);
+    if (!this.scrub.active) return;
+    this.previewFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    const time = this.scrub.end();
+    if (time !== null) this.player.seek(time);
+    this.releasePointer(event);
   }
 
   onTimelinePointerCancel(event: PointerEvent): void {
-    this.finishTimelineScrub(event);
+    this.scrub.cancel();
+    this.releasePointer(event);
   }
 
   onTimelineKeyDown(event: KeyboardEvent): void {
@@ -234,17 +242,12 @@ export class NowPlayingComponent implements AfterViewChecked, OnDestroy {
     this.player.seek(Math.max(0, Math.min(duration, nextPosition)));
   }
 
-  private seekFromClientX(clientX: number, target: HTMLElement): void {
-    const totalDuration = this.player.duration();
-    const rect = target.getBoundingClientRect();
-    if (rect.width <= 0 || totalDuration <= 0) return;
-    const clickX = clientX - rect.left;
-    const percent = Math.max(0, Math.min(1, clickX / rect.width));
-    this.player.seek(percent * totalDuration);
+  private previewFromClientX(clientX: number, target: HTMLElement): void {
+    const fraction = timelineFraction(clientX, target.getBoundingClientRect());
+    if (fraction !== null && this.player.duration() > 0) this.scrub.preview(fraction * this.player.duration());
   }
 
-  private finishTimelineScrub(event: PointerEvent): void {
-    this.isTimelineScrubbing = false;
+  private releasePointer(event: PointerEvent): void {
     const target = event.currentTarget as HTMLElement;
     try {
       if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId);

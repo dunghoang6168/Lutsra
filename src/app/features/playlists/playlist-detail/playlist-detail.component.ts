@@ -1,5 +1,5 @@
 import { selectPlaylistArtwork } from '../../../shared/utils/list-media';
-import { Component, DestroyRef, OnInit, afterNextRender, computed, effect, ElementRef, Injector, inject, signal, untracked, viewChild } from '@angular/core';
+import { linkedSignal, WritableSignal, Component, DestroyRef, OnInit, afterNextRender, computed, effect, ElementRef, Injector, inject, signal, untracked, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -10,6 +10,8 @@ import { PlayerService } from '../../../core/player/player.service';
 import { QueueActionsService } from '../../../core/player/queue-actions.service';
 import { TrackSelectionService } from '../../../core/layout/track-selection.service';
 import { focusListItem, nextRowIndex } from '../../../shared/utils/row-navigation';
+import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } from '../../../shared/utils/row-selection';
+import { TrackSelectionBarComponent } from '../../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
@@ -21,7 +23,7 @@ interface PlaylistTrackRow {
 @Component({
   selector: 'app-playlist-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent],
+  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent, TrackSelectionBarComponent],
   templateUrl: './playlist-detail.component.html',
   styleUrl: './playlist-detail.component.scss'
 })
@@ -72,6 +74,40 @@ export class PlaylistDetailComponent implements OnInit {
     return `${mins} min`;
   });
 
+  // Drops ids that leave the view; selectedRows adds the focused-row fallback.
+  // Created on first use because detail-route-reuse tests build the component from its prototype, without field initialisers.
+  private selectionState?: WritableSignal<RowSelection>;
+  private get rowSelection(): WritableSignal<RowSelection> {
+    return this.selectionState ??= linkedSignal<readonly string[], RowSelection>({
+      source: () => this.visibleRowIds?.() ?? [],
+      computation: (ids, previous) => visibleRowSelection(previous?.value ?? { ids: new Set(), anchor: null }, ids, this.activeId()),
+    });
+  }
+  readonly visibleRowIds = computed(() => this.trackRows().map((row) => row.entry.id));
+  readonly selectedRows = computed(() => visibleRowSelection(this.rowSelection(), this.visibleRowIds(), this.activeId()));
+  readonly selectedTracks = computed(() => this.trackRows().filter((row) => this.selectedRows().ids.has(row.entry.id)).map((row) => row.track));
+
+  private updateRowSelection(action: RowSelectionAction): void {
+    this.rowSelection.set(selectRows(this.selectedRows(), this.visibleRowIds(), action));
+  }
+
+  onRowMouseDown(event: MouseEvent): void {
+    if (event.shiftKey) event.preventDefault();
+  }
+
+  onRowClick(row: PlaylistTrackRow, event: MouseEvent): void {
+    this.updateRowSelection({ type: event.shiftKey ? 'range' : event.ctrlKey ? 'toggle' : 'replace', id: row.entry.id });
+    this.onActivateRow(row, true);
+  }
+
+  collapseSelection(): void {
+    const rows = this.trackRows();
+    const active = rows.find((row) => row.entry.id === this.activeId()) ?? rows[0];
+    if (!active) return;
+    this.updateRowSelection({ type: 'collapse', id: active.entry.id });
+    this.onActivateRow(active, true);
+  }
+
   constructor() {
     effect(() => {
       const rows = this.trackRows();
@@ -79,6 +115,8 @@ export class PlaylistDetailComponent implements OnInit {
         if (!rows.some((row) => row.entry.id === this.activeId())) {
           this.activeId.set(rows[0] ? rows[0].entry.id : null);
         }
+        const active = rows.find((row) => row.entry.id === this.activeId());
+        this.selection.selected.set(active ? active.track : null);
       });
     });
   }
@@ -89,6 +127,7 @@ export class PlaylistDetailComponent implements OnInit {
       if (id === this.currentId) return;
       this.currentId = id;
       ++this.routeVersion;
+      this.rowSelection.set(selectRows(this.rowSelection(), [], { type: 'reset' }));
       this.activeId.set(null);
       this.selection.selected.set(null);
       this.playlist.set(null);
@@ -130,6 +169,7 @@ export class PlaylistDetailComponent implements OnInit {
       const missingTracks = await Promise.all(missingIds.map((trackId) => this.libraryGateway.getTrackById(trackId)));
       if (token !== this.loadToken || this.destroyRef.destroyed) return;
       missingTracks.forEach((track) => { if (track) libraryTracks.set(track.id, track); });
+      this.rowSelection.set(selectRows(this.rowSelection(), [], { type: 'reset' }));
       this.playlist.set(found);
       this.allLibraryTracks.set(lib.tracks);
       this.entryTracks.set(libraryTracks);
@@ -221,17 +261,31 @@ export class PlaylistDetailComponent implements OnInit {
 
   onRowsKeyDown(event: KeyboardEvent): void {
     if (this.showAddTracksModal()) return;
-    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.defaultPrevented || event.isComposing || event.altKey || event.metaKey) return;
     const target = event.target;
-    if (!(target instanceof HTMLElement) || target.closest(
-      'button, input, textarea, select, a, [contenteditable], [role="button"], [role="textbox"], [role="combobox"]',
-    )) return;
+    if (!(target instanceof HTMLElement) || target.closest('input, textarea, select, [contenteditable], [role="textbox"], [role="combobox"]')) return;
     const row = target.closest<HTMLElement>('.entry-row[data-entry-id]');
     if (!row || row.parentElement !== event.currentTarget) return;
     const rows = this.trackRows();
     const current = rows.findIndex((item) => item.entry.id === row.dataset['entryId']);
     if (current < 0) return;
-    if (event.key === 'Enter') {
+    if (event.ctrlKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      this.updateRowSelection({ type: 'all' });
+      return;
+    }
+    if (event.key === 'Escape' && this.selectedRows().ids.size > 1) {
+      event.preventDefault();
+      this.collapseSelection();
+      return;
+    }
+    if (target.closest('button, a, [role="button"]')) return;
+    if (event.ctrlKey && (event.code === 'Space' || event.key === ' ')) {
+      event.preventDefault();
+      this.updateRowSelection({ type: 'toggle', id: rows[current].entry.id });
+      return;
+    }
+    if (event.key === 'Enter' && !event.ctrlKey) {
       event.preventDefault();
       this.onPlayRow(current);
       return;
@@ -248,6 +302,8 @@ export class PlaylistDetailComponent implements OnInit {
         : 1;
       next = nextRowIndex(event.key, current, rows.length, pageSize)!;
     }
+    if (event.shiftKey) this.updateRowSelection({ type: 'range', id: rows[next].entry.id });
+    else if (!event.ctrlKey) this.updateRowSelection({ type: 'replace', id: rows[next].entry.id });
     this.onActivateRow(rows[next], true);
   }
 

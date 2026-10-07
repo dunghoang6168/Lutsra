@@ -262,3 +262,52 @@
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
+
+.playlist-undo-toast {
+  position: fixed;
+  z-index: 950;
+  left: 50%;
+  bottom: 156px;
+  max-width: min(420px, calc(100vw - 32px));
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.playlist-undo-toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-undo-toast .btn-undo {
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.playlist-undo-toast .btn-undo:hover {
+  background: var(--bg-surface-hover);
+}
+
+.playlist-undo-toast .btn-undo:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}

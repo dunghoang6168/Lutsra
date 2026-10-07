@@ -1,5 +1,5 @@
 import { selectPlaylistArtwork } from '../../shared/utils/list-media';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Injector, OnInit, afterNextRender, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -10,6 +10,8 @@ import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { AlbumCardComponent } from '../../shared/components/album-card/album-card.component';
+
+const UNDO_DELETE_MS = 6000;
 
 @Component({
   selector: 'app-playlists',
@@ -23,6 +25,8 @@ export class PlaylistsComponent implements OnInit {
   private readonly playlistGateway = inject(PLAYLIST_GATEWAY);
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly player = inject(PlayerService);
   private readonly queueActions = inject(QueueActionsService);
 
@@ -31,6 +35,16 @@ export class PlaylistsComponent implements OnInit {
   readonly isLoading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
 
+  // Deleting hides the playlist at once; the gateway delete runs after the undo window or when the page closes.
+  readonly pendingDelete = signal<Playlist | null>(null);
+  private readonly hiddenIds = signal<ReadonlySet<string>>(new Set());
+  private deleteTimer: ReturnType<typeof setTimeout> | undefined;
+
+  readonly visiblePlaylists = computed(() => {
+    const hidden = this.hiddenIds();
+    return this.playlists().filter((p) => !hidden.has(p.id));
+  });
+
   // Modals state
   readonly showCreateModal = signal<boolean>(false);
   newPlaylistName = '';
@@ -38,7 +52,9 @@ export class PlaylistsComponent implements OnInit {
   readonly playlistToRename = signal<Playlist | null>(null);
   renameValue = '';
 
-  readonly playlistToDelete = signal<Playlist | null>(null);
+  constructor() {
+    this.destroyRef.onDestroy(() => this.flushPendingDelete());
+  }
 
   async ngOnInit(): Promise<void> {
     this.libraryGateway.libraryChanged$?.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.loadData());
@@ -95,22 +111,67 @@ export class PlaylistsComponent implements OnInit {
     }
   }
 
-  onOpenDelete(event: MouseEvent, playlist: Playlist): void {
+  onDeletePlaylist(event: MouseEvent, playlist: Playlist): void {
     event.stopPropagation();
-    this.playlistToDelete.set(playlist);
+    const visible = this.visiblePlaylists();
+    const index = visible.findIndex((p) => p.id === playlist.id);
+    const neighbour = visible[index + 1] ?? visible[index - 1] ?? null;
+    // Only one delete can be undone; an earlier pending delete is committed now.
+    this.flushPendingDelete();
+    this.setHidden(playlist.id, true);
+    this.pendingDelete.set(playlist);
+    this.deleteTimer = setTimeout(() => this.flushPendingDelete(), UNDO_DELETE_MS);
+    this.focusCardAfterRender(neighbour?.id ?? null);
   }
 
-  async onConfirmDelete(): Promise<void> {
-    const pl = this.playlistToDelete();
-    if (!pl) return;
-    this.errorMessage.set(null);
+  onUndoDelete(): void {
+    const pending = this.pendingDelete();
+    if (!pending) return;
+    clearTimeout(this.deleteTimer);
+    this.pendingDelete.set(null);
+    this.setHidden(pending.id, false);
+    this.focusCardAfterRender(pending.id);
+  }
+
+  private flushPendingDelete(): void {
+    clearTimeout(this.deleteTimer);
+    const pending = this.pendingDelete();
+    if (!pending) return;
+    this.pendingDelete.set(null);
+    void this.commitDelete(pending);
+  }
+
+  /** The playlist stays hidden while the delete runs, and comes back if it fails. */
+  private async commitDelete(playlist: Playlist): Promise<void> {
     try {
-      await this.playlistGateway.deletePlaylist(pl.id);
-      this.playlistToDelete.set(null);
-      await this.loadData();
+      await this.playlistGateway.deletePlaylist(playlist.id);
+      if (!this.destroyRef.destroyed) this.playlists.update((list) => list.filter((p) => p.id !== playlist.id));
     } catch (err: any) {
-      this.errorMessage.set(err?.message || 'Failed to delete playlist');
+      if (!this.destroyRef.destroyed) this.errorMessage.set(err?.message || 'Failed to delete playlist');
+    } finally {
+      if (!this.destroyRef.destroyed) this.setHidden(playlist.id, false);
     }
+  }
+
+  private setHidden(id: string, hidden: boolean): void {
+    this.hiddenIds.update((ids) => {
+      const next = new Set(ids);
+      if (hidden) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  /** Focuses a playlist card, or the create button when none is given, once the grid has re-rendered. */
+  private focusCardAfterRender(playlistId: string | null): void {
+    if (typeof document === 'undefined') return;
+    afterNextRender(() => {
+      const host = this.host.nativeElement;
+      const card = playlistId
+        ? host.querySelector<HTMLElement>(`app-album-card[data-playlist-id="${CSS.escape(playlistId)}"]`)
+        : null;
+      const target = card ? card.querySelector<HTMLElement>('a, button') ?? card : host.querySelector<HTMLElement>('.btn-create');
+      target?.focus();
+    }, { injector: this.injector });
   }
 
   onPlayPlaylist(playlist: Playlist): void {

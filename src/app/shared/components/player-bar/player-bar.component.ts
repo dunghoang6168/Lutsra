@@ -2,6 +2,7 @@ import { Component, DestroyRef, ElementRef, afterNextRender, afterRenderEffect, 
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { nextQueueEntries } from '../../utils/list-media';
+import { TimelineScrub, timelineFraction } from '../../utils/timeline-scrub';
 import { formatTrackFormat } from '../../../features/home/library-quality';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
@@ -33,8 +34,14 @@ export class PlayerBarComponent {
     ? `Muted, volume ${this.volumePercent()} percent`
     : `${this.volumePercent()} percent`);
 
+  private readonly scrub = new TimelineScrub();
+  readonly displayTime = computed(() => this.scrub.time() ?? this.player.currentTime());
+  readonly displayPercent = computed(() => {
+    const duration = this.player.duration();
+    return duration > 0 ? Math.min(100, Math.max(0, this.displayTime() / duration * 100)) : 0;
+  });
   readonly timelineValueText = computed(() =>
-    `${formatClock(this.player.currentTime())} of ${formatClock(this.player.duration())}`);
+    `${formatClock(this.displayTime())} of ${formatClock(this.player.duration())}`);
 
   readonly formatTrackFormat = formatTrackFormat;
   readonly upNext = computed(() => nextQueueEntries(this.player.queue(), this.player.currentIndex()));
@@ -78,30 +85,30 @@ export class PlayerBarComponent {
     });
   }
 
-  private isTimelineScrubbing = false;
-
   onTimelinePointerDown(event: PointerEvent): void {
     if (!this.canSeek()) return;
-    this.isTimelineScrubbing = true;
     const target = event.currentTarget as HTMLElement;
     try { target.setPointerCapture(event.pointerId); } catch { /* Synthetic events may not own a pointer. */ }
-    this.seekFromClientX(event.clientX, target);
+    this.previewFromClientX(event.clientX, target);
     event.preventDefault();
   }
 
   onTimelinePointerMove(event: PointerEvent): void {
-    if (!this.isTimelineScrubbing) return;
-    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    if (!this.scrub.active) return;
+    this.previewFromClientX(event.clientX, event.currentTarget as HTMLElement);
   }
 
   onTimelinePointerUp(event: PointerEvent): void {
-    if (!this.isTimelineScrubbing) return;
-    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
-    this.finishTimelineScrub(event);
+    if (!this.scrub.active) return;
+    this.previewFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    const time = this.scrub.end();
+    if (time !== null) this.player.seek(time);
+    this.releasePointer(event);
   }
 
   onTimelinePointerCancel(event: PointerEvent): void {
-    this.finishTimelineScrub(event);
+    this.scrub.cancel();
+    this.releasePointer(event);
   }
 
   onTimelineKeyDown(event: KeyboardEvent): void {
@@ -117,17 +124,12 @@ export class PlayerBarComponent {
     this.player.seek(Math.max(0, Math.min(duration, nextPosition)));
   }
 
-  private seekFromClientX(clientX: number, target: HTMLElement): void {
-    const totalDuration = this.player.duration();
-    const rect = target.getBoundingClientRect();
-    if (rect.width <= 0 || totalDuration <= 0) return;
-    const clickX = clientX - rect.left;
-    const percent = Math.max(0, Math.min(1, clickX / rect.width));
-    this.player.seek(percent * totalDuration);
+  private previewFromClientX(clientX: number, target: HTMLElement): void {
+    const fraction = timelineFraction(clientX, target.getBoundingClientRect());
+    if (fraction !== null && this.player.duration() > 0) this.scrub.preview(fraction * this.player.duration());
   }
 
-  private finishTimelineScrub(event: PointerEvent): void {
-    this.isTimelineScrubbing = false;
+  private releasePointer(event: PointerEvent): void {
     const target = event.currentTarget as HTMLElement;
     try {
       if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId);

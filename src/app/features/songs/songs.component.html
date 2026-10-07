@@ -148,9 +148,9 @@
           </div>
         } @else {
           <table class="songs-table" role="grid" aria-label="Songs list"
-            [attr.aria-rowcount]="filteredTracks().length + 1" aria-multiselectable="false">
-            <thead>
-              <tr>
+            [attr.aria-rowcount]="filteredTracks().length + 1" aria-multiselectable="true">
+            <thead class="selection-header">
+              <tr [attr.inert]="selectedRows().ids.size > 1 ? '' : null">
                 <th class="col-index" [class.user-hidden]="isSongColumnHidden('index')">#</th>
                 <th class="col-title sortable" [attr.aria-sort]="getAriaSort('title')">
                   <button type="button" class="sort-btn" (click)="toggleSort('title')">
@@ -211,20 +211,29 @@
                 }
                 <th class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')"><span class="sr-only">Actions</span></th>
               </tr>
+            @if (selectedRows().ids.size > 1) {
+              <tr class="selection-overlay-row" role="presentation">
+                <th class="selection-overlay-cell" role="presentation" [attr.colspan]="songColumns.songColumnOrder().length + 3">
+                  <app-track-selection-bar [tracks]="selectedTracks()" (clear)="collapseSelection()" />
+                </th>
+              </tr>
+            }
             </thead>
             <tbody #songsBody (keydown)="onRowsKeyDown($event)">
               @for (track of filteredTracks(); track track.id; let i = $index) {
                 <tr
                   class="song-row"
-                  [class.selected]="selectedTrackId() === track.id"
+                  [class.selected]="selectedRows().ids.has(track.id)"
                   [class.playing]="player.currentTrack()?.id === track.id"
                   [class.unavailable]="!track.isAvailable"
-                  (click)="onActivateTrack(track)"
+                  (mousedown)="onRowMouseDown($event)"
+                    (click)="onRowClick(track, $event)"
                   (dblclick)="onPlayTrack(track, i)"
+                  (focusin)="onActivateTrack(track, false)"
                   [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
                   [attr.data-track-id]="track.id"
                   [attr.aria-rowindex]="i + 2"
-                  [attr.aria-selected]="selectedTrackId() === track.id">
+                  [attr.aria-selected]="selectedRows().ids.has(track.id)">
                   <!-- # Index / Playing Indicator -->
                   <td class="col-index" [class.user-hidden]="isSongColumnHidden('index')">
                     @if (player.currentTrack()?.id === track.id) {
