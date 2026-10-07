@@ -93,6 +93,12 @@ export class AppComponent implements AfterViewChecked {
     return this.layout() === 'liquid-glass' || !this.onNowPlaying();
   });
   readonly consoleInspector = computed(() => this.layout() === 'classic' && this.windowWidth() >= 1100);
+  /** Audio notices dismiss themselves; hover or focus holds the countdown (WCAG 2.2.1). */
+  readonly noticeDurationMs = 8000;
+  readonly noticePaused = signal(false);
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  private noticeDeadline = 0;
+  private noticeRemaining = 0;
 
   @HostListener('window:resize')
   onWindowResize(): void {
@@ -101,8 +107,20 @@ export class AppComponent implements AfterViewChecked {
 
   constructor() {
     afterNextRender(() => this.acrylicScrollbars.start());
-    this.destroyRef.onDestroy(() => this.acrylicScrollbars.stop());
+    this.destroyRef.onDestroy(() => {
+      this.acrylicScrollbars.stop();
+      clearTimeout(this.noticeTimer);
+    });
     void this.checkOnboarding();
+    effect(() => {
+      // A JS timer, not animationend: reduced motion collapses animations to 0.01ms.
+      clearTimeout(this.noticeTimer);
+      this.noticeTimer = undefined;
+      this.noticePaused.set(false);
+      if (!this.player.playbackNotice()) return;
+      this.noticeRemaining = this.noticeDurationMs;
+      this.startNoticeTimer();
+    });
     effect(() => {
       if (this.layoutPreference.mode() !== 'classic' && !this.hasTrackOrQueue()) this.rightPanels.closeQueue();
     });
@@ -119,6 +137,28 @@ export class AppComponent implements AfterViewChecked {
         }
       });
     });
+  }
+
+  pauseNotice(): void {
+    if (!this.noticeTimer) return;
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = undefined;
+    this.noticeRemaining = Math.max(0, this.noticeDeadline - Date.now());
+    this.noticePaused.set(true);
+  }
+
+  resumeNotice(): void {
+    if (!this.noticePaused()) return;
+    this.noticePaused.set(false);
+    this.startNoticeTimer();
+  }
+
+  private startNoticeTimer(): void {
+    this.noticeDeadline = Date.now() + this.noticeRemaining;
+    this.noticeTimer = setTimeout(() => {
+      this.noticeTimer = undefined;
+      this.player.playbackNotice.set(null);
+    }, this.noticeRemaining);
   }
 
   private async checkOnboarding(): Promise<void> {

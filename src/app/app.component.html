@@ -85,7 +85,14 @@
       </div>
     }
     @if (player.playbackNotice(); as notice) {
-      <div class="playback-notice" role="status" aria-live="polite" aria-atomic="true">
+      <div class="playback-notice" role="status" aria-live="polite" aria-atomic="true"
+        [class.paused]="noticePaused()" [style.--notice-duration.ms]="noticeDurationMs"
+        (mouseenter)="pauseNotice()" (mouseleave)="resumeNotice()"
+        (focusin)="pauseNotice()" (focusout)="resumeNotice()">
+        <!-- Keyed on the message so a new notice restarts the countdown. -->
+        @for (key of [notice]; track key) {
+          <svg class="notice-countdown" aria-hidden="true"><rect pathLength="100" /></svg>
+        }
         <app-icon name="headphones" [size]="17" />
         <span>{{ notice }}</span>
         <button type="button" (click)="player.playbackNotice.set(null)" aria-label="Dismiss audio notice"><app-icon name="x" [size]="15" /></button>
