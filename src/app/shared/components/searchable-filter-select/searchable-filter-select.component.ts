@@ -52,6 +52,8 @@ let nextListId = 0;
     .chevron { flex: none; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
     .select-dropdown { position: fixed; inset: auto; margin: 0; box-sizing: border-box; padding: 6px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-primary); font: inherit; overflow: hidden; box-shadow: 0 8px 24px rgba(0, 0, 0, .2); }
     .select-dropdown:popover-open { display: flex; flex-direction: column; }
+    /* Ambient remaps --bg-elevated to translucent glass inside the sheet; a dense option list needs a solid ground. */
+    :host-context(.layout-liquid-glass) .select-dropdown { border-color: var(--glass-border); background: var(--glass-solid); }
     .option-search { flex: none; padding: 0 10px; background: var(--bg-surface); }
     .option-list { min-height: 0; max-height: 200px; overflow-y: auto; overscroll-behavior: contain; }
     .option-search + .option-list { margin-top: 6px; }
