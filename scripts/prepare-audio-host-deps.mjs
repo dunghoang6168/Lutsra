@@ -25,9 +25,9 @@ if (existsSync(ffmpegRoot)) rmSync(ffmpegRoot, { recursive: true, force: true })
 const extraction = path.join(thirdParty, '_extract');
 if (existsSync(extraction)) rmSync(extraction, { recursive: true, force: true });
 mkdirSync(extraction, { recursive: true });
-execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $env:LUTSRA_AUDIO_ARCHIVE -DestinationPath $env:LUTSRA_AUDIO_EXTRACT -Force'], {
+execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $env:LUTSTRA_AUDIO_ARCHIVE -DestinationPath $env:LUTSTRA_AUDIO_EXTRACT -Force'], {
   stdio: 'inherit',
-  env: { ...process.env, LUTSRA_AUDIO_ARCHIVE: binaryArchive, LUTSRA_AUDIO_EXTRACT: extraction },
+  env: { ...process.env, LUTSTRA_AUDIO_ARCHIVE: binaryArchive, LUTSTRA_AUDIO_EXTRACT: extraction },
 });
 const fs = await import('node:fs');
 const extracted = fs.readdirSync(extraction, { withFileTypes: true }).find((entry) => entry.isDirectory());

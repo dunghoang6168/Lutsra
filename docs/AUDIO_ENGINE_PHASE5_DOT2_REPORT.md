@@ -27,7 +27,7 @@ M6: `scripts/integration-audio-host-codecs.mjs`, `scripts/stress-audio-host.mjs`
 
 ## Kết quả thực tế
 
-Các kiểm tra được người dùng cho phép. Audio luôn muted, không bật `LUTSRA_STRESS_AUDIBLE`. Các lượt Exclusive đã chiếm TE-C thực tế, tạm thời chặn ứng dụng khác dùng endpoint này. Host đã dừng sau kiểm tra.
+Các kiểm tra được người dùng cho phép. Audio luôn muted, không bật `LUTSTRA_STRESS_AUDIBLE`. Các lượt Exclusive đã chiếm TE-C thực tế, tạm thời chặn ứng dụng khác dùng endpoint này. Host đã dừng sau kiểm tra.
 
 | Kiểm tra | Kết quả | Raw log |
 |---|---|---|

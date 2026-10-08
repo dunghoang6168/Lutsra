@@ -5,7 +5,7 @@ Dành cho người mới vào dự án. Tài liệu này giải thích app đư�
 ## 1. Lutstra là gì
 Trình phát nhạc desktop, local-first, dành cho người nghe quan tâm đến chất lượng file: lossless, Hi-Res, file nào bị thiếu. Nguyên tắc xuyên suốt là **sự thật về file luôn hiển thị**: định dạng, bit depth và sample rate, cùng việc output đang bit-perfect, resample hay đi qua shared mixer của Windows. Các thông tin này xuất hiện ở mọi layout, dưới dạng chữ mono.
 
-Tên hiển thị là **Lutstra**. Tên kỹ thuật cũ `lutsra` được giữ ở khóa localStorage `lutsra.*`, tên package, `dist/lutsra`, user agent và file database. Không đổi các tên đó, vì đổi sẽ làm mất dữ liệu của người dùng.
+Tên sản phẩm là **Lutstra**, tên kỹ thuật dùng `lutstra` (package, `dist/lutstra`, user agent và `lutstra.sqlite`). Giữ origin `app://lutsra`, khóa localStorage `lutsra.*` và IndexedDB `lutsra-waveform` để bảo toàn dữ liệu trình duyệt đã lưu. Migration giữ tên profile và database cũ để tìm dữ liệu nguồn.
 
 ## 2. Kiến trúc
 Sơ đồ đầy đủ ở mục "Kiến trúc" của README. Bản ngắn:

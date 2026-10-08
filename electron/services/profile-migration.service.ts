@@ -1,17 +1,47 @@
 import { randomUUID } from 'node:crypto';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { cp, mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { isPathInside } from '../utils/path-utils.js';
 
-const NEW_DATABASE_NAME = 'lutsra.sqlite';
+const NEW_DATABASE_NAME = 'lutstra.sqlite';
 const LEGACY_PROFILES = [
+  { name: 'Lutsra', databaseName: 'lutsra.sqlite' },
   { name: 'Audio Lutstra', databaseName: 'audio-lutstra.sqlite' },
   { name: 'Audio BlaBla', databaseName: 'audio-blabla.sqlite' },
   { name: 'audio-blabla', databaseName: 'audio-blabla.sqlite' },
 ] as const;
 
-/** Copies the most recently used legacy profile on first launch, leaving the original untouched. */
+/** Copies browser storage before Electron ready, without merging existing LevelDB directories. */
+export function copyLegacyBrowserStorage(targetUserData: string, appData: string): void {
+  const sourceRoot = path.join(appData, 'Lutsra');
+  if (path.resolve(sourceRoot).toLowerCase() === path.resolve(targetUserData).toLowerCase()) return;
+
+  for (const directory of ['Local Storage', 'IndexedDB']) {
+    let staging: string | undefined;
+    try {
+      const source = path.join(sourceRoot, directory);
+      const target = path.join(targetUserData, directory);
+      if (!existsSync(source) || existsSync(target)) continue;
+      mkdirSync(targetUserData, { recursive: true });
+      staging = mkdtempSync(path.join(targetUserData, '.storage-migration-'));
+      const copied = path.join(staging, directory);
+      cpSync(source, copied, { recursive: true, force: false });
+      // Publish a complete directory so a failed copy cannot leave partial LevelDB data.
+      if (!existsSync(target)) renameSync(copied, target);
+    } catch (error) {
+      console.warn('[profile] Could not copy legacy browser storage', directory, error);
+    } finally {
+      if (staging) {
+        try { rmSync(staging, { recursive: true, force: true }); }
+        catch (error) { console.warn('[profile] Could not clean up storage migration staging', error); }
+      }
+    }
+  }
+}
+
+/** Prefers Lutsra, then the most recently used older profile, leaving the source untouched. */
 export async function migrateLegacyProfile(targetUserData: string, appData: string): Promise<string | null> {
   const targetDatabase = path.join(targetUserData, NEW_DATABASE_NAME);
   if (await exists(targetDatabase)) return null;
@@ -21,11 +51,12 @@ export async function migrateLegacyProfile(targetUserData: string, appData: stri
     if (path.resolve(root).toLowerCase() === path.resolve(targetUserData).toLowerCase()) return null;
     try {
       const info = await stat(path.join(root, profile.databaseName));
-      return info.isFile() ? { root, databaseName: profile.databaseName, modified: info.mtimeMs } : null;
+      return info.isFile() ? { root, name: profile.name, databaseName: profile.databaseName, modified: info.mtimeMs } : null;
     } catch { return null; }
   }));
-  const source = candidates.filter((value) => value !== null)
-    .sort((left, right) => right.modified - left.modified)[0];
+  const available = candidates.filter((value) => value !== null);
+  const source = available.find((profile) => profile.name === 'Lutsra')
+    ?? available.sort((left, right) => right.modified - left.modified)[0];
   if (!source) return null;
 
   await mkdir(targetUserData, { recursive: true });

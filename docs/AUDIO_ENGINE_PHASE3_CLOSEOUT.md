@@ -50,9 +50,9 @@ Build bằng `npm run electron`. Đánh dấu `[x]` khi đạt; ghi ngày và gh
 
 - [ ] Đổi **sample rate** của TE-C trong Sound settings khi đang phát: báo gián đoạn, Engine mix cập nhật theo rate mới, phát lại đúng tốc độ.
 - [ ] Chỉ đổi **bit depth** của TE-C: Device format cập nhật, Engine mix vẫn là 32-bit float.
-- [ ] App khác chiếm TE-C ở Exclusive (ví dụ foobar2000 WASAPI exclusive): Lutsra báo thiết bị bận. Đóng app kia rồi bấm Play: phát lại được.
+- [ ] App khác chiếm TE-C ở Exclusive (ví dụ foobar2000 WASAPI exclusive): Lutstra báo thiết bị bận. Đóng app kia rồi bấm Play: phát lại được.
 - [ ] Sleep rồi resume máy: phát tiếp được, không treo.
-- [ ] Kill `lutsra-audio-host.exe` lần 1: host khởi động lại, paused đúng vị trí. Kill lần 2: chuyển về Chromium, paused.
+- [ ] Kill `lutstra-audio-host.exe` lần 1: host khởi động lại, paused đúng vị trí. Kill lần 2: chuyển về Chromium, paused.
 
 ### Nghe
 

@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "lutsra": {
+    "lutstra": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -45,7 +45,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/lutsra",
+            "outputPath": "dist/lutstra",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -101,10 +101,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "lutsra:build:production"
+              "buildTarget": "lutstra:build:production"
             },
             "development": {
-              "buildTarget": "lutsra:build:development"
+              "buildTarget": "lutstra:build:development"
             }
           },
           "defaultConfiguration": "development"

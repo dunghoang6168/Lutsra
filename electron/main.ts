@@ -8,12 +8,14 @@ import { TrackDetailsService } from './services/track-details.service.js';
 import { ArtistMetadataService } from './services/artist-metadata.service.js';
 import { LyricsService } from './services/lyrics.service.js';
 import { AudioHostService } from './services/audio-host.service.js';
-import { migrateLegacyProfile } from './services/profile-migration.service.js';
+import { copyLegacyBrowserStorage, migrateLegacyProfile } from './services/profile-migration.service.js';
 import { broadcastProgress, registerIpc } from './ipc/register-ipc.js';
 import { installProtocolHandlers, registerPrivilegedSchemes } from './protocols/register-protocols.js';
 import { installWindowSnap } from './window-snap.js';
 
 registerPrivilegedSchemes();
+// Chromium may open profile storage at ready; copy complete legacy directories beforehand.
+copyLegacyBrowserStorage(app.getPath('userData'), app.getPath('appData'));
 
 const development = process.argv.includes('--dev');
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -32,7 +34,7 @@ function createWindow(): void {
   const usesNativeAcrylic = process.platform === 'win32';
 
   mainWindow = new BrowserWindow({
-    name: 'lutsra-main',
+    name: 'lutstra-main',
     windowStatePersistence: true,
     width: 1280,
     height: 800,
@@ -83,7 +85,7 @@ app.whenReady().then(async () => {
   const userData = app.getPath('userData');
   const migratedFrom = await migrateLegacyProfile(userData, app.getPath('appData'));
   if (migratedFrom) console.info('[profile] Migrated legacy library from', migratedFrom);
-  database = new DatabaseService(path.join(userData, 'lutsra.sqlite'));
+  database = new DatabaseService(path.join(userData, 'lutstra.sqlite'));
   const artwork = new ArtworkService(path.join(userData, 'artwork-cache'), database);
   const scanner = new ScannerService(database, artwork, (progress) => broadcastProgress(mainWindow, progress));
   const trackDetails = new TrackDetailsService(database);
@@ -91,7 +93,7 @@ app.whenReady().then(async () => {
   const artistMetadata = new ArtistMetadataService(database, artwork, (update) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('artist-metadata:updated', update);
   });
-  const rendererRoot = path.join(app.getAppPath(), 'dist', 'lutsra', 'browser');
+  const rendererRoot = path.join(app.getAppPath(), 'dist', 'lutstra', 'browser');
 
   installProtocolHandlers(database, rendererRoot, development);
   audioHost = new AudioHostService(database, () => mainWindow);

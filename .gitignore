@@ -7,7 +7,8 @@
 /native/audio-host/obj/
 /native/audio-host/x64/
 /native/audio-host/third_party/
-/native/audio-host/lutsra-a.*/
+# MSBuild intermediate directories with a hexadecimal project suffix (old and new names)
+/native/audio-host/*.[0-9A-Fa-f]*/
 /.codex-staging/
 /release
 /tmp
@@ -59,3 +60,6 @@ Thumbs.db
 /.gemini/
 /.impeccable/
 native/audio-host/obj-tests/
+
+# Agent plans, prompts and notes
+/plan/

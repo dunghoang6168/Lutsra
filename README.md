@@ -1,6 +1,6 @@
-# Lutsra
+# Lutstra
 
-Lutsra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. Dự án dùng Angular và TypeScript xuyên suốt, tập trung vào kiến trúc dễ hiểu, dễ bảo trì và đủ linh hoạt để thay playback engine trong tương lai.
+Lutstra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. Dự án dùng Angular và TypeScript xuyên suốt, tập trung vào kiến trúc dễ hiểu, dễ bảo trì và đủ linh hoạt để thay playback engine trong tương lai.
 
 V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
 
@@ -136,8 +136,8 @@ Không cần cài Angular CLI, Electron, TypeScript hay SQLite riêng trên máy
 Clone repo rồi cài dependency từ thư mục gốc:
 
 ```bash
-git clone https://github.com/dunghoang6168/Lutsra.git
-cd Lutsra
+git clone https://github.com/dunghoang6168/Lutstra.git
+cd Lutstra
 node --version
 npm --version
 npm ci
@@ -170,7 +170,7 @@ npm run build
 npm run electron
 ```
 
-Angular output nằm tại `dist/lutsra/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
+Angular output nằm tại `dist/lutstra/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
 
 ### Thử chạy trên macOS
 
@@ -187,8 +187,8 @@ npm run package:win
 
 Artifact được tạo trong `release/`:
 
-- `Lutsra-Setup-0.2.2-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
-- `Lutsra-Portable-0.2.2-x64.exe`: chạy trực tiếp, không cần cài đặt.
+- `Lutstra-Setup-0.2.2-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
+- `Lutstra-Portable-0.2.2-x64.exe`: chạy trực tiếp, không cần cài đặt.
 
 Để tạo bản unpacked phục vụ kiểm tra nhanh mà không sinh installer:
 
@@ -202,9 +202,9 @@ Database và artwork vẫn nằm trong thư mục `userData` của Windows, tác
 
 ## Persistence và scanning
 
-Database mặc định ở `app.getPath('userData')/lutsra.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
+Database mặc định ở `app.getPath('userData')/lutstra.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
 
-Lần mở đầu tiên sau khi đổi tên, ứng dụng sao chép thư viện, playlist, settings và artwork từ profile Audio Lutstra hoặc Audio BlaBla gần đây nhất sang profile Lutsra. Profile cũ được giữ nguyên. Bản sao chỉ được tạo nếu database Lutsra chưa tồn tại; nếu chuyển dữ liệu thất bại, ứng dụng dừng khởi động để tránh mở một thư viện trống ngoài ý muốn.
+Lần mở đầu tiên sau khi đổi tên, ứng dụng ưu tiên sao chép thư viện, playlist, settings và artwork từ profile Lutsra sang Lutstra; nếu Lutsra không có database, chọn profile Audio Lutstra hoặc Audio BlaBla gần đây nhất. SQLite backup giữ cả dữ liệu đã commit trong WAL. Local Storage và IndexedDB của Lutsra được sao chép trước khi Electron ready, chỉ khi thư mục đích chưa tồn tại, để giữ lịch sử phát, trạng thái sidebar và cache waveform. Profile nguồn được giữ nguyên. Database chỉ được sao chép nếu `lutstra.sqlite` chưa tồn tại; lỗi migration database sẽ dừng khởi động để tránh mở thư viện trống ngoài ý muốn. Lỗi copy storage được ghi log và ứng dụng tiếp tục chạy.
 
 Track ID là SHA-256 của normalized canonical path. Trên Windows identity không phân biệt hoa thường. Scanner dùng `fileSize + lastModified` để bỏ qua metadata không đổi, giới hạn metadata concurrency ở 4 và ghi tối đa 100 tracks mỗi batch. Scan thành công mới reconcile file mất; root lỗi không xóa snapshot library cũ.
 

@@ -1,4 +1,4 @@
-# Kế hoạch tối ưu Lutsra (sau 0.2.2)
+# Kế hoạch tối ưu Lutstra (sau 0.2.2)
 
 > Lập ngày 03/10/2026, dựa trên bản đánh giá code của workspace 0.2.2.
 > Mục tiêu: app vẫn mượt với thư viện **20.000 bài**, code dễ bảo trì hơn và có lưới test tối thiểu trước khi làm Android 0.3.0.
@@ -34,7 +34,7 @@ Tổng cộng khoảng **3–4 tuần** nếu làm bán thời gian.
 ### 0.2 Dọn `.gitignore` và line ending
 - Thêm vào `.gitignore`:
   ```
-  /native/audio-host/lutsra-a.*/
+  /native/audio-host/*.[0-9A-Fa-f]*/
   /.codex-staging/
   *.obj
   *.pdb
@@ -266,7 +266,7 @@ Không khôi phục toàn bộ 7.400 dòng đã xóa. Chỉ viết lại phần 
 
 | Rủi ro | Cách giảm thiểu |
 |---|---|
-| Migration làm hỏng database của người dùng hiện tại | Sao lưu `lutsra.sqlite` thành `.bak` trước khi chạy migration mới; viết test migration từ database v4 thật |
+| Migration làm hỏng database của người dùng hiện tại | Sao lưu `lutstra.sqlite` thành `.bak` trước khi chạy migration mới; viết test migration từ database v4 thật |
 | Tách PlayerService làm sai lệch logic phát nhạc (race, crossfade) | Viết test ở mục 4.2 **trước** khi tách (theo kiểu characterization test); tách từng service một |
 | Virtual scroll làm hỏng accessibility hoặc thao tác bàn phím | Kiểm tra thủ công với Tab/Arrow và trình đọc màn hình (Narrator) |
 | Zoneless làm UI không cập nhật ở một số chỗ | Làm OnPush trước (bước 2.4.1); chỉ bật zoneless khi mọi trang đã ổn |

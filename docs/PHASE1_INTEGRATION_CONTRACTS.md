@@ -1,4 +1,4 @@
-# Lutsra — Desktop Integration Contracts
+# Lutstra — Desktop Integration Contracts
 
 Tài liệu mô tả contract hiện dùng giữa Angular Renderer, preload và Electron Main. Code trong `src/app/core/contracts`, `src/app/core/desktop` và `electron/preload.cts` là nguồn chuẩn khi tài liệu và implementation khác nhau.
 

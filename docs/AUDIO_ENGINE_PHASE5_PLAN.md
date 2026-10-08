@@ -5,7 +5,7 @@
 
 ## 1. Mục tiêu và phạm vi
 
-Black Pearl (TE-C) nhận đúng sample rate gốc của từng bài. Lutsra chiếm riêng thiết bị, không qua mixer của Windows.
+Black Pearl (TE-C) nhận đúng sample rate gốc của từng bài. Lutstra chiếm riêng thiết bị, không qua mixer của Windows.
 
 **Trong phạm vi:**
 
@@ -154,7 +154,7 @@ Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện 
   - `selectAudioOutput` thôi ghi đè mode.
   - Khi rơi về Chromium mà mode đã lưu là Exclusive: hiện notice "Exclusive cần Native Audio Host — đang phát Shared"; **giữ nguyên** mode đã lưu.
 - **Settings UI (mục Audio output):**
-  - Bộ chọn Shared / Exclusive, kèm mô tả: "Lutsra chiếm riêng DAC; ứng dụng khác sẽ không phát được qua thiết bị này; sample rate đổi theo bài".
+  - Bộ chọn Shared / Exclusive, kèm mô tả: "Lutstra chiếm riêng DAC; ứng dụng khác sẽ không phát được qua thiết bị này; sample rate đổi theo bài".
   - Vô hiệu hóa bộ chọn, có ghi lý do, khi thiết bị không có `exclusive-dsp` hoặc backend đang là Chromium.
   - Ô chọn buffer nằm dưới mục nâng cao.
   - Nhãn Audio Path:
@@ -199,7 +199,7 @@ Build Audio Host sau hiệu chỉnh M4 thành công (0 lỗi, 11 warning hiện 
 
 - [ ] Phát lần lượt file 44.1, 48 và 96 kHz: đèn/trạng thái trên TE-C đổi theo; Audio Path hiện đúng rate và "No resampling".
 - [ ] Âm thanh hệ thống (thông báo Windows, trình duyệt) không phát chen vào TE-C khi đang Exclusive.
-- [ ] foobar2000 giữ TE-C ở Exclusive: Lutsra báo thiết bị bận và vẫn ở trạng thái paused; đóng foobar rồi bấm Play thì phát được.
+- [ ] foobar2000 giữ TE-C ở Exclusive: Lutstra báo thiết bị bận và vẫn ở trạng thái paused; đóng foobar rồi bấm Play thì phát được.
 - [ ] Tắt quyền Exclusive trong Windows: hiện thông báo `OUTPUT_EXCLUSIVE_NOT_ALLOWED`, không tự phát qua Shared.
 - [ ] Không có pop/click khi pause/resume, chuyển bài cùng rate, chuyển bài khác rate, đổi Shared ↔ Exclusive.
 - [ ] Pause/resume không nhảy vị trí.

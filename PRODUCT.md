@@ -16,7 +16,7 @@ Audiophile quản lý thư viện file cục bộ.
 
 ## Product Purpose
 
-Lutsra là một ứng dụng desktop nghe nhạc local-first, tập trung vào chất lượng file (lossless, hi-res) và quản lý thư viện nhạc cục bộ.
+Lutstra là một ứng dụng desktop nghe nhạc local-first, tập trung vào chất lượng file (lossless, hi-res) và quản lý thư viện nhạc cục bộ.
 
 ## Positioning
 

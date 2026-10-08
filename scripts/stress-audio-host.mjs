@@ -5,9 +5,9 @@ import net from 'node:net';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const executable = path.join(root, 'dist-electron', 'audio-host', 'lutsra-audio-host.exe');
-const musicDir = process.env.LUTSRA_STRESS_MUSIC_DIR;
-if (!musicDir || !existsSync(musicDir)) throw new Error('Set LUTSRA_STRESS_MUSIC_DIR to an existing music directory.');
+const executable = path.join(root, 'dist-electron', 'audio-host', 'lutstra-audio-host.exe');
+const musicDir = process.env.LUTSTRA_STRESS_MUSIC_DIR;
+if (!musicDir || !existsSync(musicDir)) throw new Error('Set LUTSTRA_STRESS_MUSIC_DIR to an existing music directory.');
 if (!existsSync(executable)) throw new Error('Build the native audio host first.');
 const extensions = new Set(['.flac', '.wav', '.mp3', '.m4a', '.aac', '.ogg', '.opus']);
 const files = readdirSync(musicDir, { withFileTypes: true })
@@ -15,7 +15,7 @@ const files = readdirSync(musicDir, { withFileTypes: true })
   .map((entry) => path.join(musicDir, entry.name));
 if (files.length < 3) throw new Error('The music directory needs at least three supported audio files.');
 
-const pipeName = `\\\\.\\pipe\\lutsra-audio-stress-${randomUUID()}`;
+const pipeName = `\\\\.\\pipe\\lutstra-audio-stress-${randomUUID()}`;
 const nonce = randomBytes(32).toString('hex');
 const pending = new Map();
 const playingTracks = new Set();
@@ -90,8 +90,8 @@ try {
   });
   await Promise.race([hello, sleep(8_000).then(() => { throw new Error('Host handshake timed out.'); })]);
   const devices = await request('list-devices');
-  // Stress audio is noise; stay muted unless LUTSRA_STRESS_AUDIBLE=1.
-  await request('set-mute', { isMuted: process.env.LUTSRA_STRESS_AUDIBLE !== '1' });
+  // Stress audio is noise; stay muted unless LUTSTRA_STRESS_AUDIBLE=1.
+  await request('set-mute', { isMuted: process.env.LUTSTRA_STRESS_AUDIBLE !== '1' });
 
   for (let i = 0; i < 50; i++) {
     await request('load', track(i));

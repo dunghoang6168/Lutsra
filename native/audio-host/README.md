@@ -91,10 +91,10 @@ Tests are opt-in: `npm run test:audio-host` runs native unit tests,
 `npm run test:audio-host:codecs` (muted) covers codecs, crossfade, gapless advance and
 seeks, plus a muted Exclusive pass on TE-C. Both codecs and stress require TE-C
 for their Exclusive acceptance pass; they never silently skip it. Set
-`LUTSRA_STRESS_MUSIC_DIR` to a directory with at least three supported audio files,
+`LUTSTRA_STRESS_MUSIC_DIR` to a directory with at least three supported audio files,
 then run `npm run test:audio-host:stress` for rapid load, seek, transition, and device
 switching, including unawaited command bursts. It stays muted unless
-`LUTSRA_STRESS_AUDIBLE=1`. The stress script uses local media paths only in requests
+`LUTSTRA_STRESS_AUDIBLE=1`. The stress script uses local media paths only in requests
 to the host.
 
 ## Manual acceptance matrix

@@ -4,7 +4,7 @@
 
 ## Mục tiêu
 
-Phase 3 đã hoàn thành nền tảng giao diện, theme persistence và icon abstraction. Phase 3.1 chỉ tinh chỉnh cách trình bày để Lutsra có cảm giác gọn, cân đối và phù hợp với desktop music library hơn. Playback, queue behavior, Electron IPC, database, scanner và public contracts không thay đổi.
+Phase 3 đã hoàn thành nền tảng giao diện, theme persistence và icon abstraction. Phase 3.1 chỉ tinh chỉnh cách trình bày để Lutstra có cảm giác gọn, cân đối và phù hợp với desktop music library hơn. Playback, queue behavior, Electron IPC, database, scanner và public contracts không thay đổi.
 
 Hướng hình ảnh chính là **desktop library hiện đại, mật độ vừa phải**, lấy Feishin làm tham khảo cấu trúc. Musicat, Tauon và Harmonoid chỉ bổ sung các pattern phù hợp; không sao chép source code, icon hay asset của các dự án này.
 

@@ -1,5 +1,5 @@
-Lutsra Native Audio Host dynamically links to FFmpeg libraries distributed under the
-GNU Lesser General Public License (LGPL), version 2.1 or later. Lutsra does not use
+Lutstra Native Audio Host dynamically links to FFmpeg libraries distributed under the
+GNU Lesser General Public License (LGPL), version 2.1 or later. Lutstra does not use
 a GPL or nonfree FFmpeg build. The exact binary archive, checksum, and corresponding
 source revision are recorded in ffmpeg-dependency.json. FFmpeg DLL filenames are
 preserved in the packaged audio-host directory.

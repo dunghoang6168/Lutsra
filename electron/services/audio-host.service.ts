@@ -117,7 +117,7 @@ export class AudioHostService {
     this.intentionalStop = false;
     this.setState(this.restartCount > 0 ? 'recovering' : 'starting');
     this.nonce = randomBytes(32).toString('hex');
-    const pipeName = `\\\\.\\pipe\\lutsra-audio-${randomUUID()}`;
+    const pipeName = `\\\\.\\pipe\\lutstra-audio-${randomUUID()}`;
     this.server = net.createServer((socket) => this.acceptSocket(socket));
     await new Promise<void>((resolve, reject) => {
       const server = this.server!;
@@ -292,8 +292,8 @@ export class AudioHostService {
 
   private executablePath(): string {
     return app.isPackaged
-      ? path.join(process.resourcesPath, 'audio-host', 'lutsra-audio-host.exe')
-      : path.join(app.getAppPath(), 'dist-electron', 'audio-host', 'lutsra-audio-host.exe');
+      ? path.join(process.resourcesPath, 'audio-host', 'lutstra-audio-host.exe')
+      : path.join(app.getAppPath(), 'dist-electron', 'audio-host', 'lutstra-audio-host.exe');
   }
 
   private async rehydratePausedSession(): Promise<void> {

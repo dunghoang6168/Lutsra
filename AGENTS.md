@@ -7,7 +7,7 @@ Lutstra is a local-first desktop music player for lossless and Hi-Res libraries:
 - **No new dependencies.**
 - **Angular style:** standalone components, signals and `computed`, `@if`/`@for` (never `*ngIf`/`*ngFor` in new code). Use external `.html` and `.scss` files (see [docs/FRONTEND_STRUCTURE.md](docs/FRONTEND_STRUCTURE.md)).
 - **Tokens only.** Colours, spacing, radii, type, shadows and motion come from `src/styles/_tokens.scss` and `_themes.scss`. Do not hard-code values. If a value is missing, ask before adding a token.
-- **Names:** the product is shown as **Lutstra**. Keep the technical name `lutsra` as it is: the `lutsra.*` localStorage keys, the package name, `dist/lutsra`, the Electron user agent and the database file.
+- **Names:** the product is **Lutstra** and technical names use `lutstra`. Preserve the renderer origin `app://lutsra`, localStorage keys `lutsra.*` and IndexedDB name `lutsra-waveform` for existing browser data. Legacy profile migration also retains the old profile and database names to locate source data.
 - **Keep accessibility:** real buttons and links, accessible names, visible focus, and the keyboard pattern described below.
 - **Line endings:** keep LF.
 - **Files to leave alone:** do not commit `docs/AUDIO_ENGINE_PLAN.md` or `skills-lock.json` unless asked.
@@ -36,4 +36,7 @@ Every track table follows the same pattern: `role="grid"` with roving tabindex (
 ## Working alongside other agents
 - Several agents may work at once. Work only in the folder and branch you were given (a git worktree for parallel work) and on the port you were given. Touch only the files the task names.
 - **Do not commit, push, checkout, stash or reset** unless the task explicitly allows it. The reviewer merges.
+- **Reply in Vietnamese (most important):** always talk to the user in Vietnamese, and write the files in `plan/` in Vietnamese too. Code, comments, commit messages and the English docs stay in English.
+- **Working notes go in `plan/<type>/`:** every `.md` you create goes in the matching subfolder of `plan/` at the repo root (gitignored), never in a home or temp folder: `plans/` (plans, timelines), `prompts/` (prompts for other agents), `reports/` (task results, investigations), `reviews/` (code or design reviews), `notes/` (backlogs, drafts, anything else). This does not cover real project docs such as `docs/`.
+- **Commit messages:** ask the user to approve the message before committing. Never add `Co-Authored-By`, a model name, or any AI attribution to commits or PR descriptions.
 - Send a short plan first and wait for approval. In the final report, list changed files, test output, screenshots, any deviations from the task, and bugs you noticed outside scope. Copy before/after tables from `git diff`; do not reconstruct them.

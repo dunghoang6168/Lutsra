@@ -5,12 +5,12 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
-const root=path.resolve(import.meta.dirname,'..'),host=path.join(root,'dist-electron','audio-host','lutsra-audio-host.exe'),ffmpeg=path.join(root,'native','audio-host','third_party','ffmpeg','bin','ffmpeg.exe');
-const temporary=mkdtempSync(path.join(os.tmpdir(),'lutsra-codecs-'));
+const root=path.resolve(import.meta.dirname,'..'),host=path.join(root,'dist-electron','audio-host','lutstra-audio-host.exe'),ffmpeg=path.join(root,'native','audio-host','third_party','ffmpeg','bin','ffmpeg.exe');
+const temporary=mkdtempSync(path.join(os.tmpdir(),'lutstra-codecs-'));
 const codecs=[['wav','pcm_s16le',44100],['flac','flac',96000],['mp3','libmp3lame',44100],['m4a','aac',48000],['ogg','libvorbis',48000],['opus','libopus',48000]];
 for(const [extension,codec,rate] of codecs)execFileSync(ffmpeg,['-hide_banner','-loglevel','error','-f','lavfi','-i','sine=frequency=440:duration=1','-ar',String(rate),'-ac','2','-c:a',codec,'-y',path.join(temporary,`sample.${extension}`)]);
 
-const pipe=`\\\\.\\pipe\\lutsra-codecs-${randomUUID()}`,nonce=randomBytes(32).toString('hex');let child; const exclusiveResults=[]; let socket,buffer=Buffer.alloc(0),counter=0;const pending=new Map(),events=[];let helloResolve,helloReject;
+const pipe=`\\\\.\\pipe\\lutstra-codecs-${randomUUID()}`,nonce=randomBytes(32).toString('hex');let child; const exclusiveResults=[]; let socket,buffer=Buffer.alloc(0),counter=0;const pending=new Map(),events=[];let helloResolve,helloReject;
 const hello=new Promise((resolve,reject)=>{helloResolve=resolve;helloReject=reject;});
 const server=net.createServer((connection)=>{socket=connection;connection.on('data',(chunk)=>{buffer=Buffer.concat([buffer,chunk]);while(buffer.length>=4){const length=buffer.readUInt32LE(0);if(!length||length>1024*1024)throw new Error('Invalid frame');if(buffer.length<length+4)return;const message=JSON.parse(buffer.subarray(4,length+4).toString('utf8'));buffer=buffer.subarray(length+4);if(message.type==='hello'){message.payload?.nonce===nonce?helloResolve():helloReject(new Error('Handshake mismatch'));}else if(message.type==='response'&&pending.has(message.id)){const request=pending.get(message.id);pending.delete(message.id);message.ok===false?request.reject(new Error(message.error?.code)):request.resolve(message.payload);}else if(message.type==='event')events.push(message.payload);}});});
 try {

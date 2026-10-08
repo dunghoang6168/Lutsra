@@ -10,7 +10,7 @@ struct ButtonRect { double x, y, width, height; };
 struct Overlay { HWND child; ButtonRect bounds; bool hasBounds; bool hovered; };
 std::unordered_map<HWND, Overlay> overlays;
 constexpr UINT_PTR kSubclassId = 0x4c757473;
-constexpr wchar_t kClassName[] = L"LutsraSnapButtonOverlay";
+constexpr wchar_t kClassName[] = L"LutstraSnapButtonOverlay";
 ATOM overlayClass = 0;
 
 bool ReadHandle(napi_env env, napi_value value, HWND* result) {

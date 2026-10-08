@@ -5,9 +5,9 @@ import net from 'node:net';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const executable = path.join(root, 'dist-electron', 'audio-host', 'lutsra-audio-host.exe');
+const executable = path.join(root, 'dist-electron', 'audio-host', 'lutstra-audio-host.exe');
 if (!existsSync(executable)) throw new Error('Native Audio Host has not been built.');
-const pipeName = `\\\\.\\pipe\\lutsra-audio-smoke-${randomUUID()}`;
+const pipeName = `\\\\.\\pipe\\lutstra-audio-smoke-${randomUUID()}`;
 const nonce = randomBytes(32).toString('hex');
 let socket, buffer = Buffer.alloc(0), nextId = 0;
 const pending = new Map();
