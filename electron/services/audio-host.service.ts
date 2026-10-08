@@ -127,7 +127,11 @@ export class AudioHostService {
     const child = spawn(executable, ['--pipe', pipeName, '--nonce', this.nonce, '--protocol', String(PROTOCOL_VERSION)], {
       windowsHide: true,
       stdio: ['ignore', 'ignore', 'ignore'],
-      env: { SystemRoot: process.env['SystemRoot'] ?? 'C:\\Windows' },
+      env: {
+        SystemRoot: process.env['SystemRoot'] ?? 'C:\\Windows',
+        // Opt-in host trace file for diagnosing output takeover.
+        ...(process.env['LUTSTRA_AUDIO_HOST_LOG'] ? { LUTSTRA_AUDIO_HOST_LOG: process.env['LUTSTRA_AUDIO_HOST_LOG'] } : {}),
+      },
     });
     this.child = child;
     child.once('exit', () => void this.handleExit(child));

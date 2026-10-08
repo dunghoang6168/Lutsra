@@ -23,7 +23,7 @@ format; Exclusive negotiates an integer stream from the source and endpoint capa
 Endpoint swaps reopen only decoders whose output rate or channels need to change.
 Shared Mode is always reported as processed and never as bit-perfect. Spectrum
 telemetry is an FFT of the pre-volume mono mix (Blackman window, ~43 ms at any rate,
-0.78 smoothing, -90..-10 dB like the Chromium analyser), sent as 1024 bytes on a fixed
+0.5 smoothing, -90..-10 dB like the Chromium analyser), sent as 1024 bytes on a fixed
 0..24 kHz axis while playing and capped near 30 FPS.
 
 A prepared track is spliced gaplessly: when the active decoder has drained, render
@@ -71,7 +71,10 @@ gapless splices keep gain.
 Protocol version remains 1. `output-interrupted` is an event with reason
 `device-invalidated` or `device-busy`. `OUTPUT_DEVICE_UNAVAILABLE`,
 `OUTPUT_DEVICE_BUSY`, `OUTPUT_EXCLUSIVE_NOT_ALLOWED`, and
-`OUTPUT_FORMAT_UNSUPPORTED` identify endpoint failures.
+`OUTPUT_FORMAT_UNSUPPORTED` identify endpoint failures. When recovery ends with
+`OUTPUT_DEVICE_BUSY`, the device monitor polls the endpoint every 2 s and sends
+`devices-changed` (still paused) once the other app releases it. Setting
+`LUTSTRA_AUDIO_HOST_LOG` to a file path enables a diagnostic trace.
 `statusJson` additionally reports an `underruns` counter. IPC keeps all responses and
 critical events in order; `time` and `spectrum` keep only their newest pending frame.
 
@@ -107,7 +110,9 @@ to the host.
 - While playing, change the active mix format in Windows Sound; verify pause or
   same-endpoint recovery, correct speed and channels, and no unintended autoplay.
 - Let another app take the endpoint in Exclusive Mode; verify interruption notice,
-  bounded retry, and an output error if recovery fails.
+  bounded retry, an output error if recovery fails, and a ready notice (still
+  paused) after the other app closes. While it holds the output, Next/Previous and
+  starting another track are blocked with a notice instead of skipping the queue.
 - Scan a large music library during playback; verify `ended` and every response still
   arrive despite heavy `time` and `spectrum` traffic.
 - Packaging: NSIS x64 and portable x64 contain the same host/DLL/license/source set.

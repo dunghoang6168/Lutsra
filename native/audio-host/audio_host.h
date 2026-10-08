@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <audioclient.h>
+#include <audiopolicy.h>
 #include <mmdeviceapi.h>
 #include <wrl/client.h>
 #include <atomic>
@@ -136,6 +137,7 @@ private:
   void renderLoopSafe(); void telemetryLoopSafe(); void shutdownAudio();
   void deviceMonitorLoop();
   void recoverInvalidated();
+  void retryBusyEndpoint();
   void signalRenderFailure(HRESULT result) noexcept;
   bool startClientWithSilence();
   void onDevicesChanged();
@@ -151,6 +153,7 @@ private:
   Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_; Microsoft::WRL::ComPtr<IMMDevice> device_;
   Microsoft::WRL::ComPtr<IMMNotificationClient> notification_;
   Microsoft::WRL::ComPtr<IAudioClient3> client_; Microsoft::WRL::ComPtr<IAudioRenderClient> renderClient_;
+  Microsoft::WRL::ComPtr<IAudioSessionControl> sessionControl_; Microsoft::WRL::ComPtr<IAudioSessionEvents> sessionEvents_;
   WAVEFORMATEX* mixFormat_{}; HANDLE audioEvent_{}; UINT32 bufferFrames_{};
   DecoderPipeline* active_{};
   DecoderPipeline* incoming_{};
@@ -171,7 +174,7 @@ private:
   HANDLE deviceEvent_{};
   HANDLE invalidatedEvent_{};
   std::atomic<bool> deviceDirty_{false};
-  std::atomic<bool> deviceInvalidated_{false}, wasPlayingBeforeInvalidation_{false};
+  std::atomic<bool> deviceInvalidated_{false}, wasPlayingBeforeInvalidation_{false}, busyRetry_{false};
   std::thread renderThread_, telemetryThread_, deviceMonitorThread_; std::atomic<bool> stopping_{false}, renderStopping_{false}, playing_{false}, muted_{false}, fallback_{false}, spectrumEnabled_{false};
   std::atomic<float> volume_{0.8f}; std::atomic<double> position_{0}, activeDurationSnapshot_{0};
   std::atomic<int> sourceRate_{0}, sourceBits_{0}, sourceChannels_{0};

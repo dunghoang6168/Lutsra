@@ -65,13 +65,14 @@ function playerHarness(saved: Record<string, unknown> = {}) {
   let backend = 'chromium';
   const engine: any = {
     stateChange$: state, timeUpdate$: new Subject(), volumeChange$: new Subject(),
-    subscribeDeviceChanges: () => () => undefined,
+    outputInterrupted$: new Subject(), deviceListeners: [] as Array<() => void>,
+    subscribeDeviceChanges: (listener: () => void) => { engine.deviceListeners.push(listener); return () => undefined; },
     setBackend: vi.fn(async (value: string) => { backend = value; }), getBackend: () => backend,
     setOutputMode: vi.fn(async () => undefined), setOutputFallbackEnabled: vi.fn(),
     setVolume: vi.fn(), setMute: vi.fn(), cancelPreparedNext: vi.fn(), prepareNext: vi.fn(async () => false),
     listOutputDevices: async () => [{ id: 'tec', name: 'TE-C', isConnected: true, supportedModes: ['shared','exclusive-dsp'] }],
     getAudioPathStatus: async () => ({ preferredDeviceId: 'tec', activeDeviceId: 'tec', isConnected: true, mode: 'shared' }),
-    selectOutputDevice: vi.fn(async () => undefined), pause: vi.fn(), play: vi.fn(), dispose: vi.fn(),
+    selectOutputDevice: vi.fn(async () => undefined), pause: vi.fn(), play: vi.fn(), dispose: vi.fn(), load: vi.fn(async () => undefined),
   };
   const gateway = { getSettings: async () => saved, saveSettings: vi.fn(async (value: any) => value) };
   const injector = Injector.create({ providers: [{ provide: PLAYBACK_ENGINE, useValue: engine }, { provide: SETTINGS_GATEWAY, useValue: gateway }] });
@@ -155,6 +156,55 @@ describe('Exclusive player settings', () => {
     await flush();
     expect(engine.getAudioPathStatus).toHaveBeenCalledTimes(1);
     expect(player.audioPathStatus()?.processingReasons).toEqual(['Exclusive DSP mode']);
+    player.ngOnDestroy();
+  });
+});
+
+describe('Busy output takeover', () => {
+  it('announces when another app releases a busy output', async () => {
+    const { player, engine } = playerHarness({ audioEngineBackend: 'native-shared', preferredNativeAudioOutputId: 'tec' });
+    await flush();
+    player.currentTrack.set({ id: 't1' } as any);
+    engine.outputInterrupted$.next('device-busy');
+    engine.stateChange$.next({ state: 'error', track: null, error: { code: 'OUTPUT_DEVICE_BUSY', message: 'The selected audio output is in use by another app.' } });
+    await flush();
+    expect(player.playbackState()).toBe('paused');
+    expect(player.playbackNotice()).toContain('in use');
+    for (const listener of engine.deviceListeners) listener();
+    await flush();
+    expect(player.playbackNotice()).toBe('The audio output is ready. Playback remains paused.');
+    expect(engine.play).not.toHaveBeenCalled();
+    player.ngOnDestroy();
+  });
+
+  it('a busy output error from IPC pauses instead of skipping the queue', async () => {
+    const { player, engine } = playerHarness({ audioEngineBackend: 'native-shared', preferredNativeAudioOutputId: 'tec' });
+    await flush();
+    const tracks = ['a', 'b', 'c'].map((id) => ({ id, title: id, isAvailable: true }) as any);
+    engine.play.mockRejectedValue(new Error("Error invoking remote method 'audio-host:play': Error: [OUTPUT_DEVICE_BUSY] Native audio operation failed."));
+    await player.playCollection(tracks, 0);
+    expect(player.playbackState()).toBe('paused');
+    expect(player.currentTrack()?.id).toBe('a');
+    expect(engine.load).toHaveBeenCalledTimes(1);
+    expect(player.playbackNotice()).toContain('in use');
+    player.ngOnDestroy();
+  });
+
+  it('blocks track changes while another app holds the output', async () => {
+    const { player, engine } = playerHarness({ audioEngineBackend: 'native-shared', preferredNativeAudioOutputId: 'tec' });
+    await flush();
+    const tracks = ['a', 'b', 'c'].map((id) => ({ id, title: id, isAvailable: true }) as any);
+    await player.playCollection(tracks, 0);
+    engine.load.mockClear();
+    engine.outputInterrupted$.next('device-busy');
+    await player.next();
+    await player.jumpToQueueIndex(2);
+    expect(engine.load).not.toHaveBeenCalled();
+    expect(player.currentTrack()?.id).toBe('a');
+    expect(player.playbackNotice()).toContain('before changing tracks');
+    engine.stateChange$.next({ state: 'playing', track: tracks[0] });
+    await player.next();
+    expect(engine.load).toHaveBeenCalledOnce();
     player.ngOnDestroy();
   });
 });

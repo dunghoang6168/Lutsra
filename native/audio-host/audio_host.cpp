@@ -6,14 +6,83 @@
 #include <avrt.h>
 #include <chrono>
 #include <cmath>
+#include <cstdarg>
+#include <cstdio>
 #include <functiondiscoverykeys_devpkey.h>
 #include <ksmedia.h>
 #include <propvarutil.h>
+#include <share.h>
 #include <sstream>
 #include <utility>
 
 using Microsoft::WRL::ComPtr;
 constexpr int kFormatSwitchPrerollMs = 0;
+
+// ponytail: diagnostic trace for output-takeover bugs; enabled only when
+// LUTSTRA_AUDIO_HOST_LOG names a file. Remove once the takeover path is settled.
+static FILE *diagFile() {
+  static FILE *file = [] {
+    wchar_t path[MAX_PATH]{};
+    const DWORD length = GetEnvironmentVariableW(L"LUTSTRA_AUDIO_HOST_LOG", path, MAX_PATH);
+    return length && length < MAX_PATH ? _wfsopen(path, L"a", _SH_DENYNO) : nullptr;
+  }();
+  return file;
+}
+static void diag(const char *format, ...) {
+  FILE *file = diagFile();
+  if (!file)
+    return;
+  static std::mutex mutex;
+  std::lock_guard lock(mutex);
+  SYSTEMTIME time{};
+  GetLocalTime(&time);
+  std::fprintf(file, "%02u:%02u:%02u.%03u [%lu] ", time.wHour, time.wMinute, time.wSecond,
+               time.wMilliseconds, GetCurrentThreadId());
+  va_list args;
+  va_start(args, format);
+  std::vfprintf(file, format, args);
+  va_end(args);
+  std::fputc('\n', file);
+  std::fflush(file);
+}
+
+class SessionEventsClient final : public IAudioSessionEvents {
+public:
+  ULONG STDMETHODCALLTYPE AddRef() override { return ++refs_; }
+  ULONG STDMETHODCALLTYPE Release() override {
+    auto value = --refs_;
+    if (!value)
+      delete this;
+    return value;
+  }
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void **out) override {
+    if (!out)
+      return E_POINTER;
+    *out = nullptr;
+    if (id == __uuidof(IUnknown) || id == __uuidof(IAudioSessionEvents)) {
+      *out = static_cast<IAudioSessionEvents *>(this);
+      AddRef();
+      return S_OK;
+    }
+    return E_NOINTERFACE;
+  }
+  HRESULT STDMETHODCALLTYPE OnDisplayNameChanged(LPCWSTR, LPCGUID) override { return S_OK; }
+  HRESULT STDMETHODCALLTYPE OnIconPathChanged(LPCWSTR, LPCGUID) override { return S_OK; }
+  HRESULT STDMETHODCALLTYPE OnSimpleVolumeChanged(float, BOOL, LPCGUID) override { return S_OK; }
+  HRESULT STDMETHODCALLTYPE OnChannelVolumeChanged(DWORD, float[], DWORD, LPCGUID) override { return S_OK; }
+  HRESULT STDMETHODCALLTYPE OnGroupingParamChanged(LPCGUID, LPCGUID) override { return S_OK; }
+  HRESULT STDMETHODCALLTYPE OnStateChanged(AudioSessionState state) override {
+    diag("session state=%d", static_cast<int>(state));
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE OnSessionDisconnected(AudioSessionDisconnectReason reason) override {
+    diag("session disconnected reason=%d", static_cast<int>(reason));
+    return S_OK;
+  }
+
+private:
+  std::atomic<ULONG> refs_{1};
+};
 class DeviceNotificationClient final : public IMMNotificationClient {
 public:
   explicit DeviceNotificationClient(std::function<void()> changed)
@@ -419,6 +488,12 @@ bool WasapiHost::swapEndpoint(std::unique_ptr<EndpointBundle> bundle,
   activeId_ = id;
   connected_ = true;
   endpointGeneration_.fetch_add(1, std::memory_order_release);
+  diag("swapEndpoint exclusive=%d rate=%lu bufferFrames=%u", exclusive_ ? 1 : 0,
+       mixFormat_ ? mixFormat_->nSamplesPerSec : 0, bufferFrames_);
+  if (diagFile() && client_ && SUCCEEDED(client_->GetService(IID_PPV_ARGS(&sessionControl_)))) {
+    sessionEvents_.Attach(new SessionEventsClient());
+    sessionControl_->RegisterAudioSessionNotification(sessionEvents_.Get());
+  }
   if (active_ || incoming_) {
     if (fadeFramesRemaining_ > 0) {
       desiredIncomingToken_ = incomingToken_;
@@ -641,6 +716,7 @@ void WasapiHost::resetPlaybackGain() noexcept {
 bool WasapiHost::load(const std::string &trackId, const std::wstring &path,
                       std::string &error) {
   std::lock_guard lock(controlMutex_);
+  diag("load track=%s mixFormat=%d invalidated=%d", trackId.c_str(), mixFormat_ ? 1 : 0, deviceInvalidated_ ? 1 : 0);
   stopPlaybackWithFade();
   if (!mixFormat_ && !preferredExclusive_ && !initializeEndpoint(preferredId_, error)) return false;
   auto decoder = std::make_unique<DecoderPipeline>();
@@ -745,6 +821,7 @@ bool WasapiHost::startClientWithSilence() {
 
 bool WasapiHost::play(std::string &error) {
   std::unique_lock lock(controlMutex_);
+  diag("play invalidated=%d client=%d", deviceInvalidated_ ? 1 : 0, client_ ? 1 : 0);
   if (!desiredActiveToken_ || playing_)
     return true;
   if (deviceInvalidated_) {
@@ -933,6 +1010,7 @@ std::string WasapiHost::statusJson() {
          ",\"underruns\":" + std::to_string(underruns_.load()) + "}";
 }
 void WasapiHost::signalRenderFailure(HRESULT result) noexcept {
+  diag("render failure hr=0x%08lx", static_cast<unsigned long>(result));
   if (result != AUDCLNT_E_DEVICE_INVALIDATED &&
       result != AUDCLNT_E_SERVICE_NOT_RUNNING &&
       result != AUDCLNT_E_RESOURCES_INVALIDATED)
@@ -952,9 +1030,15 @@ void WasapiHost::deviceMonitorLoop() {
       continue;
     }
     HANDLE events[] = {invalidatedEvent_, deviceEvent_};
-    const DWORD result = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+    // ponytail: fixed 2 s poll while another app holds the endpoint; Windows
+    // sends no notification when an Exclusive owner releases it.
+    const DWORD result = WaitForMultipleObjects(2, events, FALSE, busyRetry_ ? 2000 : INFINITE);
     if (stopping_)
       break;
+    if (result == WAIT_TIMEOUT) {
+      retryBusyEndpoint();
+      continue;
+    }
     if (result == WAIT_OBJECT_0) {
       recoverInvalidated();
       continue;
@@ -981,6 +1065,7 @@ void WasapiHost::recoverInvalidated() {
     // resuming now would restart playback on the fallback endpoint.
     if (!deviceInvalidated_)
       return;
+    diag("recoverInvalidated start");
     selectedId = activeId_;
     endpointId = activeEndpointId_;
     generation = endpointGeneration_.load();
@@ -1010,6 +1095,7 @@ void WasapiHost::recoverInvalidated() {
     if (bundle) {
       const bool sameEndpoint = bundle->endpointId == endpointId;
       if (swapEndpoint(std::move(bundle), selectedId, error)) {
+        diag("recoverInvalidated reopened sameEndpoint=%d", sameEndpoint ? 1 : 0);
         deviceInvalidated_ = false;
         connected_ = selectedId == preferredId_;
         sendState("paused");
@@ -1021,6 +1107,7 @@ void WasapiHost::recoverInvalidated() {
       }
     }
     failure = error.empty() ? "OUTPUT_DEVICE_UNAVAILABLE" : error;
+    diag("recoverInvalidated attempt delay=%d failed: %s", delay, failure.c_str());
     if (failure == "OUTPUT_DEVICE_BUSY")
       sendEvent("{\"kind\":\"output-interrupted\",\"value\":{\"reason\":\"device-busy\"}}");
   }
@@ -1036,11 +1123,38 @@ void WasapiHost::recoverInvalidated() {
   connected_ = SUCCEEDED(lookup) && availableDevice &&
                SUCCEEDED(availableDevice->GetState(&state)) &&
                (state & DEVICE_STATE_ACTIVE);
-  // deviceInvalidated_ stays set; play() retries the endpoint on demand.
+  // deviceInvalidated_ stays set; play() retries the endpoint on demand, and a
+  // busy endpoint is also polled so the UI learns when the other app lets go.
+  busyRetry_ = failure == "OUTPUT_DEVICE_BUSY";
   sendError(trackIdFor(desiredActiveToken_), failure,
             failure == "OUTPUT_DEVICE_BUSY"
                 ? "The selected audio output is in use by another app."
                 : "The selected audio output is unavailable.");
+}
+
+void WasapiHost::retryBusyEndpoint() {
+  std::lock_guard lock(controlMutex_);
+  // A play retry or device switch may already have reopened an endpoint.
+  if (!deviceInvalidated_ || activeId_.empty()) {
+    busyRetry_ = false;
+    return;
+  }
+  std::string error;
+  auto bundle = createEndpoint(activeId_, error, activeId_ == preferredId_ && preferredExclusive_, currentSource());
+  if (!bundle) {
+    busyRetry_ = error == "OUTPUT_DEVICE_BUSY";
+    return;
+  }
+  const std::wstring id = activeId_;
+  swapEndpoint(std::move(bundle), id, error);
+  busyRetry_ = false;
+  if (deviceInvalidated_)
+    return;
+  diag("retryBusyEndpoint reopened");
+  connected_ = id == preferredId_;
+  // Ready, not resumed: the user presses Play, as after any interruption.
+  sendState("paused");
+  sendEvent("{\"kind\":\"devices-changed\"}");
 }
 
 std::wstring WasapiHost::defaultEndpointId() {
@@ -1162,6 +1276,10 @@ void WasapiHost::shutdownAudio() {
   }
   if (client_)
     client_->Stop();
+  if (sessionControl_ && sessionEvents_)
+    sessionControl_->UnregisterAudioSessionNotification(sessionEvents_.Get());
+  sessionEvents_.Reset();
+  sessionControl_.Reset();
   renderClient_.Reset();
   client_.Reset();
   device_.Reset();
@@ -1292,6 +1410,8 @@ void WasapiHost::drainRenderEvents() {
     tail = (tail + 1) % renderEvents_.size();
     if (event.kind == RenderEventKind::Underrun)
       continue;
+    diag("render event kind=%d token=%llu", static_cast<int>(event.kind),
+         static_cast<unsigned long long>(event.token));
     if (event.token != activeTokenSnapshot_.load())
       continue;
     const std::string trackId = trackIdFor(event.token);
@@ -1421,6 +1541,11 @@ void WasapiHost::renderLoopSafe() {
   std::vector<float> incoming(outgoing.size());
   DWORD task = 0;
   HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Pro Audio", &task);
+  const bool tracing = diagFile() != nullptr;
+  auto statsStart = std::chrono::steady_clock::now();
+  uint64_t statsEvents = 0, statsTimeouts = 0, statsFrames = 0;
+  UINT32 statsPaddingMin = UINT32_MAX, statsPaddingMax = 0;
+  double statsPosition = position_.load();
   while (!renderStopping_) {
     processMailbox();
     if (active_) {
@@ -1436,6 +1561,24 @@ void WasapiHost::renderLoopSafe() {
     if (incoming_)
       incoming_->acknowledgeSeek();
     const DWORD wait = WaitForSingleObject(audioEvent_, playing_ ? 50 : 15);
+    if (tracing) {
+      ++(wait == WAIT_OBJECT_0 ? statsEvents : statsTimeouts);
+      const auto now = std::chrono::steady_clock::now();
+      if (now - statsStart >= std::chrono::seconds(1)) {
+        const double elapsed = std::chrono::duration<double>(now - statsStart).count();
+        diag("render stats playing=%d events=%llu timeouts=%llu frames=%llu padding=%u..%u "
+             "positionAdvance=%.3fs wall=%.3fs",
+             playing_ ? 1 : 0, static_cast<unsigned long long>(statsEvents),
+             static_cast<unsigned long long>(statsTimeouts), static_cast<unsigned long long>(statsFrames),
+             statsPaddingMin == UINT32_MAX ? 0 : statsPaddingMin, statsPaddingMax,
+             position_.load() - statsPosition, elapsed);
+        statsStart = now;
+        statsEvents = statsTimeouts = statsFrames = 0;
+        statsPaddingMin = UINT32_MAX;
+        statsPaddingMax = 0;
+        statsPosition = position_.load();
+      }
+    }
     processMailbox();
     if (active_) {
       active_->acknowledgeSeek();
@@ -1490,6 +1633,8 @@ void WasapiHost::renderLoopSafe() {
       signalRenderFailure(paddingResult);
       continue;
     }
+    statsPaddingMin = std::min(statsPaddingMin, padding);
+    statsPaddingMax = std::max(statsPaddingMax, padding);
     if (stopFadeFramesTotal_ > 0 && stopFadeFramesRemaining_ == 0) {
       // ReleaseBuffer submits PCM; it does not mean the DAC has heard it yet.
       // Wait until only the zero-gain tail remains before acknowledging Stop.
@@ -1604,6 +1749,7 @@ void WasapiHost::renderLoopSafe() {
       signalRenderFailure(releaseResult);
       continue;
     }
+    statsFrames += frames;
     if (stoppingPlayback)
       stopFadeSilentFrames_ += frames - pcmFrames;
     if (exclusive_ && stoppingPlayback && pcmFrames > 0 && stopFadeFramesRemaining_ == 0) {

@@ -19,7 +19,9 @@ export interface QueueSnapshot {
 }
 
 function normalizePlaybackFailure(error: unknown, trackId?: string): PlaybackError {
-  const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
+  // Native Host errors cross Electron IPC with the code carried as "[CODE] message".
+  const rawCode = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code
+    : error instanceof Error ? /\[([A-Z][A-Z0-9_]*)\]/.exec(error.message)?.[1] : undefined;
   const codes: PlaybackError['code'][] = [
     'FILE_UNAVAILABLE', 'MEDIA_ABORTED', 'MEDIA_NETWORK', 'MEDIA_DECODE', 'MEDIA_UNSUPPORTED', 'MEDIA_UNKNOWN',
     'OUTPUT_EXCLUSIVE_NOT_ALLOWED', 'OUTPUT_DEVICE_UNAVAILABLE', 'OUTPUT_DEVICE_BUSY', 'OUTPUT_FORMAT_UNSUPPORTED',
@@ -56,7 +58,7 @@ export class PlayerService implements OnDestroy {
   private readonly subscriptions = new Subscription();
   private restoringSettings = false;
   private volumeSaveTimer: ReturnType<typeof setTimeout> | null = null;
-  private outputInterrupted = false;
+  private outputInterrupted: false | 'device-invalidated' | 'device-busy' = false;
 
   // Internal Request Counter for handling overlapping load requests
   private loadSequence = 0;
@@ -128,7 +130,7 @@ export class PlayerService implements OnDestroy {
     const interrupted = this.engine.outputInterrupted$;
     if (interrupted) {
       this.subscriptions.add(interrupted.subscribe((reason) => {
-        this.outputInterrupted = true;
+        this.outputInterrupted = reason;
         this.playbackNotice.set(reason === 'device-busy'
           ? 'The selected audio output is in use. Playback has been paused.'
           : 'The audio output was interrupted. Lutstra is reconnecting.');
@@ -282,8 +284,8 @@ export class PlayerService implements OnDestroy {
         if (evt.error) {
           this.playRequested.set(false);
           this.error.set(evt.error.message);
-          if (evt.error.code === 'OUTPUT_DEVICE_UNAVAILABLE' || evt.error.code === 'OUTPUT_DEVICE_BUSY')
-            this.outputInterrupted = false;
+          // A busy output is still awaited: the host reports when the other app releases it.
+          if (evt.error.code === 'OUTPUT_DEVICE_UNAVAILABLE') this.outputInterrupted = false;
           if (evt.error.code === 'AUDIO_HOST_UNAVAILABLE' || evt.error.code === 'AUDIO_HOST_PROTOCOL_ERROR') void this.recoverFromNativeHostFailure(evt.error);
           else void this.handlePlaybackFailure(evt.error);
         } else if (evt.state === 'playing') {
@@ -340,6 +342,7 @@ export class PlayerService implements OnDestroy {
    * Replaces queue with a fresh copy of the collection with unique entry IDs.
    */
   async playCollection(tracks: Track[], startIndex: number = 0): Promise<void> {
+    if (this.blockedByBusyOutput()) return;
     if (!tracks || tracks.length === 0) {
       return;
     }
@@ -370,6 +373,7 @@ export class PlayerService implements OnDestroy {
    * If already in queue, jumps to it. Otherwise appends to queue and plays it.
    */
   async playTrack(track: Track): Promise<void> {
+    if (this.blockedByBusyOutput()) return;
     const q = this.queue();
     const existingIndex = q.findIndex((e) => e.track.id === track.id);
 
@@ -569,6 +573,7 @@ export class PlayerService implements OnDestroy {
       this.preferredAudioOutputId.set(deviceId);
       this.preferredAudioOutputName.set(device?.name || (deviceId === SYSTEM_DEFAULT_OUTPUT_ID ? 'System Default' : 'Audio output'));
       this.playbackNotice.set(null);
+      this.outputInterrupted = false;
       if (this.audioEngineBackend() === 'native-shared') {
         this.preferredNativeOutputId.set(this.preferredAudioOutputId());
         this.preferredNativeOutputName.set(this.preferredAudioOutputName());
@@ -638,6 +643,7 @@ export class PlayerService implements OnDestroy {
         this.engine.seek(position);
         this.playbackState.set('paused');
       }
+      this.outputInterrupted = false;
       if (persist) await this.persistSettings({ audioEngineBackend: backend });
       this.playbackNotice.set(backend === 'native-shared' ? 'Native Audio Host is active. Playback remains paused.' : this.outputMode() === 'exclusive-dsp' ? 'Exclusive requires Native Audio Host. Chromium Shared is active; your Exclusive preference is saved.' : 'Chromium Shared is active. Playback remains paused.');
     } catch (error) {
@@ -715,6 +721,7 @@ export class PlayerService implements OnDestroy {
    * Skips unavailable tracks. Stops after 1 loop if none playable.
    */
   async next(): Promise<void> {
+    if (this.blockedByBusyOutput()) return;
     const q = this.queue();
     if (q.length === 0) return;
 
@@ -760,6 +767,7 @@ export class PlayerService implements OnDestroy {
    * "Previous về đầu bài nếu current time trên 3 giây; nếu không, về bài trước. Ở đầu queue chỉ quay vòng khi repeat all."
    */
   async previous(): Promise<void> {
+    if (this.blockedByBusyOutput()) return;
     const q = this.queue();
     if (q.length === 0) return;
 
@@ -944,6 +952,7 @@ export class PlayerService implements OnDestroy {
   }
 
   async jumpToQueueIndex(index: number): Promise<void> {
+    if (this.blockedByBusyOutput()) return;
     const q = this.queue();
     if (index >= 0 && index < q.length) {
       this.failedEntryIds.delete(q[index].id);
@@ -955,6 +964,16 @@ export class PlayerService implements OnDestroy {
   // ==========================================
   // Private Helpers
   // ==========================================
+
+  /**
+   * While another app holds the output, a track change can only fail. Keep the
+   * current track (the host still has it loaded) and explain instead.
+   */
+  private blockedByBusyOutput(): boolean {
+    if (this.outputInterrupted !== 'device-busy') return false;
+    this.playbackNotice.set('The selected audio output is in use by another app. Close it before changing tracks.');
+    return true;
+  }
 
   private async loadAndPlayCurrent(): Promise<void> {
     this.clearPreparedCandidate();

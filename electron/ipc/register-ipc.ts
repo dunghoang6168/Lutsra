@@ -118,10 +118,17 @@ export function broadcastProgress(window: BrowserWindow | null, progress: ScanPr
 }
 
 function handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown, development: boolean): void {
-  ipcMain.handle(channel, (event, ...args) => {
+  ipcMain.handle(channel, async (event, ...args) => {
     if (!trustedSender(event, development)) throw new Error('Untrusted IPC sender');
-    try { return listener(event, ...args); } catch (error) { console.error(`[ipc:${channel}]`, error); throw error; }
+    try { return await listener(event, ...args); } catch (error) { console.error(`[ipc:${channel}]`, error); throw channel.startsWith('audio-host:') ? withCodeInMessage(error) : error; }
   });
+}
+
+// Electron keeps only an error's message across invoke; carry the Audio Host `code`
+// inside it so the renderer can tell output failures (pause) from track failures (skip).
+function withCodeInMessage(error: unknown): unknown {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(code) ? new Error(`[${code}] ${errorMessage(error)}`) : error;
 }
 
 function trustedSender(event: IpcMainInvokeEvent, development: boolean): boolean {
