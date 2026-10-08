@@ -140,26 +140,23 @@
     }
 
     /* Modals */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: var(--scrim-heavy);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-      padding: var(--space-4);
+    .modal-card {
+      margin: auto;
+      color: var(--text-primary);
+      max-height: calc(100dvh - var(--space-4) * 2);
+      overflow-y: auto;
+      background: var(--dialog-bg);
+      border: var(--dialog-border);
+      border-radius: var(--dialog-radius);
+      padding: var(--space-6);
+      width: min(420px, calc(100vw - var(--space-4) * 2));
+      max-width: 420px;
+      box-shadow: var(--dialog-shadow);
+      backdrop-filter: var(--dialog-filter);
+      -webkit-backdrop-filter: var(--dialog-filter);
     }
 
-    .modal-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-lg);
-      padding: var(--space-6);
-      width: 100%;
-      max-width: 420px;
-      box-shadow: var(--shadow-lg);
-    }
+    .modal-card::backdrop { background: var(--scrim-heavy); }
 
     .modal-card h3 { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--space-2); }
     .modal-desc { font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: var(--space-4); }
@@ -169,7 +166,7 @@
       height: 38px;
       background: var(--bg-elevated);
       border: 1px solid var(--border-default);
-      border-radius: var(--radius-md);
+      border-radius: var(--dialog-control-radius);
       padding: 0 var(--space-3);
       color: var(--text-primary);
       margin-bottom: var(--space-6);
@@ -191,7 +188,7 @@
 
     .btn-cancel {
       padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
+      border-radius: var(--dialog-control-radius);
       background: var(--bg-elevated);
       color: var(--text-secondary);
       font-weight: 500;
@@ -199,7 +196,7 @@
 
     .btn-confirm {
       padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
+      border-radius: var(--dialog-control-radius);
       background: var(--color-accent-fill);
       color: var(--color-on-accent);
       font-weight: 600;
@@ -207,7 +204,7 @@
 
     .btn-danger {
       padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
+      border-radius: var(--dialog-control-radius);
       background: var(--status-error-fill);
       color: var(--color-on-error);
       font-weight: 600;

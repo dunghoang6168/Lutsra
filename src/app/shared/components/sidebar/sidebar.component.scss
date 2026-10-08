@@ -128,11 +128,11 @@
 .rail-item.active { color: var(--text-accent); background: var(--accent-muted); }
 .rail-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
+/* A manual popover so the tip paints in the top layer, above the floating header clusters. */
 .rail-tip {
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  z-index: 30;
+  position: fixed;
+  inset: auto;
+  margin: 0;
   padding: 5px 10px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
@@ -143,12 +143,12 @@
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  transform: translate(-4px, -50%);
+  transform: translate(0, -50%);
   transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
-.rail-item:hover .rail-tip,
-.rail-item:focus-visible .rail-tip { opacity: 1; transform: translate(0, -50%); }
+@starting-style {
+  .rail-tip:popover-open { opacity: 0; transform: translate(-4px, -50%); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .nav-label, .rail-tip { transition: none; }

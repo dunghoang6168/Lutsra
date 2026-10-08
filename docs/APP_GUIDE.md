@@ -76,6 +76,8 @@ Responsive tính theo **container** `.main-content` (`@container main-content`, 
 - **`player-bar`:** gồm cả ba dạng player. Up next trong rail Gallery chỉ vẽ những dòng vừa khít, và ẩn khi cửa sổ nhỏ hơn 1101×701.
 - **`track-details-panel`:** inspector của Console. Hiển thị khối chất lượng file trước, rồi mới đến tag.
 - **Xóa có hoàn tác:** xóa playlist không còn hộp xác nhận. Playlist ẩn ngay, toast "Deleted … · Undo" hiện 6 giây. Gateway chỉ xóa thật khi hết giờ, khi xóa playlist khác, hoặc khi rời trang. Xóa queue cũng có Undo (`QueueActionsService.clearWithUndo`).
+- **Modal theo layout:** bộ token `--dialog-*` điều khiển bán kính, nền, viền, bóng, blur và bán kính control: Gallery r12, Console r3, Ambient glass r22 (nền đặc và bỏ blur khi giảm trong suốt). Create/Rename playlist, Add tracks, Remove folder và editor nghệ sĩ dùng native `<dialog>` + `showModal()` để phủ cả header và player; Onboarding/Shortcuts nằm ở app root với lớp phủ riêng.
+- **Dialog Add tracks (playlist detail):** có ô search (title, artist, album), popover Filter (Artist, Album, Year, Quality; dùng chung `BrowseFilterPopoverComponent` với Songs) và checkbox "Hide songs already in playlist". Lọc trong `pickerTracks`. Dùng `<dialog>` native với `showModal()` (top layer, nằm trên header ở mọi layout). Card co theo chiều cao cửa sổ, danh sách cuộn bên trong.
 - **`spectrum-visualizer`:** khi tạm dừng, vẽ đường phẳng kèm chữ "Paused", và giữ nguyên chiều cao khung.
 
 ## 7. Bảng track và bàn phím

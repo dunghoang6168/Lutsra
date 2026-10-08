@@ -286,6 +286,8 @@ Spacing follows a 4px scale (4 to 40). The title bar is a drag region, with ever
 
 Depth differs by layout. Gallery is gently lifted, Console is flat, and Ambient is material glass.
 
+Dialogs take `--dialog-*` tokens per layout: Gallery lifted r12, Console flat r3, Ambient glass r22 with a solid fallback.
+
 ### Shadow Vocabulary
 - **Cover lift, Gallery** (`0 10px 28px rgba(0,0,0,0.22)`): under covers and the rail cover.
 - **Cover lift, Ambient** (`0 8px 24px rgba(0,0,0,0.16)` plus a 1px inset glass-border ring).

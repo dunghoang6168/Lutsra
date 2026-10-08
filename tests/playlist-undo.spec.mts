@@ -7,6 +7,12 @@ import { PlayerService } from '../src/app/core/player/player.service';
 import { QueueActionsService } from '../src/app/core/player/queue-actions.service';
 import type { Playlist } from '../src/app/core/models';
 
+// This harness exercises undo without rendering a view; dialog effects are checked in Electron.
+vi.mock('@angular/core', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@angular/core')>(),
+  effect: vi.fn(() => ({ destroy: vi.fn() })),
+}));
+
 const playlist = (id: string): Playlist => ({ id, name: `Playlist ${id}`, entries: [], createdAt: 0, updatedAt: 0 });
 const click = { stopPropagation: () => {} } as MouseEvent;
 

@@ -72,13 +72,15 @@
 
       <!-- Create playlist Modal -->
       @if (showCreateModal()) {
-        <div class="modal-backdrop" (click)="showCreateModal.set(false)">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <h3>Create playlist</h3>
+        <dialog #createPlaylistDialog class="modal-card" aria-labelledby="createPlaylistDialogTitle"
+          (cancel)="$event.preventDefault(); showCreateModal.set(false)"
+          (click)="onPlaylistDialogClick($event, 'createPlaylistDialog')" (keydown)="$event.stopPropagation()">
+            <h3 id="createPlaylistDialogTitle">Create playlist</h3>
             <p class="modal-desc">Give your new playlist a descriptive name:</p>
             <input
               type="text"
               class="modal-input"
+              aria-label="Playlist name"
               [(ngModel)]="newPlaylistName"
               placeholder="e.g. Acoustic Chill, Workout"
               (keydown.enter)="onConfirmCreate()"
@@ -87,18 +89,19 @@
               <button type="button" class="btn-cancel" (click)="showCreateModal.set(false)">Cancel</button>
               <button type="button" class="btn-confirm" (click)="onConfirmCreate()">Create</button>
             </div>
-          </div>
-        </div>
+        </dialog>
       }
 
       <!-- Rename Modal -->
       @if (playlistToRename()) {
-        <div class="modal-backdrop" (click)="playlistToRename.set(null)">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <h3>Rename playlist</h3>
+        <dialog #renamePlaylistDialog class="modal-card" aria-labelledby="renamePlaylistDialogTitle"
+          (cancel)="$event.preventDefault(); playlistToRename.set(null)"
+          (click)="onPlaylistDialogClick($event, 'renamePlaylistDialog')" (keydown)="$event.stopPropagation()">
+            <h3 id="renamePlaylistDialogTitle">Rename playlist</h3>
             <input
               type="text"
               class="modal-input"
+              aria-label="Playlist name"
               [(ngModel)]="renameValue"
               (keydown.enter)="onConfirmRename()"
               autofocus />
@@ -106,8 +109,7 @@
               <button type="button" class="btn-cancel" (click)="playlistToRename.set(null)">Cancel</button>
               <button type="button" class="btn-confirm" (click)="onConfirmRename()">Save</button>
             </div>
-          </div>
-        </div>
+        </dialog>
       }
 
       @if (pendingDelete(); as pending) {

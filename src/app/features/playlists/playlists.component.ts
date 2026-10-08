@@ -1,5 +1,5 @@
 import { selectPlaylistArtwork } from '../../shared/utils/list-media';
-import { Component, DestroyRef, ElementRef, Injector, OnInit, afterNextRender, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Injector, OnInit, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -51,6 +51,25 @@ export class PlaylistsComponent implements OnInit {
 
   readonly playlistToRename = signal<Playlist | null>(null);
   renameValue = '';
+
+  private readonly createPlaylistDialog = viewChild<ElementRef<HTMLDialogElement>>('createPlaylistDialog');
+  private readonly renamePlaylistDialog = viewChild<ElementRef<HTMLDialogElement>>('renamePlaylistDialog');
+  private readonly openPlaylistDialogs = effect(() => {
+    for (const ref of [this.createPlaylistDialog(), this.renamePlaylistDialog()]) {
+      const dialog = ref?.nativeElement;
+      if (dialog && !dialog.open) dialog.showModal();
+    }
+  });
+
+  onPlaylistDialogClick(event: MouseEvent, name: 'createPlaylistDialog' | 'renamePlaylistDialog'): void {
+    const dialog = event.currentTarget as HTMLDialogElement;
+    if (event.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) {
+      if (name === 'createPlaylistDialog') this.showCreateModal.set(false);
+      else this.playlistToRename.set(null);
+    }
+  }
 
   constructor() {
     this.destroyRef.onDestroy(() => this.flushPendingDelete());

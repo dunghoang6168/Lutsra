@@ -26,6 +26,13 @@ export class SidebarComponent implements OnDestroy {
   readonly isCollapsed = input<boolean>(false);
   readonly toggleCollapse = output<void>();
 
+  showRailTip(link: HTMLElement, tip: HTMLElement): void {
+    const rect = link.getBoundingClientRect();
+    tip.style.left = `${rect.right + 12}px`;
+    tip.style.top = `${rect.top + rect.height / 2}px`;
+    if (!tip.matches(':popover-open')) tip.showPopover();
+  }
+
   readonly navItems: { path: string; label: string; icon: IconName }[] = [
     { path: '/home', label: 'Home', icon: 'home' },
     { path: '/songs', label: 'Songs', icon: 'music' },

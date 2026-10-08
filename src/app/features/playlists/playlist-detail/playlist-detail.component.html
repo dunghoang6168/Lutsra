@@ -222,27 +222,75 @@
 
       <!-- Add tracks dialog -->
       @if (showAddTracksModal()) {
-        <div class="modal-backdrop" (click)="showAddTracksModal.set(false)">
-          <div class="modal-card wide" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="addTracksTitle">
-            <h3 id="addTracksTitle">Add tracks to playlist</h3>
-            <p class="modal-desc">Click any song from your library to add it:</p>
+        <dialog #addTracksDialog class="modal-card wide" aria-labelledby="addTracksTitle"
+          (cancel)="$event.preventDefault(); showAddTracksModal.set(false)" (click)="onAddTracksDialogClick($event)" (keydown)="$event.stopPropagation()">
+          <h3 id="addTracksTitle">Add tracks to playlist</h3>
+          <p class="modal-desc">Click any song from your library to add it:</p>
 
-            <div class="tracks-picker-list">
-              @for (t of allLibraryTracks(); track t.id) {
-                <div class="picker-row" (click)="onAddSingleTrack(t.id)">
-                  <div class="picker-info">
-                    <span class="picker-title truncate">{{ t.title }}</span>
-                    <span class="picker-artist truncate">{{ t.artist || 'Unknown Artist' }}</span>
+          <div class="picker-filters">
+            <div class="picker-search-row">
+              <div class="search-box">
+                <app-icon name="search" [size]="16" class="search-icon" />
+                <input type="text" [ngModel]="pickerQuery()" (ngModelChange)="pickerQuery.set($event)"
+                  placeholder="Search by title, artist, album..." aria-label="Search library" />
+                @if (pickerQuery()) {
+                  <button type="button" class="clear-search-btn" (click)="pickerQuery.set('')" title="Clear search" aria-label="Clear search">
+                    <app-icon name="x" [size]="14" />
+                  </button>
+                }
+              </div>
+              <app-browse-filter-popover [activeCount]="pickerFilterCount()">
+                <div class="browse-filter-fields">
+                  <div class="browse-filter-field">
+                    <span class="field-label">Artist</span>
+                    <app-searchable-filter-select label="Artist" [options]="pickerArtistOptions()" [value]="pickerArtist()"
+                      allLabel="All artists" [includeUnknown]="pickerHasUnknownArtist()" unknownValue="__unknown_artist__"
+                      unknownLabel="Unknown Artist" (valueChange)="pickerArtist.set($event)" />
                   </div>
-                  <button type="button" class="btn-picker-add">Add +</button>
+                  <div class="browse-filter-field">
+                    <span class="field-label">Album</span>
+                    <app-searchable-filter-select label="Album" [options]="pickerAlbumOptions()" [value]="pickerAlbum()"
+                      allLabel="All albums" [includeUnknown]="pickerHasUnknownAlbum()" unknownValue="__unknown_album__"
+                      unknownLabel="Unknown Album" (valueChange)="pickerAlbum.set($event)" />
+                  </div>
+                  <div class="browse-filter-field">
+                    <span class="field-label">Year</span>
+                    <app-searchable-filter-select label="Year" [options]="pickerYearOptions()" [value]="pickerYear()"
+                      allLabel="All years" [includeUnknown]="pickerHasUnknownYear()" unknownLabel="Unknown year"
+                      (valueChange)="pickerYear.set($event)" />
+                  </div>
+                  <div class="browse-filter-field">
+                    <span class="field-label">Quality</span>
+                    <app-searchable-filter-select label="Quality" [options]="qualityOptions" [value]="pickerQuality()"
+                      allLabel="All formats" (valueChange)="pickerQuality.set($event)" />
+                  </div>
+                  @if (pickerFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearPickerFilters()">Clear filters</button> }
                 </div>
-              }
+              </app-browse-filter-popover>
             </div>
-
-            <div class="modal-actions">
-              <button type="button" class="btn-confirm" (click)="showAddTracksModal.set(false)">Done</button>
-            </div>
+            <label class="picker-toggle">
+              <input type="checkbox" [ngModel]="pickerHideAdded()" (ngModelChange)="pickerHideAdded.set($event)" />
+              Hide songs already in playlist
+            </label>
           </div>
-        </div>
+
+          <div class="tracks-picker-list">
+            @for (t of pickerTracks(); track t.id) {
+              <div class="picker-row" (click)="onAddSingleTrack(t.id)">
+                <div class="picker-info">
+                  <span class="picker-title truncate">{{ t.title }}</span>
+                  <span class="picker-artist truncate">{{ t.artist || 'Unknown Artist' }}</span>
+                </div>
+                <button type="button" class="btn-picker-add">Add +</button>
+              </div>
+            } @empty {
+              <p class="picker-artist">No matching songs.</p>
+            }
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-confirm" (click)="showAddTracksModal.set(false)">Done</button>
+          </div>
+        </dialog>
       }
     </div>

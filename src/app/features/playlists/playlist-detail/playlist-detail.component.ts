@@ -14,6 +14,14 @@ import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } fro
 import { TrackSelectionBarComponent } from '../../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { BrowseFilterPopoverComponent } from '../../../shared/components/browse-filter-popover/browse-filter-popover.component';
+import { SearchableFilterSelectComponent } from '../../../shared/components/searchable-filter-select/searchable-filter-select.component';
+import { compareNames } from '../../library-browse';
+import { matchesQualityFilter } from '../../home/library-quality';
+
+const UNKNOWN_ARTIST = '__unknown_artist__';
+const UNKNOWN_ALBUM = '__unknown_album__';
+const UNKNOWN_YEAR = 'unknown';
 
 interface PlaylistTrackRow {
   entry: PlaylistEntry;
@@ -23,7 +31,7 @@ interface PlaylistTrackRow {
 @Component({
   selector: 'app-playlist-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent, TrackSelectionBarComponent],
+  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent, TrackSelectionBarComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
   templateUrl: './playlist-detail.component.html',
   styleUrl: './playlist-detail.component.scss'
 })
@@ -50,6 +58,60 @@ export class PlaylistDetailComponent implements OnInit {
   readonly entryTracks = signal<ReadonlyMap<string, Track>>(new Map());
   readonly isLoading = signal<boolean>(true);
   readonly showAddTracksModal = signal<boolean>(false);
+  readonly pickerQuery = signal('');
+  readonly pickerHideAdded = signal(false);
+  readonly pickerArtist = signal('');
+  readonly pickerAlbum = signal('');
+  readonly pickerYear = signal('');
+  readonly pickerQuality = signal('');
+  readonly qualityOptions = [
+    { value: 'lossless', label: 'Lossless (incl. Hi-Res)' },
+    { value: 'hires', label: 'Hi-Res only' },
+    { value: 'lossy', label: 'Lossy' },
+  ];
+  readonly pickerArtistOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.artist).filter((v): v is string => Boolean(v)))].sort(compareNames));
+  readonly pickerAlbumOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.album).filter((v): v is string => Boolean(v)))].sort(compareNames));
+  readonly pickerYearOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.year).filter((v): v is number => v !== null))].sort((a, b) => b - a));
+  readonly pickerHasUnknownArtist = computed(() => this.allLibraryTracks().some((t) => !t.artist));
+  readonly pickerHasUnknownAlbum = computed(() => this.allLibraryTracks().some((t) => !t.album));
+  readonly pickerHasUnknownYear = computed(() => this.allLibraryTracks().some((t) => t.year === null));
+  readonly pickerFilterCount = computed(() => [this.pickerArtist(), this.pickerAlbum(), this.pickerYear(), this.pickerQuality()].filter(Boolean).length);
+  readonly pickerTracks = computed<Track[]>(() => {
+    const query = this.pickerQuery().trim().toLowerCase();
+    const added = this.pickerHideAdded() ? new Set(this.playlist()?.entries.map((entry) => entry.trackId)) : null;
+    const artist = this.pickerArtist();
+    const album = this.pickerAlbum();
+    const year = this.pickerYear();
+    const quality = this.pickerQuality();
+    return this.allLibraryTracks().filter((track) =>
+      (!added || !added.has(track.id)) &&
+      (!query || track.title.toLowerCase().includes(query) || (track.artist || '').toLowerCase().includes(query) || (track.album || '').toLowerCase().includes(query)) &&
+      (!artist || (artist === UNKNOWN_ARTIST ? !track.artist : track.artist === artist)) &&
+      (!album || (album === UNKNOWN_ALBUM ? !track.album : track.album === album)) &&
+      (!year || (year === UNKNOWN_YEAR ? track.year === null : track.year === Number(year))) &&
+      (!quality || matchesQualityFilter(track, quality)));
+  });
+
+  // Native modal dialog renders in the top layer, above the app header in every layout.
+  private readonly addTracksDialog = viewChild<ElementRef<HTMLDialogElement>>('addTracksDialog');
+  private readonly openAddTracksDialog = effect(() => {
+    const dialog = this.addTracksDialog()?.nativeElement;
+    if (dialog && !dialog.open) dialog.showModal();
+  });
+
+  onAddTracksDialogClick(event: MouseEvent): void {
+    const dialog = event.currentTarget as HTMLDialogElement;
+    if (event.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) this.showAddTracksModal.set(false);
+  }
+
+  clearPickerFilters(): void {
+    this.pickerArtist.set('');
+    this.pickerAlbum.set('');
+    this.pickerYear.set('');
+    this.pickerQuality.set('');
+  }
 
   readonly trackRows = computed<PlaylistTrackRow[]>(() => {
     const pl = this.playlist();

@@ -119,18 +119,34 @@
     .about-sources { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: var(--space-4); font-size: var(--font-size-xs); color: var(--text-muted); }
     .about-sources button { color: var(--text-accent); text-decoration: underline; }
 
-    .metadata-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: var(--space-5); background: var(--scrim-strong); }
-    .metadata-modal-card { width: min(620px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-lg); padding: var(--space-5); }
+    .metadata-modal-card {
+      margin: auto;
+      width: min(620px, calc(100vw - var(--space-5) * 2));
+      max-height: min(720px, calc(100vh - var(--space-5) * 2));
+      overflow: auto;
+      color: var(--text-primary);
+      border: var(--dialog-border);
+      border-radius: var(--dialog-radius);
+      background: var(--dialog-bg);
+      box-shadow: var(--dialog-shadow);
+      padding: var(--space-5);
+      backdrop-filter: var(--dialog-filter);
+      -webkit-backdrop-filter: var(--dialog-filter);
+    }
+    .metadata-modal-card::backdrop { background: var(--scrim-strong); }
+    .candidate-search button,
+    .metadata-modal-actions button,
+    .custom-avatar-actions button { border-radius: var(--dialog-control-radius); }
     .metadata-modal-header { display: flex; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
     .metadata-modal-header h2 { font-size: var(--font-size-xl); }
     .metadata-modal-header p { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-sm); }
     .candidate-search { display: flex; gap: var(--space-2); }
     .candidate-search input, .wikipedia-field input {
-      width: 100%; min-height: 38px; padding: 0 var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary);
+      width: 100%; min-height: 38px; padding: 0 var(--space-3); border: 1px solid var(--border-default); border-radius: var(--dialog-control-radius); background: var(--bg-surface); color: var(--text-primary);
       &::placeholder { color: var(--color-text-muted); }
     }
     .candidate-list { display: grid; gap: var(--space-2); max-height: 300px; overflow-y: auto; margin: var(--space-4) 0; }
-    .candidate-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); text-align: left; }
+    .candidate-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: min(var(--dialog-control-radius), 12px); background: var(--bg-surface); text-align: left; }
     .candidate-row:hover, .candidate-row.selected { border-color: var(--accent-primary); background: var(--bg-surface-hover); }
     .candidate-name { color: var(--text-primary); font-weight: 600; }
     .candidate-meta, .candidate-description, .candidate-message { color: var(--text-muted); font-size: var(--font-size-xs); }
@@ -142,7 +158,7 @@
 
     @media (max-width: 960px) {
       .about-image { height: 190px; }
-      .metadata-modal-backdrop { padding: var(--space-3); }
+      .metadata-modal-card { width: min(620px, calc(100vw - var(--space-3) * 2)); }
     }
 
     .albums-grid {

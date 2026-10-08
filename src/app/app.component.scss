@@ -154,17 +154,19 @@
 .onboarding-dialog {
   width: min(100%, 440px);
   padding: var(--space-8);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  border: var(--dialog-border);
+  border-radius: var(--dialog-radius);
   color: var(--text-primary);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-lg);
+  background: var(--dialog-bg);
+  box-shadow: var(--dialog-shadow);
+  backdrop-filter: var(--dialog-filter);
+  -webkit-backdrop-filter: var(--dialog-filter);
 }
 .onboarding-dialog h2 { margin: 0 0 var(--space-3); }
 .onboarding-dialog p { color: var(--text-secondary); line-height: 1.5; }
 .onboarding-dialog .onboarding-error { color: var(--status-error); }
 .onboarding-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
-.onboarding-actions button { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface-hover); cursor: pointer; }
+.onboarding-actions button { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--dialog-control-radius); color: var(--text-primary); background: var(--bg-surface-hover); cursor: pointer; }
 .onboarding-actions .onboarding-primary { border-color: transparent; color: var(--color-surface); background: var(--text-primary); }
 .onboarding-actions button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
 

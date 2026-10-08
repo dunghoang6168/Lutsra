@@ -52,6 +52,19 @@ export class ArtistDetailComponent implements OnInit {
   readonly failedAvatars = signal<Set<string>>(new Set());
   readonly aboutImageFailed = signal(false);
   readonly showMetadataEditor = signal(false);
+  private readonly metadataDialog = viewChild<ElementRef<HTMLDialogElement>>('metadataDialog');
+  private readonly openMetadataDialog = effect(() => {
+    const dialog = this.metadataDialog()?.nativeElement;
+    if (dialog && !dialog.open) dialog.showModal();
+  });
+
+  onMetadataDialogClick(event: MouseEvent): void {
+    const dialog = event.currentTarget as HTMLDialogElement;
+    if (event.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) this.closeMetadataEditor();
+  }
+
   readonly candidateQuery = signal('');
   readonly candidates = signal<ArtistMatchCandidate[]>([]);
   readonly selectedCandidateId = signal<string | null>(null);

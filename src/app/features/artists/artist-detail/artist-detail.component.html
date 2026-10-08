@@ -191,8 +191,9 @@
     </div>
 
     @if (showMetadataEditor()) {
-      <div class="metadata-modal-backdrop" (click)="closeMetadataEditor()">
-        <div class="metadata-modal-card" role="dialog" aria-modal="true" aria-labelledby="metadataEditorTitle" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="onEditorKeydown($event)">
+      <dialog #metadataDialog class="metadata-modal-card" aria-labelledby="metadataEditorTitle" tabindex="-1"
+        (cancel)="$event.preventDefault(); closeMetadataEditor()" (click)="onMetadataDialogClick($event)"
+        (keydown)="$event.stopPropagation(); onEditorKeydown($event)">
           <div class="metadata-modal-header">
             <div><h2 id="metadataEditorTitle">Edit online artist info</h2><p>Choose the correct MusicBrainz profile and optionally provide a Wikipedia page in English or Vietnamese.</p></div>
             <button type="button" class="btn-icon" (click)="closeMetadataEditor()" aria-label="Close artist metadata editor"><app-icon name="x" [size]="18" /></button>
@@ -223,6 +224,5 @@
             <button type="button" class="btn btn-secondary" (click)="closeMetadataEditor()">Cancel</button>
             <button type="button" class="btn btn-primary" [disabled]="!selectedCandidateId() || editorLoading()" (click)="saveMetadataMatch()">Save match</button>
           </div>
-        </div>
-      </div>
+      </dialog>
     }

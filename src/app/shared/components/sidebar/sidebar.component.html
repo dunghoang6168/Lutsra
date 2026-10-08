@@ -2,9 +2,11 @@
   <!-- Ambient: a floating icon rail; labels surface on hover and focus. -->
   <nav class="icon-rail" aria-label="Main navigation">
     @for (item of navItems; track item.path) {
-      <a [routerLink]="item.path" routerLinkActive="active" class="rail-item" [attr.aria-label]="item.label">
+      <a #railLink [routerLink]="item.path" routerLinkActive="active" class="rail-item" [attr.aria-label]="item.label"
+        (mouseenter)="showRailTip(railLink, railTip)" (focus)="showRailTip(railLink, railTip)"
+        (mouseleave)="railTip.hidePopover()" (blur)="railTip.hidePopover()">
         <app-icon [name]="item.icon" [size]="20" />
-        <span class="rail-tip" aria-hidden="true">{{ item.label }}</span>
+        <span #railTip popover="manual" class="rail-tip" aria-hidden="true">{{ item.label }}</span>
       </a>
     }
   </nav>
