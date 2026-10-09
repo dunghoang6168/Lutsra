@@ -38,6 +38,7 @@ Sơ đồ đầy đủ ở mục "Kiến trúc" của README. Bản ngắn:
 | Điều hướng | tab chữ trên header | cây thư viện kèm nhóm Quality | rail icon bằng kính |
 | Player | rail Now Playing 300px, có Up next | thanh strip 52px kèm signal path | dock dạng viên thuốc, nổi giữa màn hình |
 | Mật độ | hàng 52px | hàng 30px, inspector dock ở cạnh | hàng 44px |
+| Source file (trang Now Playing) | card thông số dưới khối chính | card thông số dưới khối chính | chip signal path trên thẻ tên, bấm mở All properties |
 
 Component không viết `if layout === ...`. Thay vào đó, chúng đọc token theo layout: `--surface-radius`, `--control-radius`, `--row-height`, `--cover-*`, `--type-display*`, `--motion-*`. Chỉ khi topology thật sự khác (ví dụ Up next chỉ có trong rail Gallery) mới tách theo layout.
 

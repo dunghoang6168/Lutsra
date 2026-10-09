@@ -26,6 +26,10 @@
   display: flex;
   overflow: hidden;
 }
+/* Zero-width right panels must not take a flex gap: the queue host only anchors an absolute drawer,
+   and the closed details panel cancels its gap with a negative margin. */
+.workspace > app-queue-drawer { display: contents; }
+.workspace > app-track-details-panel:not(.open):not(.console-inspector) { margin-left: calc(var(--shell-gap) * -1); }
 
 .main-content {
   position: relative;

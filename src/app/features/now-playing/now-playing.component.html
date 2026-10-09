@@ -54,6 +54,15 @@
                     <span class="queue-badge">{{ player.queue().length }}</span>
                   }
                 </button>
+              } @else if (layoutPreference.mode() === 'liquid-glass') {
+                <button #detailsTrigger type="button" class="heading-source-btn"
+                  (click)="openTrackDetails($event)" aria-controls="track-details-panel"
+                  [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()"
+                  [class.active]="rightPanels.isTrackDetailsOpen()"
+                  aria-label="Source file: all properties">
+                  <app-signal-path />
+                  <app-icon name="chevron-right" [size]="14" />
+                </button>
               }
             </div>
 
@@ -170,7 +179,8 @@
             </div>
           </div>
 
-            <!-- Technical Audio Specification Box (Source Quality) -->
+            <!-- Technical Audio Specification Box (Source Quality); Ambient folds it into the heading chip -->
+            @if (layoutPreference.mode() !== 'liquid-glass') {
             <section class="technical-specs-card" aria-labelledby="specs-title"
               [class.hidden-while-details-open]="rightPanels.isTrackDetailsOpen()">
               <span class="specs-header">
@@ -218,6 +228,7 @@
                 <span class="path-value truncate" [title]="track.path">{{ track.path }}</span>
               </span>
             </section>
+            }
 
           @if (lyricsStatus() !== 'missing') {
             <section class="lyrics-card" aria-labelledby="lyrics-heading">

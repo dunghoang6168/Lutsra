@@ -576,13 +576,32 @@
       background: var(--glass-regular);
       box-shadow: inset 0 1px 0 var(--glass-specular);
     }
-    /* File truth outranks lyrics: Source file sits right under the artwork row. */
-    .layout-liquid-glass .technical-specs-card {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      border-color: var(--glass-border);
-      border-radius: 16px;
-      background: var(--glass-regular);
+    /* Ambient folds Source file into a chip on the heading card; it opens All properties. */
+    .layout-liquid-glass .lyrics-card { grid-row: 2; }
+    .heading-source-btn {
+      flex: 0 0 auto;
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      max-width: 50%;
+      padding: 5px 6px 5px 10px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--control-radius);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .heading-source-btn app-signal-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .heading-source-btn:hover { background: var(--bg-surface-hover); }
+    .heading-source-btn.active {
+      background: var(--accent-muted);
+      border-color: var(--accent-primary);
+    }
+    .heading-source-btn:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
     }
     .layout-liquid-glass .lyrics-card h2,
     .layout-liquid-glass .lyrics-lines,
