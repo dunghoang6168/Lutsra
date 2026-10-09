@@ -24,6 +24,14 @@ export const AUDIO_VISUALIZATION_MODES = ['spectrum', 'waveform'] as const;
 export type AudioVisualizationMode = (typeof AUDIO_VISUALIZATION_MODES)[number];
 export const DEFAULT_AUDIO_VISUALIZATION_MODE: AudioVisualizationMode = 'spectrum';
 
+export const ADD_TRACKS_TABS = ['songs', 'albums', 'artists', 'folders'] as const;
+export type AddTracksTab = (typeof ADD_TRACKS_TABS)[number];
+export const DEFAULT_ADD_TRACKS_TAB: AddTracksTab = 'songs';
+
+export function isAddTracksTab(value: unknown): value is AddTracksTab {
+  return typeof value === 'string' && (ADD_TRACKS_TABS as readonly string[]).includes(value);
+}
+
 export function isAudioVisualizationMode(value: unknown): value is AudioVisualizationMode {
   return typeof value === 'string' && (AUDIO_VISUALIZATION_MODES as readonly string[]).includes(value);
 }
@@ -98,4 +106,5 @@ export interface Settings {
   audioVisualizationMode: AudioVisualizationMode;
   hiddenSongColumns: SongColumn[];
   songColumnOrder: ReorderableSongColumn[];
+  addTracksTab: AddTracksTab;
 }

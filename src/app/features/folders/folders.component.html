@@ -258,10 +258,7 @@
                         {{ (track?.duration ?? 0) | duration }}
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
-                        <button type="button" class="queue-row-btn" (click)="onAddFileToQueue(file)"
-                          [disabled]="!track?.isAvailable" [attr.aria-label]="'Add ' + (track?.title || file.name) + ' to queue'" title="Add to queue">
-                          <app-icon name="plus" [size]="14" />
-                        </button>
+                        @if (track) { <app-track-actions-menu [track]="track" /> }
                       </td>
                     </tr>
                   }

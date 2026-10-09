@@ -4,7 +4,7 @@ const SCROLL_AREAS = [
   '.table-scroll-container', '.home-page', '.albums-page', '.album-detail-page',
   '.artists-page', '.artist-detail-page', '.playlists-page', '.playlist-detail-page',
   '.folders-page', '.settings-page', '.now-playing-page', '.drawer-content',
-  '.panel-content', '.nav-menu', '.search-results', '.tracks-picker-list',
+  '.panel-content', '.nav-menu', '.search-results', '.panel-list',
   '.metadata-modal-card',
 ].map((selector) => `.app-layout ${selector}`).join(', ');
 

@@ -505,14 +505,6 @@
     .lyrics-check { color: var(--text-accent); display: inline-flex; vertical-align: middle; }
     .col-duration { width: 80px; font-family: var(--font-family-mono); color: var(--text-muted); }
     .col-actions { width: 44px; text-align: right !important; }
-    .queue-row-btn {
-      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-      border-radius: var(--radius-sm); color: var(--text-muted); opacity: 0;
-      transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-    }
-    .file-row:hover .queue-row-btn, .file-row:focus-within .queue-row-btn { opacity: 1; }
-    @media (hover: none) { .queue-row-btn { opacity: 1; } }
-    .queue-row-btn:hover:not(:disabled) { color: var(--text-accent); background: var(--bg-surface-hover); }
 
     .file-name-cell {
       display: flex;

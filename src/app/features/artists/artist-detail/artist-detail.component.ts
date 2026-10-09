@@ -13,6 +13,7 @@ import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } fro
 import { TrackSelectionBarComponent } from '../../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { TrackActionsMenuComponent } from '../../../shared/components/track-actions-menu/track-actions-menu.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { artistAvatarCandidates } from '../artist-avatar';
 import { orderArtistTracks } from '../artist-play-order';
@@ -21,7 +22,7 @@ import { AlbumCardComponent } from '../../../shared/components/album-card/album-
 @Component({
   selector: 'app-artist-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, DurationPipe, IconComponent, AlbumCardComponent, TrackSelectionBarComponent],
+  imports: [CommonModule, FormsModule, RouterModule, DurationPipe, IconComponent, AlbumCardComponent, TrackSelectionBarComponent, TrackActionsMenuComponent],
   templateUrl: './artist-detail.component.html',
   styleUrl: './artist-detail.component.scss'
 })
@@ -446,9 +447,6 @@ export class ArtistDetailComponent implements OnInit {
     this.queueActions.add(this.tracksForAlbum(album));
   }
 
-  onAddTrackToQueue(track: Track): void {
-    this.queueActions.add([track]);
-  }
 
   private tracksForAlbum(album: Album): Track[] {
     const trackMap = new Map(this.allTracks().map((track) => [track.id, track]));

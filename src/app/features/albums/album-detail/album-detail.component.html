@@ -143,11 +143,7 @@
                         <span class="spec-detail" [class.hires]="trackQuality(track) === 'hires'">{{ formatResolution(track) }}</span>
                       </td>
                       <td class="col-actions" (click)="$event.stopPropagation()">
-                        <button type="button" class="queue-row-btn" (click)="onAddTrackToQueue(track)"
-                          [disabled]="!track.isAvailable" [attr.aria-label]="'Add ' + track.title + ' to queue'" title="Add to queue"
-                          [attr.tabindex]="activeId() === track.id ? 0 : -1">
-                          <app-icon name="plus" [size]="14" />
-                        </button>
+                        <app-track-actions-menu [track]="track" [tabIndex]="activeId() === track.id ? 0 : -1" />
                       </td>
                     </tr>
                   }

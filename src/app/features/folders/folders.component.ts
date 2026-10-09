@@ -10,6 +10,7 @@ import { PlayerService } from '../../core/player/player.service';
 import { QueueActionsService } from '../../core/player/queue-actions.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { TrackActionsMenuComponent } from '../../shared/components/track-actions-menu/track-actions-menu.component';
 import { ConfirmRemoveFolderDialogComponent } from '../../shared/components/confirm-remove-folder-dialog/confirm-remove-folder-dialog.component';
 
 interface FolderSummary {
@@ -23,7 +24,7 @@ const EMPTY_FOLDER_SUMMARY: FolderSummary = { trackCount: 0, duration: 0, artwor
 @Component({
   selector: 'app-folders',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, ConfirmRemoveFolderDialogComponent],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, ConfirmRemoveFolderDialogComponent, TrackActionsMenuComponent],
   templateUrl: './folders.component.html',
   styleUrl: './folders.component.scss'
 })
@@ -376,10 +377,6 @@ export class FoldersComponent implements OnInit, OnDestroy {
     this.queueActions.add(this.currentFolderTracks());
   }
 
-  onAddFileToQueue(fileNode: FolderNode): void {
-    const track = fileNode.trackId ? this.tracksById().get(fileNode.trackId) : undefined;
-    this.queueActions.add(track ? [track] : []);
-  }
 
   isHiRes(track: Track): boolean {
     return trackQuality(track) === 'hires';

@@ -1,0 +1,20 @@
+<button #trigger type="button" class="row-menu-btn" (click)="toggle()" [attr.tabindex]="tabIndex()"
+  aria-haspopup="menu" [attr.aria-expanded]="open()" [attr.aria-label]="'More actions: ' + track().title" title="More actions">
+  <app-icon name="more-horizontal" [size]="16" />
+</button>
+@if (open()) {
+  <div #menu popover="manual" class="row-menu" role="menu" [attr.aria-label]="'Actions for ' + track().title" (keydown)="onMenuKeyDown($event)">
+    <button type="button" role="menuitem" tabindex="-1" [disabled]="!track().isAvailable" (click)="playNext()">
+      <app-icon name="skip-forward" [size]="14" />Play next
+    </button>
+    <button type="button" role="menuitem" tabindex="-1" [disabled]="!track().isAvailable" (click)="addToQueue()">
+      <app-icon name="plus" [size]="14" />Add to queue
+    </button>
+    <button type="button" role="menuitem" tabindex="-1" (click)="addToPlaylist()">
+      <app-icon name="list-music" [size]="14" />Add to playlist…
+    </button>
+  </div>
+}
+@if (dialogOpen()) {
+  <app-add-to-playlist-dialog [tracks]="[track()]" (added)="added.emit($event)" (closed)="dialogOpen.set(false)" />
+}

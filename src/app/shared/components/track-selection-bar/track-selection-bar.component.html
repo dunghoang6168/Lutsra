@@ -6,32 +6,13 @@
   <button type="button" (click)="addToQueue()" aria-label="Add to queue" title="Add to queue">
     <app-icon name="plus" [size]="14" /><span class="action-label">Add to queue</span>
   </button>
-  <button #trigger type="button" (click)="togglePopover()" aria-label="Add to playlist" title="Add to playlist"
-    aria-haspopup="dialog" [attr.aria-expanded]="open()">
+  <button type="button" (click)="dialogOpen.set(true)" aria-label="Add to playlist" title="Add to playlist" aria-haspopup="dialog">
     <app-icon name="list-music" [size]="14" /><span class="action-label">Add to playlist</span>
   </button>
   <button type="button" (click)="clear.emit()" aria-label="Clear" title="Clear">
     <app-icon name="x" [size]="14" /><span class="action-label">Clear</span>
   </button>
 </div>
-@if (open()) {
-  <div #panel popover="manual" class="playlist-popover" role="dialog" aria-label="Add to playlist" tabindex="-1" [attr.aria-busy]="busy() || loading()">
-    @if (loading()) { <p role="status">Loading playlists…</p> }
-    @else if (!playlists().length && !error()) { <p>No other playlists yet.</p> }
-    @if (error()) {
-      <p class="popover-error" role="alert">{{ error() }}</p>
-      @if (!creating() && !playlists().length) { <button type="button" data-playlist-option (click)="loadPlaylists()" [disabled]="loading() || busy()">Retry loading playlists</button> }
-    }
-    @for (playlist of playlists(); track playlist.id) {
-      <button type="button" data-playlist-option [disabled]="busy()" (click)="addToPlaylist(playlist)">{{ playlist.name }}</button>
-    }
-    <button type="button" data-playlist-option [disabled]="busy()" (click)="beginCreate()">New playlist…</button>
-    @if (creating()) {
-      <form (ngSubmit)="addToPlaylist()" class="create-playlist">
-        <label>Playlist name<input name="playlistName" [ngModel]="name()" (ngModelChange)="name.set($event)" [disabled]="busy()" autocomplete="off" /></label>
-        <button type="submit" [disabled]="busy() || !name().trim()">{{ busy() ? 'Adding…' : 'Create' }}</button>
-      </form>
-    }
-    @if (busy() && !creating()) { <p role="status">Adding tracks…</p> }
-  </div>
+@if (dialogOpen()) {
+  <app-add-to-playlist-dialog [tracks]="tracks()" [excludePlaylistId]="excludePlaylistId()" (closed)="dialogOpen.set(false)" />
 }

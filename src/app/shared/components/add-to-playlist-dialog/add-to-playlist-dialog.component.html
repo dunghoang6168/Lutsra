@@ -1,0 +1,80 @@
+<dialog #dialog class="modal-card" aria-labelledby="addToPlaylistTitle" [attr.aria-busy]="busy() || loading()"
+  (cancel)="onCancel($event)" (keydown)="onKeyDown($event)" (click)="onBackdropClick($event)">
+  @if (pending(); as confirm) {
+    <h3 id="addToPlaylistTitle">Already in playlist</h3>
+    <p class="modal-desc">
+      @if (tracks().length === 1) {
+        {{ title() }} is already in <strong>{{ confirm.playlist.name }}</strong>. Add it again?
+      } @else {
+        {{ confirm.duplicates.length }} of {{ confirm.duplicates.length + confirm.fresh.length }} tracks are already in
+        <strong>{{ confirm.playlist.name }}</strong>. Add them again?
+      }
+    </p>
+    @if (error(); as message) { <p class="dialog-error" role="alert">{{ message }}</p> }
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" (click)="pending.set(null)">Cancel</button>
+      @if (confirm.fresh.length) {
+        <button type="button" class="btn-cancel" [disabled]="busy()" (click)="add(confirm.playlist, confirm.fresh)">Skip duplicates</button>
+      }
+      <button type="button" class="btn-confirm" [disabled]="busy()" (click)="add(confirm.playlist, trackIds())">
+        {{ confirm.fresh.length ? 'Add all' : 'Add anyway' }}
+      </button>
+    </div>
+  } @else {
+    <h3 id="addToPlaylistTitle">Add to playlist</h3>
+    <p class="modal-desc truncate">{{ title() }}</p>
+    <div class="search-box">
+      <app-icon name="search" [size]="16" class="search-icon" />
+      <input type="text" [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Search or name a new playlist"
+        aria-label="Search playlists" autocomplete="off" (keydown.enter)="!filtered().length && create()" />
+      @if (query()) {
+        <button type="button" class="clear-search-btn" (click)="query.set('')" title="Clear search" aria-label="Clear search">
+          <app-icon name="x" [size]="14" />
+        </button>
+      }
+    </div>
+    @if (error(); as message) {
+      <p class="dialog-error" role="alert">{{ message }}</p>
+      @if (!playlists().length && !loading()) { <button type="button" class="btn-cancel" (click)="load()">Retry</button> }
+    }
+    <ul class="playlist-list" [attr.aria-busy]="loading()">
+      @if (loading()) { <li class="list-note" role="status">Loading playlists…</li> }
+      @for (playlist of filtered(); track playlist.id) {
+        @let covers = artwork(playlist);
+        <li class="playlist-row">
+          <div class="cover" [class.grid]="covers.length === 4">
+            @if (covers.length === 4) {
+              @for (url of covers; track url) { <img [src]="url" alt="" /> }
+            } @else if (covers[0]) {
+              <img [src]="covers[0]" alt="" />
+            } @else {
+              <app-icon name="list-music" [size]="20" />
+            }
+          </div>
+          <div class="info">
+            <span class="name truncate">{{ playlist.name }}</span>
+            <span class="count">{{ playlist.entries.length }} {{ playlist.entries.length === 1 ? 'track' : 'tracks' }}</span>
+          </div>
+          @if (contains(playlist)) {
+            <app-icon name="check" [size]="16" [strokeWidth]="2.5" class="added" title="Already in this playlist" />
+            <span class="sr-only">Already in this playlist</span>
+          }
+          <button type="button" class="btn-add" [disabled]="busy()" (click)="choose(playlist)"
+            [attr.aria-label]="'Add to ' + playlist.name">Add</button>
+        </li>
+      } @empty {
+        @if (!loading() && !query().trim()) { <li class="list-note">No playlists yet. Type a name to create one.</li> }
+      }
+      @if (query().trim() && !filtered().length && !loading()) {
+        <li class="playlist-row">
+          <div class="cover"><app-icon name="plus" [size]="20" /></div>
+          <div class="info"><span class="name truncate">Create “{{ query().trim() }}”</span></div>
+          <button type="button" class="btn-add" [disabled]="busy()" (click)="create()">Create</button>
+        </li>
+      }
+    </ul>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" (click)="closed.emit()">Close</button>
+    </div>
+  }
+</dialog>

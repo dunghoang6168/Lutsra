@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SettingsGateway } from '../contracts/settings.gateway';
-import { DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_LIQUID_GLASS_ACCENT_COLOR, DEFAULT_SONG_COLUMN_ORDER, isAccentColor, isAudioVisualizationMode, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
+import { DEFAULT_ADD_TRACKS_TAB, DEFAULT_AUDIO_VISUALIZATION_MODE, DEFAULT_LAYOUT_MODE, DEFAULT_LIQUID_GLASS_ACCENT_COLOR, DEFAULT_SONG_COLUMN_ORDER, isAccentColor, isAddTracksTab, isAudioVisualizationMode, isLayoutMode, normalizeHiddenSongColumns, normalizeSongColumnOrder, Settings } from '../models';
 import { MOCK_FOLDERS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +27,7 @@ export class MockSettingsGateway implements SettingsGateway {
     audioVisualizationMode: readAudioVisualizationMode(),
     hiddenSongColumns: [],
     songColumnOrder: [...DEFAULT_SONG_COLUMN_ORDER],
+    addTracksTab: DEFAULT_ADD_TRACKS_TAB,
   };
 
   async getSettings(): Promise<Settings> {
@@ -47,6 +48,7 @@ export class MockSettingsGateway implements SettingsGateway {
       audioVisualizationMode: isAudioVisualizationMode(settings.audioVisualizationMode) ? settings.audioVisualizationMode : this.settings.audioVisualizationMode,
       hiddenSongColumns: settings.hiddenSongColumns === undefined ? this.settings.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns),
       songColumnOrder: settings.songColumnOrder === undefined ? this.settings.songColumnOrder : normalizeSongColumnOrder(settings.songColumnOrder),
+      addTracksTab: isAddTracksTab(settings.addTracksTab) ? settings.addTracksTab : this.settings.addTracksTab,
     };
     if (settings.layoutMode !== undefined) {
       try { localStorage.setItem('lutsra.layout.mode', this.settings.layoutMode); } catch { /* Browser storage is optional. */ }

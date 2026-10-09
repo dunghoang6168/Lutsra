@@ -1,4 +1,5 @@
 
+  <div class="playlist-shell" [class.panel-open]="showAddTracksModal() && playlist()">
     <div class="playlist-detail-page">
       <nav class="breadcrumb">
         <a routerLink="/playlists" class="back-link">
@@ -73,7 +74,8 @@
               <button
                 type="button"
                 class="btn-action"
-                (click)="showAddTracksModal.set(true)"
+                (click)="openAddTracks($event)"
+                [attr.aria-expanded]="showAddTracksModal()"
                 aria-label="Add tracks">
                 <app-icon name="plus" [size]="16" />
                 Add tracks
@@ -83,11 +85,11 @@
         </header>
 
         <!-- Track Entries Table -->
-        <div class="table-card">
+        <div class="table-card" (dragover)="onCardDragOver($event)" (drop)="onCardDrop($event)">
           @if (trackRows().length === 0) {
             <div class="empty-playlist">
               <p>This playlist has no tracks yet.</p>
-              <button type="button" class="btn-action primary" (click)="showAddTracksModal.set(true)">
+              <button type="button" class="btn-action primary" (click)="openAddTracks($event)">
                 Add tracks
               </button>
             </div>
@@ -120,36 +122,30 @@
                     (mousedown)="onRowMouseDown($event)"
                     (click)="onRowClick(row, $event)"
                     (focusin)="onActivateRow(row)"
+                    [class.dragging]="draggingEntryId() === row.entry.id"
+                    [class.drop-before]="dropTarget()?.entryId === row.entry.id && dropTarget()?.placement === 'before'"
+                    [class.drop-after]="dropTarget()?.entryId === row.entry.id && dropTarget()?.placement === 'after'"
+                    (dragover)="onDragOver($event, row.entry.id)"
+                    (dragleave)="onDragLeave($event, row.entry.id)"
+                    (drop)="onDrop($event, row.entry.id)"
                     [attr.aria-rowindex]="i + 2"
                     [attr.aria-selected]="selectedRows().ids.has(row.entry.id)"
                     [attr.data-entry-id]="row.entry.id"
                     [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
-                    <!-- Move Up / Down Buttons -->
+                    <!-- Drag handle: drag to reorder, or Up / Down arrows when focused -->
                     <td class="col-reorder" (click)="$event.stopPropagation()">
-                      <div class="reorder-btns">
-                        <button
-                          type="button"
-                          class="reorder-btn"
-                          [attr.aria-disabled]="i === 0"
-                          data-move="up"
-                          (click)="onMoveUp(i, $event)"
-                          title="Move Up"
-                          aria-label="Move track up"
-                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
-                          <app-icon name="arrow-up" [size]="12" />
-                        </button>
-                        <button
-                          type="button"
-                          class="reorder-btn"
-                          [attr.aria-disabled]="i === trackRows().length - 1"
-                          data-move="down"
-                          (click)="onMoveDown(i, $event)"
-                          title="Move down"
-                          aria-label="Move track down"
-                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
-                          <app-icon name="arrow-down" [size]="12" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        class="drag-handle"
+                        draggable="true"
+                        (dragstart)="onDragStart($event, row.entry.id)"
+                        (dragend)="onDragEnd()"
+                        (keydown)="onHandleKeydown($event, row.entry.id)"
+                        [attr.aria-label]="'Reorder ' + row.track.title + ', position ' + (i + 1) + '. Use up and down arrow keys.'"
+                        title="Drag to reorder"
+                        [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
+                        <app-icon name="grip-vertical" [size]="16" />
+                      </button>
                     </td>
 
                     <!-- Index -->
@@ -195,12 +191,7 @@
                     <!-- Remove from playlist Action -->
                     <td class="col-actions" (click)="$event.stopPropagation()">
                       <div class="entry-actions">
-                        <button type="button" class="btn-queue-entry" (click)="onAddTrackToQueue(row.track)"
-                          [disabled]="!row.track.isAvailable" title="Add to queue"
-                          [attr.aria-label]="'Add ' + row.track.title + ' to queue'"
-                          [attr.tabindex]="activeId() === row.entry.id ? 0 : -1">
-                          <app-icon name="plus" [size]="14" />
-                        </button>
+                        <app-track-actions-menu [track]="row.track" [tabIndex]="activeId() === row.entry.id ? 0 : -1" (added)="onPlaylistUpdated($event)" />
                         <button
                           type="button"
                           class="btn-remove-entry"
@@ -216,81 +207,15 @@
                 }
               </tbody>
             </table>
+            <span class="sr-only" aria-live="polite">{{ reorderAnnouncement() }}</span>
           }
         </div>
       }
 
-      <!-- Add tracks dialog -->
-      @if (showAddTracksModal()) {
-        <dialog #addTracksDialog class="modal-card wide" aria-labelledby="addTracksTitle"
-          (cancel)="$event.preventDefault(); showAddTracksModal.set(false)" (click)="onAddTracksDialogClick($event)" (keydown)="$event.stopPropagation()">
-          <h3 id="addTracksTitle">Add tracks to playlist</h3>
-          <p class="modal-desc">Click any song from your library to add it:</p>
-
-          <div class="picker-filters">
-            <div class="picker-search-row">
-              <div class="search-box">
-                <app-icon name="search" [size]="16" class="search-icon" />
-                <input type="text" [ngModel]="pickerQuery()" (ngModelChange)="pickerQuery.set($event)"
-                  placeholder="Search by title, artist, album..." aria-label="Search library" />
-                @if (pickerQuery()) {
-                  <button type="button" class="clear-search-btn" (click)="pickerQuery.set('')" title="Clear search" aria-label="Clear search">
-                    <app-icon name="x" [size]="14" />
-                  </button>
-                }
-              </div>
-              <app-browse-filter-popover [activeCount]="pickerFilterCount()">
-                <div class="browse-filter-fields">
-                  <div class="browse-filter-field">
-                    <span class="field-label">Artist</span>
-                    <app-searchable-filter-select label="Artist" [options]="pickerArtistOptions()" [value]="pickerArtist()"
-                      allLabel="All artists" [includeUnknown]="pickerHasUnknownArtist()" unknownValue="__unknown_artist__"
-                      unknownLabel="Unknown Artist" (valueChange)="pickerArtist.set($event)" />
-                  </div>
-                  <div class="browse-filter-field">
-                    <span class="field-label">Album</span>
-                    <app-searchable-filter-select label="Album" [options]="pickerAlbumOptions()" [value]="pickerAlbum()"
-                      allLabel="All albums" [includeUnknown]="pickerHasUnknownAlbum()" unknownValue="__unknown_album__"
-                      unknownLabel="Unknown Album" (valueChange)="pickerAlbum.set($event)" />
-                  </div>
-                  <div class="browse-filter-field">
-                    <span class="field-label">Year</span>
-                    <app-searchable-filter-select label="Year" [options]="pickerYearOptions()" [value]="pickerYear()"
-                      allLabel="All years" [includeUnknown]="pickerHasUnknownYear()" unknownLabel="Unknown year"
-                      (valueChange)="pickerYear.set($event)" />
-                  </div>
-                  <div class="browse-filter-field">
-                    <span class="field-label">Quality</span>
-                    <app-searchable-filter-select label="Quality" [options]="qualityOptions" [value]="pickerQuality()"
-                      allLabel="All formats" (valueChange)="pickerQuality.set($event)" />
-                  </div>
-                  @if (pickerFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearPickerFilters()">Clear filters</button> }
-                </div>
-              </app-browse-filter-popover>
-            </div>
-            <label class="picker-toggle">
-              <input type="checkbox" [ngModel]="pickerHideAdded()" (ngModelChange)="pickerHideAdded.set($event)" />
-              Hide songs already in playlist
-            </label>
-          </div>
-
-          <div class="tracks-picker-list">
-            @for (t of pickerTracks(); track t.id) {
-              <div class="picker-row" (click)="onAddSingleTrack(t.id)">
-                <div class="picker-info">
-                  <span class="picker-title truncate">{{ t.title }}</span>
-                  <span class="picker-artist truncate">{{ t.artist || 'Unknown Artist' }}</span>
-                </div>
-                <button type="button" class="btn-picker-add">Add +</button>
-              </div>
-            } @empty {
-              <p class="picker-artist">No matching songs.</p>
-            }
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn-confirm" (click)="showAddTracksModal.set(false)">Done</button>
-          </div>
-        </dialog>
-      }
     </div>
+
+    <!-- Add tracks sidebar: not modal, so its rows can be dragged into the table -->
+    @if (showAddTracksModal() && playlist()) {
+      <app-add-tracks-panel class="add-tracks-panel" [playlist]="playlist()!" (playlistChange)="onPlaylistUpdated($event)" (close)="closeAddTracks()" />
+    }
+  </div>

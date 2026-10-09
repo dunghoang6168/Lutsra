@@ -322,27 +322,7 @@
 
                   <!-- Row Actions -->
                   <td class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')" (click)="$event.stopPropagation()">
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="row-action-btn"
-                        [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
-                        (click)="onPlayNext(track)"
-                        title="Play next"
-                        [attr.aria-label]="'Play next: ' + track.title">
-                        <app-icon name="skip-forward" [size]="14" />
-                      </button>
-                      <button
-                        type="button"
-                        class="row-action-btn"
-                        [attr.tabindex]="activeTrackId() === track.id ? 0 : -1"
-                        (click)="onAddToQueue(track)"
-                        [disabled]="!track.isAvailable"
-                        title="Add to queue"
-                        [attr.aria-label]="'Add to queue: ' + track.title">
-                        <app-icon name="plus" [size]="14" />
-                      </button>
-                    </div>
+                    <app-track-actions-menu [track]="track" [tabIndex]="activeTrackId() === track.id ? 0 : -1" />
                   </td>
                 </tr>
               }

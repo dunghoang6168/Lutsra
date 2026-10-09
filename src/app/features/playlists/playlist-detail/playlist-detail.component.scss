@@ -4,10 +4,26 @@
   --track-action-size: 28px;
 }
 
+    .playlist-shell {
+      position: relative;
+      display: flex;
+      height: 100%;
+    }
+
     .playlist-detail-page {
+      flex: 1;
+      min-width: 0;
       padding: var(--page-pad-top) var(--page-pad-x) var(--space-10);
       height: 100%;
       overflow-y: auto;
+      // The Add tracks panel narrows this column, so the compact table follows this page, not main-content.
+      container: playlist-page / inline-size;
+    }
+
+    .add-tracks-panel {
+      flex: 0 0 auto;
+      width: min(380px, 42%);
+      min-width: 0;
     }
 
     .breadcrumb { margin-bottom: var(--space-4); }
@@ -113,6 +129,8 @@
 
     .playlist-table {
       width: 100%;
+      // Fixed layout: long nowrap titles truncate instead of widening the table past its frame.
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: var(--font-size-sm);
     }
@@ -152,26 +170,34 @@
     .col-actions { width: 78px; text-align: right; }
     .entry-actions { display: flex; justify-content: flex-end; gap: var(--space-1); }
 
-    .reorder-btns {
+    .drag-handle {
       display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-
-    .reorder-btn {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 28px;
       padding: 0;
-      line-height: 1;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      cursor: grab;
+      user-select: none;
     }
 
-    .reorder-btn:hover:not(:disabled) { color: var(--text-primary); }
+    .drag-handle:active { cursor: grabbing; }
+    .entry-row:hover .drag-handle { color: var(--text-primary); }
+    .entry-row.dragging { opacity: 0.5; }
+    // Table rows ignore positioned pseudo-elements, so the drop line is an inset shadow on the cells.
+    .entry-row.drop-before td { box-shadow: inset 0 2px 0 var(--accent-primary); }
+    .entry-row.drop-after td { box-shadow: inset 0 -2px 0 var(--accent-primary); }
 
     .title-cell {
       display: flex;
       align-items: center;
       gap: var(--space-3);
+      min-width: 0;
     }
+
+    .track-title { min-width: 0; }
 
     .thumb-img, .thumb-placeholder {
       width: 32px;
@@ -200,17 +226,12 @@
 
     .playing-icon { color: var(--text-accent); font-size: var(--font-size-xs); }
 
-    .btn-remove-entry, .btn-queue-entry {
+    .btn-remove-entry {
       width: var(--track-action-size);
       height: var(--track-action-size);
       border-radius: var(--radius-sm);
       color: var(--text-muted);
     }
-
-    .btn-queue-entry { opacity: 0; transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast); }
-    .entry-row:hover .btn-queue-entry, .entry-row:focus-within .btn-queue-entry { opacity: 1; }
-    @media (hover: none) { .btn-queue-entry { opacity: 1; } }
-    .btn-queue-entry:hover:not(:disabled) { color: var(--text-accent); background: var(--bg-surface-hover); }
 
     .btn-remove-entry:hover {
       color: var(--status-error);
@@ -225,144 +246,6 @@
       flex-direction: column;
       align-items: center;
       gap: var(--space-3);
-    }
-
-    /* Modal */
-    .modal-card.wide {
-      margin: auto;
-      width: min(520px, calc(100vw - var(--space-4) * 2));
-      max-width: none;
-      max-height: calc(100dvh - var(--space-4) * 2);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      background: var(--dialog-bg);
-      color: var(--text-primary);
-      border: var(--dialog-border);
-      border-radius: var(--dialog-radius);
-      padding: var(--space-6);
-      box-shadow: var(--dialog-shadow);
-      backdrop-filter: var(--dialog-filter);
-      -webkit-backdrop-filter: var(--dialog-filter);
-    }
-
-    .modal-card.wide::backdrop { background: var(--scrim-heavy); }
-
-    .picker-filters {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      margin-top: var(--space-4);
-    }
-
-    .picker-search-row {
-      display: flex;
-      gap: var(--space-2);
-    }
-
-    .search-box {
-      position: relative;
-      display: flex;
-      align-items: center;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .search-icon {
-      position: absolute;
-      left: var(--space-3);
-      color: var(--text-muted);
-      pointer-events: none;
-    }
-
-    .search-box input {
-      width: 100%;
-      height: 36px;
-      padding-left: 36px;
-      padding-right: 32px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-default);
-      border-radius: var(--dialog-control-radius);
-      font-size: var(--font-size-sm);
-      color: var(--text-primary);
-
-      &::placeholder { color: var(--text-muted); }
-    }
-
-    .clear-search-btn {
-      position: absolute;
-      right: var(--space-2);
-      width: 24px;
-      height: 24px;
-      color: var(--text-muted);
-    }
-
-    .picker-toggle {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-      cursor: pointer;
-    }
-
-    .tracks-picker-list {
-      flex: 0 1 320px;
-      min-height: 120px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      margin: var(--space-4) 0;
-      border: 1px solid var(--border-subtle);
-      border-radius: min(var(--dialog-control-radius), 12px);
-      padding: var(--space-2);
-    }
-
-    .picker-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: var(--space-2) var(--space-3);
-      border-radius: min(var(--dialog-control-radius), 12px);
-      background: var(--bg-elevated);
-      cursor: pointer;
-    }
-
-    .picker-row:hover { background: var(--bg-surface-hover); }
-
-    .picker-info {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .picker-title {
-      font-size: var(--font-size-sm);
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .picker-artist {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-    }
-
-    .btn-picker-add {
-      font-size: var(--font-size-xs);
-      font-weight: 600;
-      color: var(--text-accent);
-      padding: var(--space-1) var(--space-2);
-      border-radius: var(--dialog-control-radius);
-      background: var(--accent-muted);
-    }
-
-    .btn-confirm {
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--dialog-control-radius);
-      background: var(--color-accent-fill);
-      color: var(--color-on-accent);
-      font-weight: 600;
     }
 
     .spinner {
@@ -383,18 +266,10 @@
 }
 
 .entry-row:focus-visible,
-.reorder-btn:focus-visible,
-.btn-queue-entry:focus-visible,
+.drag-handle:focus-visible,
 .btn-remove-entry:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: -2px;
-}
-
-.reorder-btn[aria-disabled="true"],
-.reorder-btn[aria-disabled="true"]:hover {
-  color: var(--text-muted);
-  opacity: 0.5;
-  cursor: default;
 }
 
 .hero-actions button {
@@ -402,7 +277,17 @@
   flex-shrink: 0;
 }
 
+// Too narrow to share: the panel covers the page until it is closed.
 @container main-content (max-width: 600px) {
+  .add-tracks-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+  }
+}
+
+// Measured on the content box: the full table needs about 690px.
+@container playlist-page (max-width: 700px) {
   .hero-info {
     min-width: 0;
     flex-basis: 100%;
@@ -461,11 +346,20 @@
 }
 
 // Selection actions share the rendered header's box, leaving row positions unchanged.
+// Sticky offsets count from the page's padding edge; pull the header up to the page's top edge.
 .selection-header {
   position: sticky;
-  top: 0;
+  top: calc(var(--page-pad-top) * -1);
   z-index: 2;
   background: var(--bg-elevated);
+}
+// Ambient's --bg-elevated is 46% glass, so rows scrolling under the sticky header would show through.
+// The header also sticks just below the floating 52px toolbar instead of sliding under it.
+:host-context(.layout-liquid-glass) .selection-header {
+  top: calc(52px + var(--space-2) - var(--page-pad-top));
+  background: var(--glass-elevated);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 .selection-header .selection-overlay-row {
   position: absolute; inset: 0; display: block; height: 100%; z-index: 1;
@@ -479,6 +373,7 @@
 .entry-row[aria-selected="true"] { background: var(--bg-surface-active); }
 
 .table-card { overflow: visible; }
+
 
 .entry-row[aria-selected="true"] .col-num,
 .entry-row[aria-selected="true"] .col-duration,

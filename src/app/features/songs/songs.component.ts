@@ -11,6 +11,7 @@ import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } fro
 import { TrackSelectionBarComponent } from '../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { TrackActionsMenuComponent } from '../../shared/components/track-actions-menu/track-actions-menu.component';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
 import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { compareNames } from '../library-browse';
@@ -29,7 +30,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 @Component({
   selector: 'app-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent, TrackSelectionBarComponent],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent, TrackSelectionBarComponent, TrackActionsMenuComponent],
   templateUrl: './songs.component.html',
   styleUrl: './songs.component.scss'
 })
@@ -399,14 +400,6 @@ export class SongsComponent implements OnInit {
       }
       this.player.playCollection(list, 0);
     }
-  }
-
-  onPlayNext(track: Track): void {
-    this.player.playNext([track]);
-  }
-
-  onAddToQueue(track: Track): void {
-    this.queueActions.add([track]);
   }
 
   onAddAllToQueue(): void {

@@ -3,7 +3,6 @@ import { linkedSignal, WritableSignal, Component, DestroyRef, OnInit, afterNextR
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../../core/contracts';
 import { Playlist, PlaylistEntry, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
@@ -14,14 +13,19 @@ import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } fro
 import { TrackSelectionBarComponent } from '../../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
-import { BrowseFilterPopoverComponent } from '../../../shared/components/browse-filter-popover/browse-filter-popover.component';
-import { SearchableFilterSelectComponent } from '../../../shared/components/searchable-filter-select/searchable-filter-select.component';
-import { compareNames } from '../../library-browse';
-import { matchesQualityFilter } from '../../home/library-quality';
+import { TrackActionsMenuComponent } from '../../../shared/components/track-actions-menu/track-actions-menu.component';
+import { AddTracksPanelComponent, isTrackDrag, readTrackDrag } from '../add-tracks-panel/add-tracks-panel.component';
 
-const UNKNOWN_ARTIST = '__unknown_artist__';
-const UNKNOWN_ALBUM = '__unknown_album__';
-const UNKNOWN_YEAR = 'unknown';
+/** Entry order after `addTracks` appended new entries: moves them next to `targetId` (null keeps them at the end). */
+export function insertOrder(before: readonly string[], after: readonly string[], targetId: string | null, placement: 'before' | 'after'): string[] {
+  const existing = new Set(before);
+  const added = after.filter((id) => !existing.has(id));
+  const kept = after.filter((id) => existing.has(id));
+  const index = targetId === null ? -1 : kept.indexOf(targetId);
+  if (index < 0) return [...kept, ...added];
+  kept.splice(index + (placement === 'after' ? 1 : 0), 0, ...added);
+  return kept;
+}
 
 interface PlaylistTrackRow {
   entry: PlaylistEntry;
@@ -31,7 +35,7 @@ interface PlaylistTrackRow {
 @Component({
   selector: 'app-playlist-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent, TrackSelectionBarComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, TrackSelectionBarComponent, TrackActionsMenuComponent, AddTracksPanelComponent],
   templateUrl: './playlist-detail.component.html',
   styleUrl: './playlist-detail.component.scss'
 })
@@ -51,6 +55,9 @@ export class PlaylistDetailComponent implements OnInit {
   private readonly selection = inject(TrackSelectionService);
   private readonly rowsContainer = viewChild<ElementRef<HTMLElement>>('rowsContainer');
   readonly activeId = signal<string | null>(null);
+  readonly draggingEntryId = signal<string | null>(null);
+  readonly dropTarget = signal<{ entryId: string; placement: 'before' | 'after' } | null>(null);
+  readonly reorderAnnouncement = signal('');
   private readonly queueActions = inject(QueueActionsService);
 
   readonly playlist = signal<Playlist | null>(null);
@@ -58,59 +65,17 @@ export class PlaylistDetailComponent implements OnInit {
   readonly entryTracks = signal<ReadonlyMap<string, Track>>(new Map());
   readonly isLoading = signal<boolean>(true);
   readonly showAddTracksModal = signal<boolean>(false);
-  readonly pickerQuery = signal('');
-  readonly pickerHideAdded = signal(false);
-  readonly pickerArtist = signal('');
-  readonly pickerAlbum = signal('');
-  readonly pickerYear = signal('');
-  readonly pickerQuality = signal('');
-  readonly qualityOptions = [
-    { value: 'lossless', label: 'Lossless (incl. Hi-Res)' },
-    { value: 'hires', label: 'Hi-Res only' },
-    { value: 'lossy', label: 'Lossy' },
-  ];
-  readonly pickerArtistOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.artist).filter((v): v is string => Boolean(v)))].sort(compareNames));
-  readonly pickerAlbumOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.album).filter((v): v is string => Boolean(v)))].sort(compareNames));
-  readonly pickerYearOptions = computed(() => [...new Set(this.allLibraryTracks().map((t) => t.year).filter((v): v is number => v !== null))].sort((a, b) => b - a));
-  readonly pickerHasUnknownArtist = computed(() => this.allLibraryTracks().some((t) => !t.artist));
-  readonly pickerHasUnknownAlbum = computed(() => this.allLibraryTracks().some((t) => !t.album));
-  readonly pickerHasUnknownYear = computed(() => this.allLibraryTracks().some((t) => t.year === null));
-  readonly pickerFilterCount = computed(() => [this.pickerArtist(), this.pickerAlbum(), this.pickerYear(), this.pickerQuality()].filter(Boolean).length);
-  readonly pickerTracks = computed<Track[]>(() => {
-    const query = this.pickerQuery().trim().toLowerCase();
-    const added = this.pickerHideAdded() ? new Set(this.playlist()?.entries.map((entry) => entry.trackId)) : null;
-    const artist = this.pickerArtist();
-    const album = this.pickerAlbum();
-    const year = this.pickerYear();
-    const quality = this.pickerQuality();
-    return this.allLibraryTracks().filter((track) =>
-      (!added || !added.has(track.id)) &&
-      (!query || track.title.toLowerCase().includes(query) || (track.artist || '').toLowerCase().includes(query) || (track.album || '').toLowerCase().includes(query)) &&
-      (!artist || (artist === UNKNOWN_ARTIST ? !track.artist : track.artist === artist)) &&
-      (!album || (album === UNKNOWN_ALBUM ? !track.album : track.album === album)) &&
-      (!year || (year === UNKNOWN_YEAR ? track.year === null : track.year === Number(year))) &&
-      (!quality || matchesQualityFilter(track, quality)));
-  });
+  private addTracksOpener: HTMLElement | null = null;
 
-  // Native modal dialog renders in the top layer, above the app header in every layout.
-  private readonly addTracksDialog = viewChild<ElementRef<HTMLDialogElement>>('addTracksDialog');
-  private readonly openAddTracksDialog = effect(() => {
-    const dialog = this.addTracksDialog()?.nativeElement;
-    if (dialog && !dialog.open) dialog.showModal();
-  });
-
-  onAddTracksDialogClick(event: MouseEvent): void {
-    const dialog = event.currentTarget as HTMLDialogElement;
-    if (event.target !== dialog) return;
-    const r = dialog.getBoundingClientRect();
-    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) this.showAddTracksModal.set(false);
+  openAddTracks(event: Event): void {
+    this.addTracksOpener = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    this.showAddTracksModal.set(true);
   }
 
-  clearPickerFilters(): void {
-    this.pickerArtist.set('');
-    this.pickerAlbum.set('');
-    this.pickerYear.set('');
-    this.pickerQuality.set('');
+  closeAddTracks(): void {
+    this.showAddTracksModal.set(false);
+    if (this.addTracksOpener?.isConnected) this.addTracksOpener.focus();
+    this.addTracksOpener = null;
   }
 
   readonly trackRows = computed<PlaylistTrackRow[]>(() => {
@@ -242,23 +207,120 @@ export class PlaylistDetailComponent implements OnInit {
     }
   }
 
-  onMoveUp(index: number, event?: MouseEvent): Promise<void> {
-    return this.moveRow(index, -1, event);
+  onDragStart(event: DragEvent, entryId: string): void {
+    event.stopPropagation();
+    if (!event.dataTransfer) return;
+    this.draggingEntryId.set(entryId);
+    this.dropTarget.set(null);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', entryId);
   }
 
-  onMoveDown(index: number, event?: MouseEvent): Promise<void> {
-    return this.moveRow(index, 1, event);
+  onDragOver(event: DragEvent, entryId: string): void {
+    const sourceId = this.draggingEntryId();
+    if (!sourceId && isTrackDrag(event)) {
+      event.preventDefault();
+      event.dataTransfer!.dropEffect = 'copy';
+      const placement = this.dropPlacement(event);
+      const current = this.dropTarget();
+      if (current?.entryId !== entryId || current.placement !== placement) this.dropTarget.set({ entryId, placement });
+      return;
+    }
+    if (!sourceId || sourceId === entryId) {
+      this.dropTarget.set(null);
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const placement = this.dropPlacement(event);
+    if (!this.reorderedEntries(sourceId, entryId, placement)) {
+      this.dropTarget.set(null);
+      return;
+    }
+    const current = this.dropTarget();
+    if (current?.entryId !== entryId || current.placement !== placement) this.dropTarget.set({ entryId, placement });
   }
 
-  private async moveRow(index: number, direction: -1 | 1, event?: MouseEvent): Promise<void> {
+  onDragLeave(event: DragEvent, entryId: string): void {
+    const row = event.currentTarget as HTMLElement;
+    if (event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) return;
+    if (this.dropTarget()?.entryId === entryId) this.dropTarget.set(null);
+  }
+
+  onDrop(event: DragEvent, entryId: string): void {
+    const sourceId = this.draggingEntryId();
+    if (!sourceId) {
+      const trackIds = readTrackDrag(event);
+      if (!trackIds) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const placement = this.dropPlacement(event);
+      this.dropTarget.set(null);
+      void this.insertTracks(trackIds, entryId, placement);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const placement = this.dropPlacement(event);
+    this.onDragEnd();
+    if (sourceId !== entryId) void this.moveEntry(sourceId, entryId, placement);
+  }
+
+  /** Panel tracks dropped outside any row (header, empty state, below the last row) go to the end. */
+  onCardDragOver(event: DragEvent): void {
+    if (this.draggingEntryId() || !isTrackDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'copy';
+    if (!(event.target instanceof Element && event.target.closest('.entry-row'))) this.dropTarget.set(null);
+  }
+
+  onCardDrop(event: DragEvent): void {
+    if (this.draggingEntryId()) return;
+    const trackIds = readTrackDrag(event);
+    if (!trackIds) return;
+    event.preventDefault();
+    this.dropTarget.set(null);
+    void this.insertTracks(trackIds, null, 'after');
+  }
+
+  onDragEnd(): void {
+    this.draggingEntryId.set(null);
+    this.dropTarget.set(null);
+  }
+
+  onHandleKeydown(event: KeyboardEvent, entryId: string): void {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const entries = this.playlist()?.entries ?? [];
+    const direction = event.key === 'ArrowUp' ? -1 : 1;
+    const target = entries[entries.findIndex((entry) => entry.id === entryId) + direction];
+    if (target) void this.moveEntry(entryId, target.id, direction < 0 ? 'before' : 'after', event.currentTarget);
+  }
+
+  private dropPlacement(event: DragEvent): 'before' | 'after' {
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    return event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+  }
+
+  /** The entries with `sourceId` moved next to `targetId`, or null when nothing would change. */
+  private reorderedEntries(sourceId: string, targetId: string, placement: 'before' | 'after'): PlaylistEntry[] | null {
+    const current = this.playlist()?.entries ?? [];
+    const source = current.find((entry) => entry.id === sourceId);
+    const entries = current.filter((entry) => entry.id !== sourceId);
+    const targetIndex = entries.findIndex((entry) => entry.id === targetId);
+    if (!source || targetIndex < 0) return null;
+    entries.splice(targetIndex + (placement === 'after' ? 1 : 0), 0, source);
+    return entries.some((entry, index) => entry !== current[index]) ? entries : null;
+  }
+
+  private async moveEntry(sourceId: string, targetId: string, placement: 'before' | 'after', button?: EventTarget | null): Promise<void> {
     const pl = this.playlist();
-    const row = this.trackRows()[index];
-    if (!pl || !row || this.movePending || index + direction < 0 || index + direction >= this.trackRows().length) return;
-    const entryIndex = pl.entries.findIndex((entry) => entry.id === row.entry.id);
-    if (entryIndex < 0 || !pl.entries[entryIndex + direction]) return;
+    const row = this.trackRows().find((item) => item.entry.id === sourceId);
+    const entries = this.reorderedEntries(sourceId, targetId, placement);
+    if (!pl || !row || !entries || this.movePending) return;
 
     const routeVersion = this.routeVersion;
-    const button = event?.currentTarget;
     const restoreFocus = button instanceof HTMLElement && document.activeElement === button;
     let focusMoved = false;
     const onFocusChanged = (focusEvent: FocusEvent) => {
@@ -269,19 +331,18 @@ export class PlaylistDetailComponent implements OnInit {
     const unregisterDestroy = this.destroyRef.onDestroy(cleanup);
     this.movePending = true;
     try {
-      const entries = [...pl.entries];
-      [entries[entryIndex], entries[entryIndex + direction]] = [entries[entryIndex + direction], entries[entryIndex]];
       const updated = await this.playlistGateway.reorderEntries(pl.id, entries.map((entry) => entry.id));
       if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) { cleanup(); unregisterDestroy(); return; }
       this.playlist.set(updated);
+      const position = this.trackRows().findIndex((item) => item.entry.id === sourceId);
+      this.reorderAnnouncement.set(`Moved to position ${position + 1} of ${this.trackRows().length}.`);
       if (restoreFocus) {
         afterNextRender(() => {
           cleanup();
           unregisterDestroy();
-          if (routeVersion !== this.routeVersion || this.destroyRef.destroyed || focusMoved || this.showAddTracksModal() || !this.trackRows().some((item) => item.entry.id === row.entry.id)) return;
+          if (routeVersion !== this.routeVersion || this.destroyRef.destroyed || focusMoved || !this.trackRows().some((item) => item.entry.id === row.entry.id)) return;
           this.activeId.set(row.entry.id);
-          focusListItem(this.rowsContainer()?.nativeElement, 'data-entry-id', row.entry.id,
-            direction < 0 ? '[data-move="up"]' : '[data-move="down"]');
+          focusListItem(this.rowsContainer()?.nativeElement, 'data-entry-id', row.entry.id, '.drag-handle');
         }, { injector: this.injector });
       }
     } catch (error) {
@@ -306,13 +367,34 @@ export class PlaylistDetailComponent implements OnInit {
     this.playlist.set(updated);
   }
 
-  async onAddSingleTrack(trackId: string): Promise<void> {
+  private async insertTracks(trackIds: string[], targetId: string | null, placement: 'before' | 'after'): Promise<void> {
     const pl = this.playlist();
-    if (!pl) return;
+    if (!pl || this.movePending) return;
     const routeVersion = this.routeVersion;
-    const updated = await this.playlistGateway.addTracks(pl.id, [trackId]);
-    if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
-    this.playlist.set(updated);
+    const before = pl.entries.map((entry) => entry.id);
+    this.movePending = true;
+    try {
+      // ponytail: add then reorder is two writes, not atomic; give addTracks an insert index if a failed reorder ever matters.
+      let updated = await this.playlistGateway.addTracks(pl.id, trackIds);
+      if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+      this.playlist.set(updated);
+      const after = updated.entries.map((entry) => entry.id);
+      const order = insertOrder(before, after, targetId, placement);
+      if (order.some((id, index) => id !== after[index])) {
+        updated = await this.playlistGateway.reorderEntries(pl.id, order);
+        if (routeVersion !== this.routeVersion || this.destroyRef.destroyed) return;
+        this.playlist.set(updated);
+      }
+      const added = order.filter((id) => !before.includes(id));
+      this.reorderAnnouncement.set(`Added ${added.length} ${added.length === 1 ? 'track' : 'tracks'} at position ${order.indexOf(added[0]) + 1}.`);
+    } finally {
+      this.movePending = false;
+    }
+  }
+
+  /** A row menu may add tracks back into this same playlist. */
+  onPlaylistUpdated(updated: Playlist): void {
+    if (updated.id === this.playlist()?.id) this.playlist.set(updated);
   }
 
   onActivateRow(row: PlaylistTrackRow, moveFocus = false): void {
@@ -322,7 +404,6 @@ export class PlaylistDetailComponent implements OnInit {
   }
 
   onRowsKeyDown(event: KeyboardEvent): void {
-    if (this.showAddTracksModal()) return;
     if (event.defaultPrevented || event.isComposing || event.altKey || event.metaKey) return;
     const target = event.target;
     if (!(target instanceof HTMLElement) || target.closest('input, textarea, select, [contenteditable], [role="textbox"], [role="combobox"]')) return;
@@ -398,7 +479,4 @@ export class PlaylistDetailComponent implements OnInit {
     this.queueActions.add(this.trackRows().map((row) => row.track));
   }
 
-  onAddTrackToQueue(track: Track): void {
-    this.queueActions.add([track]);
-  }
 }

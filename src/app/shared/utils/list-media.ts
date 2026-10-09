@@ -21,3 +21,12 @@ export function nextQueueEntries(queue: readonly QueueEntry[], currentIndex: num
   return queue.slice(currentIndex + 1, currentIndex + 4)
     .map((entry, offset) => ({ entry, index: currentIndex + 1 + offset }));
 }
+
+/** Splits track ids by whether the playlist already holds them; repeated ids keep their verdict. */
+export function splitDuplicates(entries: readonly Pick<PlaylistEntry, 'trackId'>[], trackIds: readonly string[]) {
+  const existing = new Set(entries.map((entry) => entry.trackId));
+  return {
+    duplicates: trackIds.filter((id) => existing.has(id)),
+    fresh: trackIds.filter((id) => !existing.has(id)),
+  };
+}

@@ -1,0 +1,49 @@
+:host { display: inline-flex; vertical-align: middle; }
+.row-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--track-action-size, 28px);
+  height: var(--track-action-size, 28px);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  &:hover, &[aria-expanded="true"] { color: var(--text-accent); background: var(--bg-surface-hover); }
+  &:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+}
+// Revealed like the old row buttons: on row hover or focus, while open, and always on touch.
+:host-context(tr:hover) .row-menu-btn,
+:host-context(tr:focus-within) .row-menu-btn,
+.row-menu-btn[aria-expanded="true"] { opacity: 1; }
+@media (hover: none) { .row-menu-btn { opacity: 1; } }
+.row-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 180px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--surface-radius);
+  background: var(--glass-solid, var(--bg-elevated));
+  color: var(--text-primary);
+  box-shadow: var(--dialog-shadow);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  text-align: left;
+  button {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2);
+    border-radius: var(--control-radius);
+    color: inherit;
+    white-space: nowrap;
+    &:hover:not(:disabled), &:focus-visible { background: var(--bg-surface-hover); outline: none; }
+    &:disabled { color: var(--text-muted); cursor: default; }
+  }
+}

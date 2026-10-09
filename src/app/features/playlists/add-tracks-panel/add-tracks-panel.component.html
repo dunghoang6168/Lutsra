@@ -1,0 +1,169 @@
+<aside class="add-panel" aria-labelledby="addTracksTitle" (keydown)="onPanelKeydown($event)">
+  <header class="panel-header">
+    <h2 id="addTracksTitle">Add tracks</h2>
+    <button type="button" class="icon-btn" (click)="close.emit()" title="Close" aria-label="Close add tracks">
+      <app-icon name="x" [size]="16" />
+    </button>
+  </header>
+
+  <div class="panel-tabs" role="tablist" aria-label="Browse by" (keydown)="onTabKeydown($event)">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" class="panel-tab" [attr.data-tab]="t" [class.active]="tab() === t"
+        [attr.aria-selected]="tab() === t" [attr.tabindex]="tab() === t ? 0 : -1" (click)="setTab(t)">
+        {{ tabLabels[t] }}
+      </button>
+    }
+  </div>
+
+  <div class="panel-search">
+    <div class="search-box">
+      <app-icon name="search" [size]="16" class="search-icon" />
+      <input #searchInput type="text" [ngModel]="query()" (ngModelChange)="query.set($event)"
+        [placeholder]="tab() === 'songs' || isDrilled() ? 'Search songs' : 'Search ' + tabLabels[tab()].toLowerCase()"
+        aria-label="Search library" />
+      @if (query()) {
+        <button type="button" class="clear-search-btn" (click)="query.set('')" title="Clear search" aria-label="Clear search">
+          <app-icon name="x" [size]="14" />
+        </button>
+      }
+    </div>
+    @if (tab() === 'songs') {
+      <app-browse-filter-popover [activeCount]="filterCount()">
+        <div class="browse-filter-fields">
+          <div class="browse-filter-field">
+            <span class="field-label">Artist</span>
+            <app-searchable-filter-select label="Artist" [options]="artistOptions()" [value]="filterArtist()"
+              allLabel="All artists" [includeUnknown]="hasUnknownArtist()" unknownValue="__unknown_artist__"
+              unknownLabel="Unknown Artist" (valueChange)="filterArtist.set($event)" />
+          </div>
+          <div class="browse-filter-field">
+            <span class="field-label">Album</span>
+            <app-searchable-filter-select label="Album" [options]="albumOptions()" [value]="filterAlbum()"
+              allLabel="All albums" [includeUnknown]="hasUnknownAlbum()" unknownValue="__unknown_album__"
+              unknownLabel="Unknown Album" (valueChange)="filterAlbum.set($event)" />
+          </div>
+          <div class="browse-filter-field">
+            <span class="field-label">Year</span>
+            <app-searchable-filter-select label="Year" [options]="yearOptions()" [value]="filterYear()"
+              allLabel="All years" [includeUnknown]="hasUnknownYear()" unknownLabel="Unknown year"
+              (valueChange)="filterYear.set($event)" />
+          </div>
+          <div class="browse-filter-field">
+            <span class="field-label">Quality</span>
+            <app-searchable-filter-select label="Quality" [options]="qualityOptions" [value]="filterQuality()"
+              allLabel="All formats" (valueChange)="filterQuality.set($event)" />
+          </div>
+          @if (filterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
+        </div>
+      </app-browse-filter-popover>
+    }
+  </div>
+
+  @if (isDrilled()) {
+    <div class="group-header" draggable="true" (dragstart)="onDragStart($event, groupMissingIds())"
+      title="Drag into the playlist to add every track not in it yet">
+      <button type="button" class="icon-btn" (click)="back()" aria-label="Back">
+        <app-icon name="chevron-left" [size]="16" />
+      </button>
+      <span class="group-title truncate" [title]="groupTitle()">{{ groupTitle() }}</span>
+      <button type="button" class="btn-add-all" (click)="addGroup()" [disabled]="groupMissingIds().length === 0">
+        @if (groupMissingIds().length === 0) { <app-icon name="check" [size]="14" /> All added }
+        @else { <app-icon name="plus" [size]="14" /> Add all ({{ groupMissingIds().length }}) }
+      </button>
+    </div>
+  }
+
+  <p class="panel-hint">{{ tab() === 'songs' || isDrilled() ? 'Click to add, or drag into the playlist.' : 'Open to pick songs, or drag to add them all.' }}</p>
+
+  <div class="panel-list">
+    @if (isLoading()) {
+      <p class="panel-empty">Loading library...</p>
+    } @else if (tab() === 'songs' && !isDrilled()) {
+      @for (t of songs(); track t.id) {
+        <ng-container *ngTemplateOutlet="trackRow; context: { $implicit: t }" />
+      } @empty { <p class="panel-empty">No matching songs.</p> }
+    } @else if (isDrilled()) {
+      @for (node of subfolders(); track node.id) {
+        <ng-container *ngTemplateOutlet="folderRow; context: { $implicit: node }" />
+      }
+      @for (t of drillTracks(); track t.id) {
+        <ng-container *ngTemplateOutlet="trackRow; context: { $implicit: t }" />
+      } @empty {
+        @if (subfolders().length === 0) { <p class="panel-empty">No matching songs.</p> }
+      }
+    } @else if (tab() === 'albums') {
+      @for (album of albumList(); track album.id) {
+        <button type="button" class="panel-row" draggable="true"
+          (dragstart)="onDragStart($event, missing(album.trackIds))" (click)="openAlbum(album)">
+          @if (albumArtwork(album); as art) { <img [src]="art" alt="" class="row-cover" loading="lazy" /> }
+          @else { <span class="row-cover placeholder"><app-icon name="disc" [size]="16" /></span> }
+          <span class="row-info">
+            <span class="row-title truncate">{{ album.title }}</span>
+            <span class="row-sub truncate">{{ album.artist || 'Unknown Artist' }} &bull; {{ album.trackIds.length }} songs</span>
+          </span>
+          <app-icon name="chevron-right" [size]="16" class="row-chevron" />
+        </button>
+      } @empty { <p class="panel-empty">No matching albums.</p> }
+    } @else if (tab() === 'artists') {
+      @for (artist of artistList(); track artist.id) {
+        <button type="button" class="panel-row" draggable="true"
+          (dragstart)="onDragStart($event, missing(artist.trackIds))" (click)="openArtist(artist)">
+          @if (artistAvatar(artist); as avatar) { <img [src]="avatar" alt="" class="row-cover round" loading="lazy" /> }
+          @else { <span class="row-cover round placeholder">{{ initial(artist.name) }}</span> }
+          <span class="row-info">
+            <span class="row-title truncate">{{ artist.name }}</span>
+            <span class="row-sub truncate">{{ artist.trackIds.length }} songs</span>
+          </span>
+          <app-icon name="chevron-right" [size]="16" class="row-chevron" />
+        </button>
+      } @empty { <p class="panel-empty">No matching artists.</p> }
+    } @else {
+      @for (entry of rootList(); track entry.root.id) {
+        <button type="button" class="panel-row" [attr.draggable]="entry.tree ? 'true' : null"
+          [disabled]="!entry.tree" (dragstart)="onDragStart($event, missing(folderTrackIds(entry.tree)))" (click)="openFolder(entry.tree)">
+          @if (folderArtwork(entry.tree); as art) { <img [src]="art" alt="" class="row-cover" loading="lazy" /> }
+          @else { <span class="row-cover placeholder"><app-icon name="folder" [size]="16" /></span> }
+          <span class="row-info">
+            <span class="row-title truncate">{{ entry.root.name }}</span>
+            <span class="row-sub truncate">{{ entry.tree ? folderTrackIds(entry.tree).length + ' songs' : 'Loading...' }}</span>
+          </span>
+          <app-icon name="chevron-right" [size]="16" class="row-chevron" />
+        </button>
+      } @empty { <p class="panel-empty">No matching folders.</p> }
+    }
+  </div>
+
+  <footer class="panel-footer">
+    <button type="button" class="btn-done" (click)="close.emit()">Done</button>
+  </footer>
+</aside>
+
+<ng-template #trackRow let-t>
+  @let added = addedIds().has(t.id);
+  <button type="button" class="panel-row" [class.added]="added" draggable="true"
+    (dragstart)="onDragStart($event, [t.id])" (click)="addTrack(t)"
+    [attr.aria-label]="added ? t.title + ', already in playlist' : 'Add ' + t.title">
+    @if (t.artwork) { <img [src]="t.artwork" alt="" class="row-cover" loading="lazy" /> }
+    @else { <span class="row-cover placeholder"><app-icon name="music" [size]="16" /></span> }
+    <span class="row-info">
+      <span class="row-title truncate" [title]="t.title">{{ t.title }}</span>
+      <span class="row-sub truncate">{{ t.artist || 'Unknown Artist' }}</span>
+    </span>
+    <span class="row-status" aria-hidden="true">
+      <app-icon [name]="added ? 'check' : 'plus'" [size]="14" />
+    </span>
+  </button>
+</ng-template>
+
+<ng-template #folderRow let-node>
+  <button type="button" class="panel-row" draggable="true"
+    (dragstart)="onDragStart($event, missing(folderTrackIds(node)))" (click)="openFolder(node)">
+    @if (folderArtwork(node); as art) { <img [src]="art" alt="" class="row-cover" loading="lazy" /> }
+    @else { <span class="row-cover placeholder"><app-icon name="folder" [size]="16" /></span> }
+    <span class="row-info">
+      <span class="row-title truncate">{{ node.name }}</span>
+      <span class="row-sub truncate">{{ folderTrackIds(node).length }} songs</span>
+    </span>
+    <app-icon name="chevron-right" [size]="16" class="row-chevron" />
+  </button>
+</ng-template>

@@ -13,22 +13,7 @@ button {
 }
 button:hover:not(:disabled) { background: var(--bg-surface-hover); }
 button:disabled { color: var(--text-muted); cursor: default; }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
-.playlist-popover {
-  position: fixed; inset: auto; margin: 0; width: min(var(--queue-drawer-width), calc(100% - var(--space-4) * 2));
-  padding: var(--space-2); overflow-y: auto; border: 1px solid var(--border-default);
-  border-radius: var(--surface-radius); background: var(--glass-solid, var(--bg-elevated)); color: var(--text-primary);
-  font-family: var(--font-family-base); font-size: var(--font-size-sm); font-weight: 400;
-  > button { display: flex; justify-content: flex-start; width: 100%; min-height: var(--row-height); white-space: normal; text-align: left; overflow-wrap: anywhere; }
-  p { margin: var(--space-2); }
-}
-.popover-error { color: var(--text-primary); }
-.create-playlist {
-  display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); padding: var(--space-2);
-  label { flex: 1; min-width: 0; display: grid; gap: var(--space-1); }
-  input { width: 100%; min-width: 0; padding: var(--space-2); font: inherit; color: var(--text-primary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--control-radius); }
-  button { min-height: var(--space-8); background: var(--bg-surface-hover); }
-}
+button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
 @container main-content (max-width: 700px) {
   .action-label { display: none; }
   .selection-toolbar button { min-width: var(--space-8); }

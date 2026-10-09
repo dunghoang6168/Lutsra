@@ -13,6 +13,7 @@ import { RowSelection, RowSelectionAction, selectRows, visibleRowSelection } fro
 import { TrackSelectionBarComponent } from '../../../shared/components/track-selection-bar/track-selection-bar.component';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { TrackActionsMenuComponent } from '../../../shared/components/track-actions-menu/track-actions-menu.component';
 
 interface DiscGroup {
   discNumber: number;
@@ -22,7 +23,7 @@ interface DiscGroup {
 @Component({
   selector: 'app-album-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, TrackSelectionBarComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent, TrackSelectionBarComponent, TrackActionsMenuComponent],
   templateUrl: './album-detail.component.html',
   styleUrl: './album-detail.component.scss'
 })
@@ -258,7 +259,4 @@ export class AlbumDetailComponent implements OnInit {
     this.queueActions.add(this.orderedAlbumTracks());
   }
 
-  onAddTrackToQueue(track: Track): void {
-    this.queueActions.add([track]);
-  }
 }
