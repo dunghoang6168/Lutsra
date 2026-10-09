@@ -1,6 +1,6 @@
 # Lộ trình Audio Engine — Lutsra Desktop
 
-> Tài liệu sống. Cập nhật lần cuối: 03/10/2026.
+> Tài liệu sống. Cập nhật lần cuối: 04/10/2026.
 > Phạm vi: chỉ Windows desktop. Không phát triển iOS/macOS trong lộ trình này.
 
 ## 1. Mục tiêu
@@ -54,8 +54,8 @@ IPC chỉ mang lệnh và trạng thái, không mang PCM. Chi tiết kỹ thuậ
 |---|---|---|
 | 1 | Củng cố engine hiện tại | Xong |
 | 2 | Quản lý thiết bị đầu ra | Xong |
-| 3 | Native Audio Host + WASAPI Shared | **Đang nghiệm thu**: kiểm thử tự động đạt; chờ checklist thủ công ([biên bản](AUDIO_ENGINE_PHASE3_CLOSEOUT.md)) |
-| 5 | WASAPI Exclusive | Tiếp theo |
+| 3 | Native Audio Host + WASAPI Shared | Xong (04/10/2026, [biên bản](AUDIO_ENGINE_PHASE3_CLOSEOUT.md)) |
+| 5 | WASAPI Exclusive | **Đang làm** ([kế hoạch triển khai](AUDIO_ENGINE_PHASE5_PLAN.md)) |
 | 6 | Bit-perfect + Audio Path Inspector | Sau Giai đoạn 5 |
 | 4 | In-app EQ/DSP | Sau Giai đoạn 5 hoặc 6 (sớm hơn nếu cần EQ hằng ngày) |
 | 7 | Hoàn thiện (crossfade equal-power, latency, installer) | Cuối |
