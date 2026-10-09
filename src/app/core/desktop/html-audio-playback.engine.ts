@@ -360,7 +360,7 @@ export class HtmlAudioPlaybackEngine implements PlaybackEngine, AudioAnalysisEng
     try { if (context.state === 'suspended') await context.resume(); if (context.state !== 'running') { await context.close(); return 0; } }
     catch { try { await context.close(); } catch { /* Ignore. */ } return 0; }
     const analyser = context.createAnalyser();
-    analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.78; analyser.minDecibels = -90; analyser.maxDecibels = -10; analyser.connect(context.destination);
+    analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.5; analyser.minDecibels = -90; analyser.maxDecibels = -10; analyser.connect(context.destination);
     this.audioContext = context; this.analyser = analyser;
     if (!this.connectForAnalysis(this.audio)) return 0;
     if (this.fade) this.connectForAnalysis(this.fade.outgoing);

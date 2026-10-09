@@ -90,7 +90,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     void this.ensurePrepared().then((ready) => {
       if (!ready || this.destroyed || document.hidden) return;
       if (this.reducedMotion.matches) {
-        if (this.player.isPlaying()) this.readLiveData();
+        if (this.player.isPlaying()) this.readLiveData(0.1);
         else decaySpectrumLevels(this.levels, 0.78);
         this.draw();
         return;
@@ -128,13 +128,16 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   private startLoop(): void {
     if (this.frameId !== null || this.destroyed || document.hidden) return;
     this.zone.runOutsideAngular(() => {
-      const render = () => {
+      let lastFrameTime = performance.now();
+      const render = (now: number) => {
         this.frameId = null;
         if (this.destroyed || document.hidden || this.reducedMotion.matches) return;
+        const dt = Math.min(0.1, Math.max(0, now - lastFrameTime) / 1000);
+        lastFrameTime = now;
 
         const state = this.player.playbackState();
         let keepRendering = true;
-        if (state === 'playing') this.readLiveData();
+        if (state === 'playing') this.readLiveData(dt);
         else if (state === 'loading') keepRendering = decaySpectrumLevels(this.levels, 0.985);
         else keepRendering = decaySpectrumLevels(this.levels, 0.9);
         this.draw();
@@ -151,9 +154,9 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     this.frameId = null;
   }
 
-  private readLiveData(): void {
+  private readLiveData(dtSeconds: number): void {
     if (!this.frequencyData || !this.analysis.readFrequencyData(this.frequencyData)) return;
-    updateSpectrumLevels(this.frequencyData, this.bands, this.levels);
+    updateSpectrumLevels(this.frequencyData, this.bands, this.levels, dtSeconds);
   }
 
   private resizeCanvas(): void {

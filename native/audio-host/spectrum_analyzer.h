@@ -7,7 +7,7 @@ extern "C" {
 #include <libavutil/tx.h>
 }
 
-// Mirrors the Chromium engine's AnalyserNode (Blackman window, 0.78 smoothing,
+// Mirrors the Chromium engine's AnalyserNode (Blackman window, 0.5 smoothing,
 // -90..-10 dB) so both engines draw the same spectrum. Output bins sit on a
 // fixed 0..24 kHz axis whatever the device rate, which is what the renderer's
 // log bands assume.
@@ -54,7 +54,7 @@ public:
       float magnitude = 0;
       for (size_t j = first; j < last && j < sourceBins; ++j)
         magnitude = std::max(magnitude, std::hypot(spectrum_[j].re, spectrum_[j].im));
-      smoothed_[k] = 0.78f * smoothed_[k] + 0.22f * magnitude / static_cast<float>(size);
+      smoothed_[k] = 0.5f * smoothed_[k] + 0.5f * magnitude / static_cast<float>(size);
       const double db = 20.0 * std::log10(std::max(smoothed_[k], 1e-12f));
       out[k] = static_cast<unsigned char>(std::clamp((db + 90.0) * 255.0 / 80.0, 0.0, 255.0));
     }

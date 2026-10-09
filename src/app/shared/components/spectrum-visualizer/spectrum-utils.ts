@@ -25,22 +25,29 @@ export function createLogFrequencyBands(
   });
 }
 
+// ponytail: tuned by eye. FLOOR drops the quiet bed (~-66 dB) so hits stand out,
+// CURVE adds contrast, RELEASE_S is the fall time constant.
+export const SPECTRUM_FLOOR = 0.3;
+const SPECTRUM_CURVE = 1.3;
+const SPECTRUM_RELEASE_S = 0.08;
+
+// Bars jump to a louder value at once and fall back on a frame-rate independent decay.
 export function updateSpectrumLevels(
   frequencyData: Uint8Array,
   bands: readonly FrequencyBand[],
   levels: Float32Array,
+  dtSeconds: number,
 ): void {
   const count = Math.min(bands.length, levels.length);
+  const fall = Math.exp(-Math.max(0, dtSeconds) / SPECTRUM_RELEASE_S);
   for (let bandIndex = 0; bandIndex < count; bandIndex++) {
     const band = bands[bandIndex];
     let peak = 0;
     for (let index = band.start; index < band.end && index < frequencyData.length; index++) {
       peak = Math.max(peak, frequencyData[index]);
     }
-    const next = peak / 255;
-    levels[bandIndex] = next >= levels[bandIndex]
-      ? levels[bandIndex] * 0.28 + next * 0.72
-      : levels[bandIndex] * 0.86 + next * 0.14;
+    const next = Math.max(0, (peak / 255 - SPECTRUM_FLOOR) / (1 - SPECTRUM_FLOOR)) ** SPECTRUM_CURVE;
+    levels[bandIndex] = Math.max(next, levels[bandIndex] * fall);
   }
 }
 
